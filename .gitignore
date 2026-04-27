@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+dist
+.tools
+tsconfig.tsbuildinfo
+.env
+.env.local
+.local-data
+public/generated/crops/*
+!public/generated/crops/.gitkeep

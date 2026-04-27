@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "leaflet/dist/leaflet.css";
+
+:root {
+  color-scheme: light;
+  background: #f5f6f2;
+  color: #17211f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f5f6f2;
+  color: #17211f;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+}
