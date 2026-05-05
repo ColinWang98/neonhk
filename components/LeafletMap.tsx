@@ -45,7 +45,7 @@ export function LeafletMap({ images, selectedImage, provider, onLocationClick, o
   }, [images, selectedImage]);
 
   return (
-    <div className="relative h-full overflow-hidden rounded-md border border-ink/10 bg-field">
+    <div className="surface-panel relative h-full overflow-hidden rounded-md bg-field">
       <MapContainer center={center} zoom={17} scrollWheelZoom className="z-0">
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -70,7 +70,7 @@ export function LeafletMap({ images, selectedImage, provider, onLocationClick, o
           </Marker>
         ))}
       </MapContainer>
-      <div className="pointer-events-none absolute left-3 top-3 z-[500] rounded-md bg-white/95 px-3 py-2 text-xs text-ink shadow">
+      <div className="pointer-events-none absolute left-4 top-4 z-[500] rounded-md border border-ink/10 bg-paper/95 px-3 py-2 text-xs text-ink shadow-sm">
         Click the map to search nearby {provider === "google" ? "Google Street View" : "Mapillary"} images.
       </div>
     </div>

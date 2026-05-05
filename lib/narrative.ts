@@ -1,6 +1,6 @@
-import OpenAI from "openai";
+import { createAiClient } from "@/lib/aiProvider";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
-import type { SchemaNarratives, VisionDescription } from "@/types";
+import type { GeneratedPersona, SchemaNarratives, VisionDescription } from "@/types";
 
 const narrativePrompt = `You are generating schema-based place interpretation narratives for a user-selected street-level image fragment.
 
@@ -59,22 +59,30 @@ Return strict JSON with this shape:
 
 export async function generateNarratives(
   visionDescription: VisionDescription,
-  config: RuntimeApiConfig = {}
+  config: RuntimeApiConfig = {},
+  persona?: GeneratedPersona
 ): Promise<SchemaNarratives> {
-  const apiKey = config.aiApiKey || process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
-  const baseURL = config.aiBaseUrl || process.env.AI_BASE_URL || "https://api.deepseek.com";
+  const ai = createAiClient(config, "text");
 
-  if (!apiKey) {
-    return fallbackNarratives(visionDescription);
+  if (!ai) {
+    return fallbackNarratives(visionDescription, persona);
   }
 
-  const client = new OpenAI({ apiKey, baseURL });
-  const response = await client.chat.completions.create({
-    model: config.llmModel || process.env.LLM_MODEL || "deepseek-v4-flash",
+  const response = await ai.client.chat.completions.create({
+    model: ai.model,
+    ...ai.defaults,
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: narrativePrompt },
-      { role: "user", content: JSON.stringify({ visionDescription }) }
+      {
+        role: "user",
+        content: JSON.stringify({
+          visionDescription,
+          persona,
+          languageStyle:
+            "Use mixed English with light Traditional Chinese/Cantonese spatial phrasing where natural. Keep claims cautious and grounded in visible cues."
+        })
+      }
     ]
   });
 
@@ -86,12 +94,15 @@ export async function generateNarratives(
   return JSON.parse(content) as SchemaNarratives;
 }
 
-function fallbackNarratives(vision: VisionDescription): SchemaNarratives {
+function fallbackNarratives(vision: VisionDescription, persona?: GeneratedPersona): SchemaNarratives {
   const cues = vision.visibleCues.slice(0, 3).join(", ") || "visible material cues";
+  const lens = persona
+    ? ` From ${persona.name}'s lens, ${persona.interpretiveLens.toLowerCase()}`
+    : "";
   return {
     functionalUse: {
       title: "Functional-Use",
-      text: `This fragment appears to center on ${vision.mainFeature}. The visible cues, including ${cues}, may suggest how the place supports movement, access, boundary-making, or everyday orientation. Because only the crop is available, the interpretation stays cautious and focuses on how the detail could help people read where to move, pause, or avoid crossing.`
+      text: `This fragment appears to center on ${vision.mainFeature}. The visible cues, including ${cues}, may suggest how the place supports movement, access, boundary-making, or everyday orientation.${lens} The reading stays cautious: it can help users notice where to move, pause, or avoid crossing in this Hong Kong street setting.`
     },
     identityBelonging: {
       title: "Identity-Belonging",

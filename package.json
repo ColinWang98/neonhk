@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "launch": "node scripts/launch-local-app.mjs",
+    "launch:cosyvoice": "node scripts/launch-cosyvoice-studio.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

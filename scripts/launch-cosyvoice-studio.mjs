@@ -7,14 +7,13 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
 
-let serverProcess;
-let browserProcess;
+let webProcess;
+let sidecarProcess;
 let stopping = false;
 
 // --- Cleanup: kill any existing next-server on ports 3000-3020 ---
 function killExistingServers() {
   try {
-    // Find next-server PIDs using the 3000-3020 port range
     const pids = execSync(
       `lsof -ti :3000-3020 2>/dev/null | xargs ps -o pid,command -p 2>/dev/null | grep next-server | awk '{print $1}'`,
       { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }
@@ -24,7 +23,6 @@ function killExistingServers() {
       pids.split("\n").forEach((pid) => {
         try { process.kill(Number(pid), "SIGKILL"); } catch {}
       });
-      // Wait a moment for ports to release
       execSync("sleep 1");
     }
   } catch {}
@@ -32,16 +30,43 @@ function killExistingServers() {
 
 killExistingServers();
 
-const port = await findAvailablePort(3000, 3020);
-const url = `http://127.0.0.1:${port}`;
+const webPort = await findAvailablePort(3000, 3020);
+const sidecarPort = Number(process.env.COSYVOICE_PORT || 7860);
+const webUrl = `http://127.0.0.1:${webPort}/cosyvoice`;
+const sidecarUrl = `http://127.0.0.1:${sidecarPort}`;
 
-console.log("HK Spatial Story");
-console.log(`Starting local server on ${url}`);
-console.log("Close this launcher window to stop the server.");
+console.log("CosyVoice Studio");
+console.log(`Starting CosyVoice sidecar on ${sidecarUrl}`);
+console.log(`Starting web UI on ${webUrl}`);
+console.log("Close this launcher window to stop both processes.");
 
-serverProcess = spawn(
+const sidecarAlreadyRunning = await waitForHttp(`${sidecarUrl}/health`, 1_500).then(
+  () => true,
+  () => false
+);
+
+if (sidecarAlreadyRunning) {
+  console.log("CosyVoice sidecar already running; using the existing process.");
+} else {
+  sidecarProcess = spawn("scripts/start-cosyvoice3-sidecar.sh", {
+    cwd: projectRoot,
+    detached: true,
+    env: { ...process.env, COSYVOICE_PORT: String(sidecarPort) },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  sidecarProcess.stdout.on("data", (data) => process.stdout.write(`[cosyvoice] ${data}`));
+  sidecarProcess.stderr.on("data", (data) => process.stderr.write(`[cosyvoice] ${data}`));
+  sidecarProcess.on("exit", (code, signal) => {
+    if (!stopping) {
+      console.log(`CosyVoice sidecar exited (${signal || code}).`);
+    }
+  });
+}
+
+webProcess = spawn(
   "npm",
-  ["run", "dev", "--", "--hostname", "127.0.0.1", "--port", String(port)],
+  ["run", "dev", "--", "--hostname", "127.0.0.1", "--port", String(webPort)],
   {
     cwd: projectRoot,
     detached: true,
@@ -49,31 +74,31 @@ serverProcess = spawn(
   }
 );
 
-serverProcess.stdout.on("data", (data) => process.stdout.write(data));
-serverProcess.stderr.on("data", (data) => process.stderr.write(data));
-
-serverProcess.on("exit", (code, signal) => {
+webProcess.stdout.on("data", (data) => process.stdout.write(`[web] ${data}`));
+webProcess.stderr.on("data", (data) => process.stderr.write(`[web] ${data}`));
+webProcess.on("exit", (code, signal) => {
   if (!stopping) {
-    console.log(`Server exited (${signal || code}).`);
-    process.exit(code || 0);
+    console.log(`Web server exited (${signal || code}).`);
+    stopAndExit(code || 0);
   }
 });
 
-await waitForHttp(url, 30_000);
-console.log(`Opening ${url}`);
+await waitForHttp(webUrl, 60_000);
+console.log(`Opening ${webUrl}`);
 
-browserProcess = openAppWindow(url);
-
-browserProcess.on("exit", () => {
-  console.log("Browser window process ended. Stopping server.");
-  stopAndExit(0);
-});
+openAppWindow(webUrl);
+if (!sidecarAlreadyRunning) {
+  waitForHttp(`${sidecarUrl}/health`, 180_000).then(
+    () => console.log("CosyVoice sidecar is ready."),
+    (error) => console.log(`CosyVoice sidecar is still not ready: ${error.message}`)
+  );
+}
 
 // Kill all children on ANY exit — including terminal window close (SIGHUP)
 function cleanup() {
   if (stopping) return;
   stopping = true;
-  stopServer();
+  stopChildren();
 }
 
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
@@ -88,7 +113,7 @@ process.on("exit", cleanup);
 function openAppWindow(targetUrl) {
   const chrome = spawn(
     "open",
-    ["-n", "-W", "-a", "Google Chrome", "--args", `--app=${targetUrl}`],
+    ["-n", "-a", "Google Chrome", "--args", `--app=${targetUrl}`],
     {
       cwd: projectRoot,
       stdio: "ignore"
@@ -105,16 +130,23 @@ function openAppWindow(targetUrl) {
   return chrome;
 }
 
-function stopServer() {
-  if (!serverProcess?.pid) return;
+function stopChildren() {
+  stopProcess(webProcess);
+  if (!sidecarAlreadyRunning) {
+    stopProcess(sidecarProcess);
+  }
+}
+
+function stopProcess(child) {
+  if (!child?.pid) return;
 
   try {
-    process.kill(-serverProcess.pid, "SIGTERM");
+    process.kill(-child.pid, "SIGTERM");
   } catch {
     try {
-      serverProcess.kill("SIGTERM");
+      child.kill("SIGTERM");
     } catch {
-      // The server is already gone.
+      // Already stopped.
     }
   }
 }
@@ -154,7 +186,7 @@ function waitForHttp(targetUrl, timeoutMs) {
           return;
         }
 
-        setTimeout(check, 350);
+        setTimeout(check, 700);
       });
 
       req.setTimeout(1000, () => {

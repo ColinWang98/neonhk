@@ -1,3 +1,4 @@
+import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { StreetImage } from "@/types";
 
@@ -41,18 +42,20 @@ export async function searchGoogleStreetView(
     throw new Error(metadata.error_message || `No Google Street View panorama found nearby (${metadata.status}).`);
   }
 
-  const fullUrl = buildStreetViewStaticUrl({
+  const fullUrl = buildGoogleStreetViewStaticUrl({
     key,
     panoId: metadata.pano_id,
-    size: "640x640",
+    width: 640,
+    height: 640,
     heading: 0,
     pitch: 0,
     fov: 90
   });
-  const thumbUrl = buildStreetViewStaticUrl({
+  const thumbUrl = buildGoogleStreetViewStaticUrl({
     key,
     panoId: metadata.pano_id,
-    size: "640x640",
+    width: 640,
+    height: 640,
     heading: 0,
     pitch: 0,
     fov: 90
@@ -70,22 +73,4 @@ export async function searchGoogleStreetView(
       fullUrl
     }
   ];
-}
-
-function buildStreetViewStaticUrl(params: {
-  key: string;
-  panoId: string;
-  size: string;
-  heading: number;
-  pitch: number;
-  fov: number;
-}) {
-  const url = new URL("https://maps.googleapis.com/maps/api/streetview");
-  url.searchParams.set("size", params.size);
-  url.searchParams.set("pano", params.panoId);
-  url.searchParams.set("heading", String(params.heading));
-  url.searchParams.set("pitch", String(params.pitch));
-  url.searchParams.set("fov", String(params.fov));
-  url.searchParams.set("key", params.key);
-  return url.toString();
 }

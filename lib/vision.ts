@@ -1,7 +1,7 @@
-import OpenAI from "openai";
+import { createAiClient } from "@/lib/aiProvider";
 import { fallbackVisionDescription } from "@/lib/privacyFilter";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
-import type { VisionDescription } from "@/types";
+import type { SceneVisualDescription, StreetImage, VisionDescription } from "@/types";
 
 const visionPrompt = `You are analyzing a user-selected crop from a street-level image.
 
@@ -27,19 +27,31 @@ Return strict JSON with:
 
 If the crop contains identifiable people, license plates, private interiors, or sensitive information, mark privacyRisk.riskLevel as "medium" or "high".`;
 
+const scenePrompt = `You are analyzing a full street-level panorama snapshot for a place-story prototype.
+
+Describe only what is visually observable. Do not infer historical events, demographic identities, ownership, private information, or community facts.
+Focus on spatial layout, visible public-space elements, movement/access cues, material qualities, surfaces, boundaries, signs, seating, paths, and signs of everyday use.
+
+Return strict JSON with:
+{
+  "sceneType": string,
+  "spatialLayout": string,
+  "mainVisibleElements": string[],
+  "movementAndAccessCues": string[],
+  "materialAndAtmosphereCues": string[],
+  "uncertainty": string
+}`;
+
 export async function analyzeFragment(
   cropImageUrl: string,
   config: RuntimeApiConfig = {}
 ): Promise<VisionDescription> {
-  const apiKey = config.aiApiKey || process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
-  const baseURL = config.aiBaseUrl || process.env.AI_BASE_URL;
-  const model = config.visionModel || process.env.VISION_MODEL || "gpt-4o-mini";
+  const ai = createAiClient(config, "vision");
 
-  if (!apiKey || model === "fallback" || baseURL?.includes("deepseek.com")) {
+  if (!ai || ai.model === "fallback") {
     return fallbackVisionDescription();
   }
 
-  const client = new OpenAI({ apiKey, baseURL });
   const imageUrl = cropImageUrl.startsWith("http")
     ? cropImageUrl
     : new URL(
@@ -47,8 +59,9 @@ export async function analyzeFragment(
         config.appUrl || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       ).toString();
 
-  const response = await client.chat.completions.create({
-    model,
+  const response = await ai.client.chat.completions.create({
+    model: ai.model,
+    ...ai.defaults,
     response_format: { type: "json_object" },
     messages: [
       {
@@ -66,5 +79,70 @@ export async function analyzeFragment(
     throw new Error("Vision model returned no content.");
   }
 
-  return JSON.parse(content) as VisionDescription;
+  return JSON.parse(extractJsonObject(content)) as VisionDescription;
+}
+
+export async function analyzeSceneSnapshot(params: {
+  image: StreetImage;
+  snapshotUrl?: string;
+  config?: RuntimeApiConfig;
+}): Promise<SceneVisualDescription> {
+  if (!params.snapshotUrl) {
+    return fallbackSceneDescription(params.image);
+  }
+
+  const ai = createAiClient(params.config || {}, "vision");
+
+  if (!ai || ai.model === "fallback") {
+    return fallbackSceneDescription(params.image);
+  }
+
+  const response = await ai.client.chat.completions.create({
+    model: ai.model,
+    ...ai.defaults,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: scenePrompt },
+          { type: "text", text: JSON.stringify({ image: params.image }) },
+          { type: "image_url", image_url: { url: params.snapshotUrl } }
+        ]
+      }
+    ]
+  });
+
+  const content = response.choices[0]?.message.content;
+  if (!content) {
+    throw new Error("Vision model returned no scene content.");
+  }
+
+  return JSON.parse(extractJsonObject(content)) as SceneVisualDescription;
+}
+
+function extractJsonObject(content: string) {
+  const trimmed = content.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    return trimmed;
+  }
+
+  const match = trimmed.match(/\{[\s\S]*\}/);
+  if (!match) {
+    throw new Error("Vision model returned non-JSON content.");
+  }
+
+  return match[0];
+}
+
+function fallbackSceneDescription(image: StreetImage): SceneVisualDescription {
+  const source = image.provider === "google" ? "street-view panorama" : "street-level image";
+  return {
+    sceneType: source,
+    spatialLayout: "A street-level scene selected from the map. The exact layout is not visually analyzed because no vision model result is available.",
+    mainVisibleElements: ["street-level view", "public-space context", "nearby urban surfaces"],
+    movementAndAccessCues: ["possible walking route", "possible edge or threshold", "orientation cues from the street image"],
+    materialAndAtmosphereCues: ["outdoor urban materials", "street-view visual texture"],
+    uncertainty: "This is a fallback description; detailed visual cues require a configured GLM vision model."
+  };
 }

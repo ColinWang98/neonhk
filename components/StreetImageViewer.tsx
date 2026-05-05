@@ -1,8 +1,10 @@
 "use client";
 
+import { Crosshair, ImageIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BoxSelectionLayer } from "@/components/BoxSelectionLayer";
 import { LoadingState } from "@/components/LoadingState";
+import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
 import type { ImageCropBox, ScreenBox, StreetImage } from "@/types";
 
 type Props = {
@@ -109,17 +111,18 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
   }, [googleMapsApiKey, image?.id, image?.lat, image?.lng, image?.panoId, image?.provider]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-md border border-ink/10 bg-white">
-      <div className="flex items-center justify-between border-b border-ink/10 px-4 py-3">
+    <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-md">
+      <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
         <div>
-          <h2 className="text-sm font-semibold text-ink">Street Image Viewer</h2>
-          <p className="text-xs text-ink/60">
+          <p className="fine-label">Panorama</p>
+          <h2 className="mt-1 text-sm font-semibold text-ink">Street Image Viewer</h2>
+          <p className="mt-1 text-xs text-ink/58">
             {image ? `${providerLabel(image.provider)} image ${image.id}` : "Select a marker to begin"}
           </p>
         </div>
         {busy ? <LoadingState label="Processing fragment" /> : null}
       </div>
-      <div className="relative min-h-0 flex-1 bg-black">
+      <div className="relative min-h-0 flex-1 bg-[#121514]">
         {image?.provider === "google" ? (
           <div className="absolute inset-0">
             {googleMapsApiKey ? (
@@ -156,12 +159,13 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
                   type="button"
                   disabled={busy || googleStatus !== "ready"}
                   onClick={() => setGoogleSelecting((value) => !value)}
-                  className="absolute right-3 top-3 rounded-md bg-white px-3 py-2 text-xs font-medium text-ink shadow hover:bg-field disabled:cursor-not-allowed disabled:opacity-60"
+                  className="absolute right-3 top-3 inline-flex h-9 items-center gap-2 rounded-md border border-white/20 bg-paper/95 px-3 text-xs font-medium text-ink shadow-sm backdrop-blur transition hover:bg-field disabled:cursor-not-allowed disabled:opacity-60"
                 >
+                  <Crosshair className="h-3.5 w-3.5" />
                   {googleSelecting ? "Cancel selection" : "Select fragment"}
                 </button>
                 {googleStatus === "loading" ? (
-                  <div className="absolute bottom-3 left-3 rounded-md bg-white px-3 py-2 shadow">
+                  <div className="absolute bottom-3 left-3 rounded-md border border-white/20 bg-paper/95 px-3 py-2 shadow-sm backdrop-blur">
                     <LoadingState label="Loading Street View" />
                   </div>
                 ) : null}
@@ -218,7 +222,10 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
           </div>
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/70">
-            Search a location on the map and choose a street-level image.
+            <div>
+              <ImageIcon className="mx-auto mb-3 h-6 w-6 text-white/45" />
+              Search a location on the map and choose a street-level image.
+            </div>
           </div>
         )}
       </div>
@@ -271,23 +278,4 @@ function fitStaticSize(width: number, height: number) {
     width: Math.max(1, Math.round(max * aspect)),
     height: max
   };
-}
-
-function buildGoogleStreetViewStaticUrl(params: {
-  key: string;
-  panoId: string;
-  width: number;
-  height: number;
-  heading: number;
-  pitch: number;
-  fov: number;
-}) {
-  const url = new URL("https://maps.googleapis.com/maps/api/streetview");
-  url.searchParams.set("size", `${params.width}x${params.height}`);
-  url.searchParams.set("pano", params.panoId);
-  url.searchParams.set("heading", String(Math.round(params.heading)));
-  url.searchParams.set("pitch", String(Math.round(params.pitch)));
-  url.searchParams.set("fov", String(params.fov));
-  url.searchParams.set("key", params.key);
-  return url.toString();
 }

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Street Fragment Explorer",
-  description: "Mapillary + AI schema narrative prototype"
+  title: "HK Spatial Story",
+  description: "Hong Kong panorama fragment story prototype"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

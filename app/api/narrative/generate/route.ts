@@ -3,11 +3,12 @@ import { persistFragment } from "@/lib/fragments";
 import { logEvent } from "@/lib/logger";
 import { generateNarratives } from "@/lib/narrative";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
-import type { VisionDescription } from "@/types";
+import type { GeneratedPersona, VisionDescription } from "@/types";
 
 type NarrativeRequest = {
   fragmentId: string;
   visionDescription: VisionDescription;
+  persona?: GeneratedPersona;
 };
 
 export async function POST(request: NextRequest) {
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "fragmentId and visionDescription are required." }, { status: 400 });
     }
 
-    const narratives = await generateNarratives(body.visionDescription, config);
+    const narratives = await generateNarratives(body.visionDescription, config, body.persona);
     await persistFragment({
       id: body.fragmentId,
       visionDescription: body.visionDescription,

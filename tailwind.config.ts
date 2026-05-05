@@ -6,9 +6,10 @@ const config: Config = {
     extend: {
       colors: {
         ink: "#17211f",
-        field: "#eef2ed",
+        field: "#f1eee6",
         brass: "#a0712b",
-        signal: "#256f86"
+        signal: "#256f86",
+        paper: "#fffdf8"
       }
     }
   },
