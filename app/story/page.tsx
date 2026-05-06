@@ -91,7 +91,7 @@ export default function StoryPage() {
     fetch("/api/persona/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...runtimeHeaders },
-      body: JSON.stringify({ image: selectedImage, snapshotUrl })
+      body: JSON.stringify({ image: selectedImage, sessionId: storySession?.id, snapshotUrl })
     })
       .then(async (res) => {
         const data = await res.json();
@@ -112,7 +112,7 @@ export default function StoryPage() {
     return () => {
       cancelled = true;
     };
-  }, [apiConfig, personaStatus, personas.length, runtimeHeaders, selectedImage, setPersonas]);
+  }, [apiConfig, personaStatus, personas.length, runtimeHeaders, selectedImage, setPersonas, storySession?.id]);
 
   function saveApiConfig(nextConfig: RuntimeApiConfig) {
     setApiConfig(nextConfig);
@@ -190,6 +190,7 @@ export default function StoryPage() {
         headers: { "Content-Type": "application/json", ...runtimeHeaders },
         body: JSON.stringify({
           fragmentId: cropData.fragmentId,
+          sessionId: storySession?.id,
           cropImageUrl: cropData.cropImageUrl
         })
       });
@@ -209,6 +210,7 @@ export default function StoryPage() {
         headers: { "Content-Type": "application/json", ...runtimeHeaders },
         body: JSON.stringify({
           fragmentId: cropData.fragmentId,
+          sessionId: storySession?.id,
           visionDescription,
           persona: selectedPersona
         })

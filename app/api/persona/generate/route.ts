@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAiProviderDiagnostics } from "@/lib/aiProvider";
+import { logAiGeneration } from "@/lib/aiGenerationLogs";
 import { fallbackPersonas, generatePersonas } from "@/lib/persona";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import { analyzeSceneSnapshot, fallbackSceneDescription } from "@/lib/vision";
@@ -7,6 +8,7 @@ import type { GeneratedPersona, SceneVisualDescription, StreetImage } from "@/ty
 
 type PersonaRequest = {
   image: StreetImage;
+  sessionId?: string;
   snapshotUrl?: string;
 };
 
@@ -80,6 +82,23 @@ export async function POST(request: NextRequest) {
         sceneSource,
         durationMs: elapsedMs(sceneStartedAt)
       });
+      await logAiGeneration(
+        {
+          sessionId: body.sessionId,
+          stage: "scene_analysis",
+          provider: aiDiagnostics.vision.provider,
+          model: aiDiagnostics.vision.model,
+          status: sceneSource === "model" ? "success" : "fallback",
+          inputSummary: {
+            imageId: body.image.id,
+            provider: body.image.provider,
+            hasSnapshotUrl: Boolean(body.snapshotUrl)
+          },
+          output: sceneVisualDescription,
+          durationMs: elapsedMs(sceneStartedAt)
+        },
+        config
+      );
     } catch (error) {
       const warning = toWarning(error);
       warnings.push(warning);
@@ -87,6 +106,23 @@ export async function POST(request: NextRequest) {
         requestId,
         warning
       });
+      await logAiGeneration(
+        {
+          sessionId: body.sessionId,
+          stage: "scene_analysis",
+          provider: aiDiagnostics.vision.provider,
+          model: aiDiagnostics.vision.model,
+          status: "fallback",
+          inputSummary: {
+            imageId: body.image.id,
+            provider: body.image.provider,
+            hasSnapshotUrl: Boolean(body.snapshotUrl)
+          },
+          output: sceneVisualDescription,
+          errorMessage: warning
+        },
+        config
+      );
     }
 
     try {
@@ -105,6 +141,22 @@ export async function POST(request: NextRequest) {
         personaCount: personas.length,
         durationMs: elapsedMs(personaStartedAt)
       });
+      await logAiGeneration(
+        {
+          sessionId: body.sessionId,
+          stage: "persona_generation",
+          provider: aiDiagnostics.text.provider,
+          model: aiDiagnostics.text.model,
+          status: "success",
+          inputSummary: {
+            imageId: body.image.id,
+            sceneSource
+          },
+          output: { personas },
+          durationMs: elapsedMs(personaStartedAt)
+        },
+        config
+      );
     } catch (error) {
       const warning = toWarning(error);
       warnings.push(warning);
@@ -114,6 +166,22 @@ export async function POST(request: NextRequest) {
         requestId,
         warning
       });
+      await logAiGeneration(
+        {
+          sessionId: body.sessionId,
+          stage: "persona_generation",
+          provider: aiDiagnostics.text.provider,
+          model: aiDiagnostics.text.model,
+          status: "fallback",
+          inputSummary: {
+            imageId: body.image.id,
+            sceneSource
+          },
+          output: { personas },
+          errorMessage: warning
+        },
+        config
+      );
     }
 
     console.info("[persona.generate] completed", {
