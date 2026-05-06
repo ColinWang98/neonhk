@@ -29,12 +29,26 @@ function toWarning(error: unknown) {
   return error instanceof Error ? error.message : "Unknown model error.";
 }
 
+function elapsedMs(startedAt: number) {
+  return Math.round(performance.now() - startedAt);
+}
+
 export async function POST(request: NextRequest) {
+  const requestId = crypto.randomUUID();
+  const startedAt = performance.now();
+
   try {
     const body = (await request.json()) as PersonaRequest;
     if (!body.image) {
       return NextResponse.json({ error: "image is required." }, { status: 400 });
     }
+
+    console.info("[persona.generate] started", {
+      requestId,
+      imageId: body.image.id,
+      provider: body.image.provider,
+      hasSnapshotUrl: Boolean(body.snapshotUrl)
+    });
 
     const config = runtimeConfigFromHeaders(request.headers);
     const warnings: string[] = [];
@@ -44,6 +58,7 @@ export async function POST(request: NextRequest) {
     let personas: GeneratedPersona[] = [];
 
     try {
+      const sceneStartedAt = performance.now();
       sceneVisualDescription = await withTimeout(
         analyzeSceneSnapshot({
           image: body.image,
@@ -56,11 +71,22 @@ export async function POST(request: NextRequest) {
       sceneSource = sceneVisualDescription.uncertainty.toLowerCase().includes("fallback")
         ? "fallback"
         : "model";
+      console.info("[persona.generate] scene_analysis_complete", {
+        requestId,
+        sceneSource,
+        durationMs: elapsedMs(sceneStartedAt)
+      });
     } catch (error) {
-      warnings.push(toWarning(error));
+      const warning = toWarning(error);
+      warnings.push(warning);
+      console.warn("[persona.generate] scene_analysis_fallback", {
+        requestId,
+        warning
+      });
     }
 
     try {
+      const personaStartedAt = performance.now();
       personas = await withTimeout(
         generatePersonas({
           image: body.image,
@@ -70,11 +96,28 @@ export async function POST(request: NextRequest) {
         PERSONA_GENERATION_TIMEOUT_MS,
         "Persona generation"
       );
+      console.info("[persona.generate] persona_generation_complete", {
+        requestId,
+        personaCount: personas.length,
+        durationMs: elapsedMs(personaStartedAt)
+      });
     } catch (error) {
-      warnings.push(toWarning(error));
+      const warning = toWarning(error);
+      warnings.push(warning);
       personas = fallbackPersonas(body.image);
       personaSource = "fallback";
+      console.warn("[persona.generate] persona_generation_fallback", {
+        requestId,
+        warning
+      });
     }
+
+    console.info("[persona.generate] completed", {
+      requestId,
+      sceneSource,
+      personaSource,
+      durationMs: elapsedMs(startedAt)
+    });
 
     return NextResponse.json({
       personas,
