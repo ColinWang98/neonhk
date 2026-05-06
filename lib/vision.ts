@@ -58,6 +58,7 @@ export async function analyzeFragment(
         cropImageUrl,
         config.appUrl || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       ).toString();
+  const visionImageUrl = await prepareVisionImageUrl(imageUrl, ai.provider);
 
   const response = await ai.client.chat.completions.create({
     model: ai.model,
@@ -68,7 +69,7 @@ export async function analyzeFragment(
         role: "user",
         content: [
           { type: "text", text: visionPrompt },
-          { type: "image_url", image_url: { url: imageUrl } }
+          { type: "image_url", image_url: { url: visionImageUrl } }
         ]
       }
     ]
@@ -97,6 +98,7 @@ export async function analyzeSceneSnapshot(params: {
     return fallbackSceneDescription(params.image);
   }
 
+  const visionImageUrl = await prepareVisionImageUrl(params.snapshotUrl, ai.provider);
   const response = await ai.client.chat.completions.create({
     model: ai.model,
     ...ai.defaults,
@@ -107,7 +109,7 @@ export async function analyzeSceneSnapshot(params: {
         content: [
           { type: "text", text: scenePrompt },
           { type: "text", text: JSON.stringify({ image: params.image }) },
-          { type: "image_url", image_url: { url: params.snapshotUrl } }
+          { type: "image_url", image_url: { url: visionImageUrl } }
         ]
       }
     ]
@@ -133,6 +135,19 @@ function extractJsonObject(content: string) {
   }
 
   return match[0];
+}
+
+async function prepareVisionImageUrl(imageUrl: string, provider: string) {
+  if (provider !== "glm" || !imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  const res = await fetch(imageUrl, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch image for GLM vision: ${res.status}`);
+  }
+
+  return Buffer.from(await res.arrayBuffer()).toString("base64");
 }
 
 export function fallbackSceneDescription(image: StreetImage): SceneVisualDescription {
