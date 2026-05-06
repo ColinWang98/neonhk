@@ -19,6 +19,12 @@ type Field = {
   secret?: boolean;
 };
 
+const overrideFields: Field[] = [
+  { key: "googleMapsApiKey", label: "Google Maps API Key Override", secret: true },
+  { key: "aiApiKey", label: "DeepSeek API Key Override", secret: true },
+  { key: "glmApiKey", label: "GLM Vision API Key Override", secret: true }
+];
+
 const optionalFields: Field[] = [
   { key: "supabaseUrl", label: "Supabase URL", placeholder: "https://project.supabase.co" },
   { key: "supabaseAnonKey", label: "Supabase Anon Key", secret: true },
@@ -28,18 +34,9 @@ const optionalFields: Field[] = [
 const advancedFields: Field[] = [
   { key: "mapillaryAccessToken", label: "Mapillary Access Token", secret: true },
   { key: "aiBaseUrl", label: "DeepSeek Base URL", placeholder: "https://api.deepseek.com" },
-  { key: "aiApiKey", label: "DeepSeek API Key Override", secret: true },
   { key: "glmBaseUrl", label: "GLM Base URL", placeholder: "https://open.bigmodel.cn/api/paas/v4" },
-  { key: "glmApiKey", label: "GLM Vision API Key Override", secret: true },
-  { key: "xiaomiBaseUrl", label: "Xiaomi Base URL", placeholder: "https://api.xiaomimimo.com/v1" },
-  { key: "xiaomiApiKey", label: "Xiaomi API Key Override", secret: true },
-  { key: "llmModel", label: "Text Model", placeholder: "deepseek-chat or mimo-v2-flash" },
+  { key: "llmModel", label: "DeepSeek Text Model", placeholder: "deepseek-chat" },
   { key: "visionModel", label: "GLM Vision Model", placeholder: "glm-4.6v-flash" },
-  { key: "xiaomiTextModel", label: "Xiaomi Text Model", placeholder: "mimo-v2-flash" },
-  { key: "xiaomiVisionModel", label: "Xiaomi Vision Model", placeholder: "mimo-v2-omni" },
-  { key: "xiaomiTemperature", label: "Xiaomi Temperature", placeholder: "0.8" },
-  { key: "xiaomiTopP", label: "Xiaomi Top P", placeholder: "0.95" },
-  { key: "xiaomiMaxTokens", label: "Xiaomi Max Tokens", placeholder: "4096" },
   { key: "appUrl", label: "App URL", placeholder: "http://localhost:3000" },
   { key: "ttsProvider", label: "TTS Mode", placeholder: "elevenlabs or local-open-source" },
   { key: "localTtsEndpoint", label: "Local TTS Endpoint", placeholder: "http://127.0.0.1:7860/tts" },
@@ -52,7 +49,6 @@ const advancedFields: Field[] = [
 export function ApiConfigButton({ config, onSave }: Props) {
   const [open, setOpen] = useState(false);
   const hasStreetProvider = Boolean(config.googleMapsApiKey);
-  const hasAI = Boolean(config.unifiedAiApiKey || config.aiApiKey || config.glmApiKey || config.xiaomiApiKey);
 
   return (
     <>
@@ -64,7 +60,7 @@ export function ApiConfigButton({ config, onSave }: Props) {
         <Settings className="h-4 w-4" />
         API
         <span className="rounded bg-field px-1.5 py-0.5 text-[11px] text-ink/65">
-          {hasStreetProvider && hasAI ? "ready" : "setup"}
+          {hasStreetProvider ? "cloud" : "setup"}
         </span>
       </button>
       {open ? (
@@ -99,9 +95,11 @@ function ApiConfigModal({
       <div className="surface-panel flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-md">
         <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
           <div>
-            <p className="fine-label">Project Settings</p>
+            <p className="fine-label">Cloud Settings</p>
             <h2 className="mt-1 text-base font-semibold text-ink">API Configuration</h2>
-            <p className="mt-1 text-xs text-ink/60">Only three fields are required for the main story flow.</p>
+            <p className="mt-1 text-xs text-ink/60">
+              Public visitors use the server keys you set in Vercel. This panel is only for local overrides.
+            </p>
           </div>
           <button
             type="button"
@@ -115,41 +113,21 @@ function ApiConfigModal({
 
         <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
           <div className="mb-4 rounded-md border border-brass/25 bg-[#fbf7ed] px-3 py-2 text-xs leading-5 text-ink/72">
-            Required: Google Maps API Key, AI Provider, and one AI API Key. The app maps that key to text and vision models using provider defaults.
+            For deployment, configure Vercel once with NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, AI_API_KEY, and GLM_API_KEY. Other users do not need to enter tokens.
           </div>
 
           <section>
-            <p className="fine-label mb-3">Required</p>
+            <p className="fine-label mb-3">Local Overrides</p>
             <div className="grid gap-3 md:grid-cols-2">
-              <TextField
-                field={{ key: "googleMapsApiKey", label: "Google Maps API Key", secret: true }}
-                draft={draft}
-                showSecrets={showSecrets}
-                setDraft={setDraft}
-              />
-              <SelectField
-                label="AI Provider"
-                value={draft.aiProvider || "xiaomi"}
-                options={[
-                  { value: "xiaomi", label: "Xiaomi MiMo" },
-                  { value: "deepseek", label: "DeepSeek + GLM Vision" }
-                ]}
-                onChange={(value) =>
-                  setDraft((current) => ({
-                    ...current,
-                    aiProvider: value,
-                    visionProvider: value === "xiaomi" ? "xiaomi" : "glm"
-                  }))
-                }
-              />
-              <div className="md:col-span-2">
+              {overrideFields.map((field) => (
                 <TextField
-                  field={{ key: "unifiedAiApiKey", label: "AI API Key", secret: true }}
+                  key={field.key}
+                  field={field}
                   draft={draft}
                   showSecrets={showSecrets}
                   setDraft={setDraft}
                 />
-              </div>
+              ))}
             </div>
           </section>
 
@@ -218,17 +196,10 @@ function ApiConfigModal({
             </button>
             <button
               type="button"
-              onClick={() => setDraft((current) => applyProviderDefaults(current, "xiaomi"))}
+              onClick={() => setDraft((current) => applyDefaults(current))}
               className="h-9 rounded-md border border-ink/15 bg-paper px-3 text-sm text-ink transition hover:bg-field"
             >
-              Xiaomi Defaults
-            </button>
-            <button
-              type="button"
-              onClick={() => setDraft((current) => applyProviderDefaults(current, "deepseek"))}
-              className="h-9 rounded-md border border-ink/15 bg-paper px-3 text-sm text-ink transition hover:bg-field"
-            >
-              DeepSeek Defaults
+              Defaults
             </button>
           </div>
           <div className="flex gap-2">
@@ -236,11 +207,11 @@ function ApiConfigModal({
               type="button"
               onClick={() => {
                 localStorage.removeItem(runtimeConfigStorageKey);
-                onSave({});
+                onSave(applyDefaults({}));
               }}
               className="h-9 rounded-md border border-ink/15 bg-paper px-3 text-sm text-ink transition hover:bg-field"
             >
-              Clear
+              Clear Overrides
             </button>
             <button
               type="button"
@@ -323,22 +294,7 @@ function SelectField({
   );
 }
 
-function applyProviderDefaults(config: RuntimeApiConfig, provider: "xiaomi" | "deepseek"): RuntimeApiConfig {
-  if (provider === "xiaomi") {
-    return {
-      ...config,
-      aiProvider: "xiaomi",
-      visionProvider: "xiaomi",
-      xiaomiBaseUrl: config.xiaomiBaseUrl || "https://api.xiaomimimo.com/v1",
-      xiaomiTextModel: config.xiaomiTextModel || "mimo-v2-flash",
-      xiaomiVisionModel: config.xiaomiVisionModel || "mimo-v2-omni",
-      xiaomiTemperature: config.xiaomiTemperature || "0.8",
-      xiaomiTopP: config.xiaomiTopP || "0.95",
-      xiaomiMaxTokens: config.xiaomiMaxTokens || "4096",
-      appUrl: config.appUrl || "http://localhost:3000"
-    };
-  }
-
+function applyDefaults(config: RuntimeApiConfig): RuntimeApiConfig {
   return {
     ...config,
     aiProvider: "deepseek",
@@ -352,10 +308,7 @@ function applyProviderDefaults(config: RuntimeApiConfig, provider: "xiaomi" | "d
 }
 
 function cleanConfig(config: RuntimeApiConfig): RuntimeApiConfig {
-  const withDefaults = applyProviderDefaults(
-    config,
-    config.aiProvider === "deepseek" ? "deepseek" : "xiaomi"
-  );
+  const withDefaults = applyDefaults(config);
   const cleaned = Object.fromEntries(
     Object.entries(withDefaults)
       .map(([key, value]) => [key, typeof value === "string" ? value.trim() : value])
@@ -366,11 +319,8 @@ function cleanConfig(config: RuntimeApiConfig): RuntimeApiConfig {
     cleaned.ttsProvider = "elevenlabs";
   }
 
-  if (cleaned.aiProvider !== "xiaomi" && cleaned.aiProvider !== "deepseek") {
-    cleaned.aiProvider = "xiaomi";
-  }
-
-  cleaned.visionProvider = cleaned.aiProvider === "xiaomi" ? "xiaomi" : "glm";
+  cleaned.aiProvider = "deepseek";
+  cleaned.visionProvider = "glm";
 
   return cleaned;
 }

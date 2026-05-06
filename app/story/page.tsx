@@ -11,6 +11,7 @@ import { StreetImageViewer } from "@/components/StreetImageViewer";
 import { TtsControls } from "@/components/TtsControls";
 import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
 import {
+  publicRuntimeConfig,
   runtimeConfigStorageKey,
   runtimeConfigToHeaders,
   type RuntimeApiConfig
@@ -44,7 +45,7 @@ export default function StoryPage() {
     addFragment,
     updateFragment
   } = useExplorerStore();
-  const [apiConfig, setApiConfig] = useState<RuntimeApiConfig>({});
+  const [apiConfig, setApiConfig] = useState<RuntimeApiConfig>(() => publicRuntimeConfig());
   const [personaStatus, setPersonaStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +59,7 @@ export default function StoryPage() {
     const savedConfig = localStorage.getItem(runtimeConfigStorageKey);
     if (savedConfig) {
       try {
-        setApiConfig(JSON.parse(savedConfig) as RuntimeApiConfig);
+        setApiConfig({ ...publicRuntimeConfig(), ...(JSON.parse(savedConfig) as RuntimeApiConfig) });
       } catch {
         localStorage.removeItem(runtimeConfigStorageKey);
       }

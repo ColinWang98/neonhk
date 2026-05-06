@@ -20,7 +20,10 @@ export async function searchGoogleStreetView(
   radius = 80,
   config: RuntimeApiConfig = {}
 ): Promise<StreetImage[]> {
-  const key = config.googleMapsApiKey || process.env.GOOGLE_MAPS_API_KEY;
+  const key =
+    config.googleMapsApiKey ||
+    process.env.GOOGLE_MAPS_API_KEY ||
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!key) {
     throw new Error("GOOGLE_MAPS_API_KEY is not configured.");

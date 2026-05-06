@@ -8,6 +8,7 @@ import { ApiConfigButton } from "@/components/ApiConfigModal";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { LoadingState } from "@/components/LoadingState";
 import {
+  publicRuntimeConfig,
   runtimeConfigStorageKey,
   runtimeConfigToHeaders,
   type RuntimeApiConfig
@@ -40,7 +41,7 @@ export default function Home() {
   const [searchText, setSearchText] = useState("22.303, 114.172");
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [apiConfig, setApiConfig] = useState<RuntimeApiConfig>({});
+  const [apiConfig, setApiConfig] = useState<RuntimeApiConfig>(() => publicRuntimeConfig());
   const [imageProvider, setImageProvider] = useState<ImageProvider>("google");
 
   const runtimeHeaders = useMemo(() => runtimeConfigToHeaders(apiConfig), [apiConfig]);
@@ -50,7 +51,7 @@ export default function Home() {
     if (!saved) return;
 
     try {
-      setApiConfig(JSON.parse(saved) as RuntimeApiConfig);
+      setApiConfig({ ...publicRuntimeConfig(), ...(JSON.parse(saved) as RuntimeApiConfig) });
     } catch {
       localStorage.removeItem(runtimeConfigStorageKey);
     }
