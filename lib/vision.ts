@@ -147,7 +147,13 @@ async function prepareVisionImageUrl(imageUrl: string, provider: string) {
     throw new Error(`Failed to fetch image for GLM vision: ${res.status}`);
   }
 
-  return Buffer.from(await res.arrayBuffer()).toString("base64");
+  const buffer = Buffer.from(await res.arrayBuffer());
+  console.info("[vision.image] prepared_base64", {
+    provider,
+    bytes: buffer.length
+  });
+
+  return buffer.toString("base64");
 }
 
 export function fallbackSceneDescription(image: StreetImage): SceneVisualDescription {
