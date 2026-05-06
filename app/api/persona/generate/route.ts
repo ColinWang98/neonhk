@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAiProviderDiagnostics } from "@/lib/aiProvider";
 import { fallbackPersonas, generatePersonas } from "@/lib/persona";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import { analyzeSceneSnapshot, fallbackSceneDescription } from "@/lib/vision";
@@ -9,8 +10,8 @@ type PersonaRequest = {
   snapshotUrl?: string;
 };
 
-const SCENE_ANALYSIS_TIMEOUT_MS = 6000;
-const PERSONA_GENERATION_TIMEOUT_MS = 9000;
+const SCENE_ANALYSIS_TIMEOUT_MS = 3000;
+const PERSONA_GENERATION_TIMEOUT_MS = 5000;
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string) {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -43,14 +44,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "image is required." }, { status: 400 });
     }
 
+    const config = runtimeConfigFromHeaders(request.headers);
+    const aiDiagnostics = getAiProviderDiagnostics(config);
+
     console.info("[persona.generate] started", {
       requestId,
       imageId: body.image.id,
       provider: body.image.provider,
-      hasSnapshotUrl: Boolean(body.snapshotUrl)
+      hasSnapshotUrl: Boolean(body.snapshotUrl),
+      ai: aiDiagnostics
     });
 
-    const config = runtimeConfigFromHeaders(request.headers);
     const warnings: string[] = [];
     let sceneSource: "model" | "fallback" = "fallback";
     let personaSource: "model" | "fallback" = "model";

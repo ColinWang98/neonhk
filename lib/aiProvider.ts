@@ -16,8 +16,28 @@ export function createAiClient(config: RuntimeApiConfig, purpose: ModelPurpose) 
   return {
     provider,
     model,
-    client: new OpenAI({ apiKey, baseURL }),
+    client: new OpenAI({ apiKey, baseURL, timeout: purpose === "vision" ? 3000 : 5000 }),
     defaults: {}
+  };
+}
+
+export function getAiProviderDiagnostics(config: RuntimeApiConfig) {
+  const visionProvider = resolveProvider("vision");
+  const textProvider = resolveProvider("text");
+
+  return {
+    vision: {
+      provider: visionProvider,
+      baseURL: resolveBaseUrl(config, visionProvider),
+      model: resolveModel(config, visionProvider),
+      hasApiKey: Boolean(resolveApiKey(config, visionProvider))
+    },
+    text: {
+      provider: textProvider,
+      baseURL: resolveBaseUrl(config, textProvider),
+      model: resolveModel(config, textProvider),
+      hasApiKey: Boolean(resolveApiKey(config, textProvider))
+    }
   };
 }
 
@@ -59,7 +79,7 @@ function resolveModel(
   provider: ReturnType<typeof resolveProvider>
 ) {
   if (provider === "glm") {
-    return config.visionModel || process.env.VISION_MODEL || "glm-4.6v-flash";
+    return config.visionModel || process.env.VISION_MODEL || "glm-4v-flash";
   }
 
   return config.llmModel || process.env.LLM_MODEL || "deepseek-chat";
