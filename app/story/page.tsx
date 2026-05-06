@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiConfigButton } from "@/components/ApiConfigModal";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SchemaNarrativePanel } from "@/components/SchemaNarrativePanel";
@@ -49,11 +49,18 @@ export default function StoryPage() {
   const [personaStatus, setPersonaStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [storageHydrated, setStorageHydrated] = useState(false);
+  const personaRequestIdRef = useRef(0);
+  const storySessionIdRef = useRef<string | undefined>(storySession?.id);
 
   const runtimeHeaders = useMemo(() => runtimeConfigToHeaders(apiConfig), [apiConfig]);
   const activeFragment = useMemo(() => fragments[0], [fragments]);
   const readyFragment = activeFragment?.status === "ready" ? activeFragment : undefined;
   const currentStage = !selectedPersona ? "persona" : readyFragment ? "story" : "panorama";
+
+  useEffect(() => {
+    storySessionIdRef.current = storySession?.id;
+  }, [storySession?.id]);
 
   useEffect(() => {
     const savedConfig = localStorage.getItem(runtimeConfigStorageKey);
@@ -78,20 +85,24 @@ export default function StoryPage() {
         setStorySession(JSON.parse(savedSession) as StorySession);
       }
     }
+
+    setStorageHydrated(true);
   }, [selectedImage, setSelectedImage, setStorySession, storySession]);
 
   useEffect(() => {
-    if (!selectedImage || personas.length > 0 || personaStatus === "loading") return;
+    if (!storageHydrated || !selectedImage || personas.length > 0 || personaStatus === "loading") return;
 
-    let cancelled = false;
+    const requestId = personaRequestIdRef.current + 1;
+    personaRequestIdRef.current = requestId;
     setPersonaStatus("loading");
     setError(null);
 
     const snapshotUrl = getSceneSnapshotUrl(selectedImage, apiConfig);
+    const sessionId = storySessionIdRef.current;
     fetch("/api/persona/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...runtimeHeaders },
-      body: JSON.stringify({ image: selectedImage, sessionId: storySession?.id, snapshotUrl })
+      body: JSON.stringify({ image: selectedImage, sessionId, snapshotUrl })
     })
       .then(async (res) => {
         const data = await res.json();
@@ -99,20 +110,16 @@ export default function StoryPage() {
         return data.personas as GeneratedPersona[];
       })
       .then((nextPersonas) => {
-        if (cancelled) return;
+        if (personaRequestIdRef.current !== requestId) return;
         setPersonas(nextPersonas);
         setPersonaStatus("ready");
       })
       .catch((err) => {
-        if (cancelled) return;
+        if (personaRequestIdRef.current !== requestId) return;
         setPersonaStatus("error");
         setError(err instanceof Error ? err.message : "Persona generation failed.");
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [apiConfig, personaStatus, personas.length, runtimeHeaders, selectedImage, setPersonas, storySession?.id]);
+  }, [apiConfig, personaStatus, personas.length, runtimeHeaders, selectedImage, setPersonas, storageHydrated]);
 
   function saveApiConfig(nextConfig: RuntimeApiConfig) {
     setApiConfig(nextConfig);
