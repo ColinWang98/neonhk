@@ -12,10 +12,23 @@ export async function logEvent(event: LogEvent, config: RuntimeApiConfig = {}) {
 
   const supabase = getSupabaseAdmin(config);
   if (supabase) {
-    await supabase.from("interaction_logs").insert({
+    const { error } = await supabase.from("interaction_logs").insert({
       event_type: event.eventType,
       payload: event.payload
     });
+
+    if (error) {
+      console.warn("[interaction.log] supabase_insert_failed", {
+        eventType: event.eventType,
+        message: error.message
+      });
+    } else {
+      return record;
+    }
+  }
+
+  if (process.env.VERCEL) {
+    console.info("[interaction.log]", record);
     return record;
   }
 
