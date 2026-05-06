@@ -135,7 +135,7 @@ function extractJsonObject(content: string) {
   return match[0];
 }
 
-function fallbackSceneDescription(image: StreetImage): SceneVisualDescription {
+export function fallbackSceneDescription(image: StreetImage): SceneVisualDescription {
   const source = image.provider === "google" ? "street-view panorama" : "street-level image";
   return {
     sceneType: source,

@@ -83,7 +83,7 @@ function extractJsonObject(content: string) {
   return match[0];
 }
 
-function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
+export function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
   const source = image.provider === "google" ? "panorama" : "street image";
   return [
     {
