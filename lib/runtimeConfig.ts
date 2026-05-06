@@ -2,6 +2,7 @@ export type RuntimeApiConfig = {
   mapillaryAccessToken?: string;
   googleMapsApiKey?: string;
   aiApiKey?: string;
+  unifiedAiApiKey?: string;
   aiBaseUrl?: string;
   aiProvider?: string;
   glmApiKey?: string;
@@ -35,6 +36,7 @@ export function runtimeConfigToHeaders(config: RuntimeApiConfig) {
 
   setHeader(headers, "x-mapillary-access-token", config.mapillaryAccessToken);
   setHeader(headers, "x-google-maps-api-key", config.googleMapsApiKey);
+  setHeader(headers, "x-unified-ai-api-key", config.unifiedAiApiKey);
   setHeader(headers, "x-ai-api-key", config.aiApiKey);
   setHeader(headers, "x-ai-base-url", config.aiBaseUrl);
   setHeader(headers, "x-ai-provider", config.aiProvider);
@@ -68,7 +70,11 @@ export function runtimeConfigFromHeaders(headers: Headers): RuntimeApiConfig {
   return {
     mapillaryAccessToken: readHeader(headers, "x-mapillary-access-token"),
     googleMapsApiKey: readHeader(headers, "x-google-maps-api-key"),
-    aiApiKey: readHeader(headers, "x-ai-api-key") || readHeader(headers, "x-openai-api-key"),
+    unifiedAiApiKey: readHeader(headers, "x-unified-ai-api-key"),
+    aiApiKey:
+      readHeader(headers, "x-ai-api-key") ||
+      readHeader(headers, "x-unified-ai-api-key") ||
+      readHeader(headers, "x-openai-api-key"),
     aiBaseUrl: readHeader(headers, "x-ai-base-url"),
     aiProvider: readHeader(headers, "x-ai-provider"),
     glmApiKey: readHeader(headers, "x-glm-api-key"),

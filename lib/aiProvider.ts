@@ -56,8 +56,14 @@ export function requestDefaults(
 }
 
 function resolveApiKey(config: RuntimeApiConfig, provider: ReturnType<typeof resolveProvider>) {
+  const unifiedKey =
+    config.unifiedAiApiKey ||
+    process.env.UNIFIED_AI_API_KEY ||
+    process.env.AI_API_KEY ||
+    process.env.OPENAI_API_KEY;
+
   if (provider === "xiaomi") {
-    return config.xiaomiApiKey || process.env.XIAOMI_API_KEY;
+    return config.xiaomiApiKey || process.env.XIAOMI_API_KEY || unifiedKey;
   }
 
   if (provider === "glm") {
@@ -65,11 +71,12 @@ function resolveApiKey(config: RuntimeApiConfig, provider: ReturnType<typeof res
       config.glmApiKey ||
       process.env.GLM_API_KEY ||
       process.env.ZHIPUAI_API_KEY ||
-      process.env.BIGMODEL_API_KEY
+      process.env.BIGMODEL_API_KEY ||
+      unifiedKey
     );
   }
 
-  return config.aiApiKey || process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
+  return config.aiApiKey || unifiedKey;
 }
 
 function resolveBaseUrl(
