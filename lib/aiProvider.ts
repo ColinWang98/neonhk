@@ -16,7 +16,7 @@ export function createAiClient(config: RuntimeApiConfig, purpose: ModelPurpose) 
   return {
     provider,
     model,
-    client: new OpenAI({ apiKey, baseURL, timeout: purpose === "vision" ? 20000 : 20000 }),
+    client: new OpenAI({ apiKey, baseURL, timeout: purpose === "vision" ? 30000 : 20000 }),
     defaults: {}
   };
 }
