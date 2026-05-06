@@ -118,7 +118,8 @@ async function generateElevenLabsAudio(body: TtsRequest, config: ReturnType<type
       body: JSON.stringify({
         text: body.text,
         model_id: modelId,
-        voice_settings: voiceSettingsForPersona(body.persona)
+        voice_settings: voiceSettingsForPersona(body.persona),
+        seed: voiceSeedForPersona(body.persona)
       })
     }
   );
@@ -140,11 +141,21 @@ async function generateElevenLabsAudio(body: TtsRequest, config: ReturnType<type
 function voiceSettingsForPersona(persona?: GeneratedPersona) {
   const tone = persona?.voiceProfile?.tone;
   const age = persona?.voiceProfile?.age;
+  const pace = persona?.voiceProfile?.pace;
 
   return {
-    stability: tone === "documentary" || age === "older" ? 0.62 : 0.48,
-    similarity_boost: 0.75,
-    style: tone === "casual" || age === "young" ? 0.28 : 0.14,
+    stability: tone === "documentary" || age === "older" || pace === "slow" ? 0.66 : 0.5,
+    similarity_boost: 0.78,
+    style: tone === "casual" || age === "young" ? 0.32 : tone === "reflective" ? 0.18 : 0.12,
     use_speaker_boost: true
   };
+}
+
+function voiceSeedForPersona(persona?: GeneratedPersona) {
+  if (!persona?.id) return undefined;
+  let hash = 0;
+  for (const char of persona.id) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return hash % 1_000_000;
 }

@@ -29,6 +29,48 @@ Rules:
 const defaultElevenLabsVoicePrompt =
   "Voice direction: calm, premium documentary narrator for a Hong Kong spatial story. Use clear English, measured pacing, short pauses, restrained warmth, and a reflective but not theatrical tone. Sound observant and grounded, as if guiding someone through a real street scene.";
 
+export function buildElevenLabsVoicePrompt(persona?: GeneratedPersona, config?: RuntimeApiConfig) {
+  const basePrompt = config?.voiceAccentPreset || process.env.ELEVENLABS_VOICE_PROMPT || defaultElevenLabsVoicePrompt;
+  if (!persona?.voiceProfile) {
+    return basePrompt;
+  }
+
+  const profile = persona.voiceProfile;
+  const ageDirection = {
+    young: "younger adult energy, slightly brighter delivery, nimble phrasing, but still composed",
+    middle: "mature adult clarity, steady pace, balanced confidence, observant and grounded",
+    older: "older reflective presence, slower pacing, longer pauses, gentle authority, careful emphasis"
+  }[profile.age];
+
+  const toneDirection = {
+    reflective: "thoughtful, intimate, and attentive to time, traces, and everyday repetition",
+    casual: "conversational, relaxed, lightly spontaneous, with natural but minimal discourse markers",
+    documentary: "clear, precise, calm, and observational, like a restrained field documentary narrator",
+    warm: "accessible, welcoming, soft-edged, and socially comfortable"
+  }[profile.tone];
+
+  const accentDirection = {
+    "hong-kong-english": "clear English with a subtle Hong Kong English rhythm, never caricatured",
+    "cantonese-leaning": "English-first narration with a light Hong Kong bilingual cadence; avoid heavy Cantonese pronunciation unless text requires it",
+    "neutral-british": "neutral British-leaning English, polished but not formal",
+    neutral: "neutral international English, clean articulation"
+  }[profile.accent];
+
+  const fluencyDirection = {
+    limited: "simple sentence shapes and careful pacing, without making the voice sound incompetent",
+    conversational: "natural conversational English, clear and easy to follow",
+    fluent: "fluent English narration with smooth transitions and controlled emphasis"
+  }[profile.englishFluency];
+
+  return [
+    basePrompt,
+    `Persona: ${persona.name}. Role: ${persona.role}`,
+    `Interpretive lens: ${persona.interpretiveLens}`,
+    `Voice profile: ${profile.age} ${profile.gender}; ${ageDirection}; ${toneDirection}; ${profile.pace} pace; ${accentDirection}; ${fluencyDirection}.`,
+    "Keep the voice grounded in observable street-space details. Do not sound theatrical, promotional, comedic, or exaggerated."
+  ].join(" ");
+}
+
 export async function adaptSpeechText(params: AdaptSpeechTextParams): Promise<SpeechAdaptation> {
   const input = params.text.trim();
   if (!input) {
@@ -82,7 +124,7 @@ export async function adaptSpeechText(params: AdaptSpeechTextParams): Promise<Sp
 function speechGuidance(persona?: GeneratedPersona, provider?: TtsProvider, config?: RuntimeApiConfig) {
   const configuredPrompt =
     provider === "elevenlabs"
-      ? config?.voiceAccentPreset || process.env.ELEVENLABS_VOICE_PROMPT || defaultElevenLabsVoicePrompt
+      ? buildElevenLabsVoicePrompt(persona, config)
       : config?.voiceAccentPreset || process.env.VOICE_ACCENT_PRESET;
   const profile = persona?.voiceProfile;
   if (!profile) {
