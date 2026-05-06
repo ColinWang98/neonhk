@@ -5,6 +5,7 @@ import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 
 type FragmentRecord = {
   id: string;
+  sessionId?: string;
   imageId?: string;
   selectedAt?: string;
   screenBox?: unknown;
@@ -18,24 +19,40 @@ type FragmentRecord = {
 export async function persistFragment(record: FragmentRecord, config: RuntimeApiConfig = {}) {
   const supabase = getSupabaseAdmin(config);
   if (supabase) {
-    const { error } = await supabase.from("fragments").upsert(
-      {
-        id: record.id,
-        image_id: record.imageId,
-        selected_at: record.selectedAt,
-        screen_box: record.screenBox,
-        crop_box: record.cropBox,
-        crop_image_url: record.cropImageUrl,
-        vision_description: record.visionDescription,
-        narratives: record.narratives,
-        status: record.status
-      },
-      { onConflict: "id" }
-    );
+    const payload = {
+      ...(record.sessionId ? { session_id: record.sessionId } : {}),
+      ...(record.imageId ? { image_id: record.imageId } : {}),
+      ...(record.selectedAt ? { selected_at: record.selectedAt } : {}),
+      ...(record.screenBox ? { screen_box: record.screenBox } : {}),
+      ...(record.cropBox ? { crop_box: record.cropBox } : {}),
+      ...(record.cropImageUrl ? { crop_image_url: record.cropImageUrl } : {}),
+      ...(record.visionDescription ? { vision_description: record.visionDescription } : {}),
+      ...(record.narratives ? { narratives: record.narratives } : {}),
+      ...(record.status ? { status: record.status } : {})
+    };
 
-    if (error) {
-      console.warn(`Fragment persistence skipped: ${error.message}`);
+    const result =
+      record.screenBox && record.cropBox && record.imageId
+        ? await supabase.from("selected_fragments").upsert(
+            {
+              id: record.id,
+              ...payload
+            },
+            { onConflict: "id" }
+          )
+        : await supabase.from("selected_fragments").update(payload).eq("id", record.id);
+
+    if (result.error) {
+      console.warn(`Fragment persistence skipped: ${result.error.message}`);
     }
+    return;
+  }
+
+  if (process.env.VERCEL) {
+    console.info("[fragment.persist]", {
+      ...record,
+      updatedAt: new Date().toISOString()
+    });
     return;
   }
 

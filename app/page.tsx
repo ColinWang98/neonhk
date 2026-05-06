@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ApiConfigButton } from "@/components/ApiConfigModal";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { LoadingState } from "@/components/LoadingState";
+import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
 import {
   publicRuntimeConfig,
   runtimeConfigStorageKey,
@@ -14,7 +15,7 @@ import {
   type RuntimeApiConfig
 } from "@/lib/runtimeConfig";
 import { useExplorerStore } from "@/lib/store";
-import type { StorySession } from "@/types";
+import type { StorySession, StreetImage } from "@/types";
 
 type ImageProvider = "mapillary" | "google";
 
@@ -43,6 +44,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [apiConfig, setApiConfig] = useState<RuntimeApiConfig>(() => publicRuntimeConfig());
   const [imageProvider, setImageProvider] = useState<ImageProvider>("google");
+  const [savedSessions, setSavedSessions] = useState<StorySession[]>([]);
 
   const runtimeHeaders = useMemo(() => runtimeConfigToHeaders(apiConfig), [apiConfig]);
 
@@ -56,6 +58,27 @@ export default function Home() {
       localStorage.removeItem(runtimeConfigStorageKey);
     }
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSavedSessions() {
+      try {
+        const res = await fetch("/api/story/sessions", { headers: runtimeHeaders });
+        const data = (await res.json()) as { sessions?: StorySession[] };
+        if (!cancelled && res.ok) {
+          setSavedSessions(data.sessions || []);
+        }
+      } catch {
+        if (!cancelled) setSavedSessions([]);
+      }
+    }
+
+    void loadSavedSessions();
+    return () => {
+      cancelled = true;
+    };
+  }, [runtimeHeaders]);
 
   function saveApiConfig(nextConfig: RuntimeApiConfig) {
     setApiConfig(nextConfig);
@@ -122,6 +145,24 @@ export default function Home() {
     resetFragments();
     sessionStorage.setItem(selectedImageStorageKey, JSON.stringify(selectedImage));
     sessionStorage.setItem(storySessionStorageKey, JSON.stringify(session));
+    void saveStorySession(session, runtimeHeaders);
+    router.push("/story");
+  }
+
+  async function enterSavedStory(session: StorySession) {
+    const image = storySessionToImage(session, apiConfig);
+    if (!image) {
+      setError("This saved story cannot be reopened without its original provider data.");
+      return;
+    }
+
+    setSelectedImage(image);
+    setStorySession(session);
+    setPersonas([]);
+    setSelectedPersona(session.selectedPersona);
+    resetFragments();
+    sessionStorage.setItem(selectedImageStorageKey, JSON.stringify(image));
+    sessionStorage.setItem(storySessionStorageKey, JSON.stringify(session));
     router.push("/story");
   }
 
@@ -181,6 +222,7 @@ export default function Home() {
             images={images}
             selectedImage={selectedImage}
             provider={imageProvider}
+            savedSessions={savedSessions}
             onLocationClick={searchAt}
             onImageSelect={(image) => {
               setSelectedImage(image);
@@ -190,6 +232,7 @@ export default function Home() {
                 runtimeHeaders
               );
             }}
+            onSavedSessionSelect={enterSavedStory}
           />
           {isSearching ? (
             <div className="absolute bottom-3 left-3 z-[600] rounded-md border border-ink/10 bg-paper/95 px-3 py-2 shadow-sm backdrop-blur">
@@ -267,4 +310,43 @@ async function logClientEvent(
   } catch {
     // Logging should never block the exploration flow.
   }
+}
+
+async function saveStorySession(session: StorySession, runtimeHeaders: Record<string, string>) {
+  try {
+    await fetch("/api/story/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...runtimeHeaders },
+      body: JSON.stringify({ session })
+    });
+  } catch {
+    // Saving should not block entering the story.
+  }
+}
+
+function storySessionToImage(session: StorySession, config: RuntimeApiConfig): StreetImage | null {
+  if (session.provider === "google") {
+    const key = config.googleMapsApiKey;
+    const panoId = session.panoId || session.imageId;
+    const imageUrl = key
+      ? buildGoogleStreetViewStaticUrl({
+          key,
+          panoId,
+          width: 640,
+          height: 640
+        })
+      : "";
+
+    return {
+      id: session.imageId,
+      panoId,
+      provider: "google",
+      lat: session.lat,
+      lng: session.lng,
+      thumbUrl: imageUrl,
+      fullUrl: imageUrl
+    };
+  }
+
+  return null;
 }

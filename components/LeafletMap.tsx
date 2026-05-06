@@ -4,14 +4,16 @@ import L from "leaflet";
 import { Camera } from "lucide-react";
 import { useMemo } from "react";
 import { MapContainer, Marker, TileLayer, Tooltip, useMapEvents } from "react-leaflet";
-import type { StreetImage } from "@/types";
+import type { StorySession, StreetImage } from "@/types";
 
 type Props = {
   images: StreetImage[];
   selectedImage?: StreetImage;
   provider: "mapillary" | "google";
+  savedSessions?: StorySession[];
   onLocationClick: (lat: number, lng: number) => void;
   onImageSelect: (image: StreetImage) => void;
+  onSavedSessionSelect?: (session: StorySession) => void;
 };
 
 const markerIcon = new L.DivIcon({
@@ -28,6 +30,13 @@ const selectedMarkerIcon = new L.DivIcon({
   iconAnchor: [10, 10]
 });
 
+const savedSessionIcon = new L.DivIcon({
+  className: "",
+  html: '<div class="h-5 w-5 rounded-full border-2 border-white bg-[#208b57] shadow"><div class="mx-auto mt-[5px] h-1.5 w-1.5 rounded-full bg-white/90"></div></div>',
+  iconSize: [20, 20],
+  iconAnchor: [10, 10]
+});
+
 function ClickHandler({ onLocationClick }: { onLocationClick: Props["onLocationClick"] }) {
   useMapEvents({
     click(event) {
@@ -37,7 +46,15 @@ function ClickHandler({ onLocationClick }: { onLocationClick: Props["onLocationC
   return null;
 }
 
-export function LeafletMap({ images, selectedImage, provider, onLocationClick, onImageSelect }: Props) {
+export function LeafletMap({
+  images,
+  selectedImage,
+  provider,
+  savedSessions = [],
+  onLocationClick,
+  onImageSelect,
+  onSavedSessionSelect
+}: Props) {
   const center = useMemo<[number, number]>(() => {
     if (selectedImage) return [selectedImage.lat, selectedImage.lng];
     if (images[0]) return [images[0].lat, images[0].lng];
@@ -52,6 +69,23 @@ export function LeafletMap({ images, selectedImage, provider, onLocationClick, o
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <ClickHandler onLocationClick={onLocationClick} />
+        {savedSessions.map((session) => (
+          <Marker
+            key={session.id}
+            position={[session.lat, session.lng]}
+            icon={savedSessionIcon}
+            eventHandlers={{
+              click: () => onSavedSessionSelect?.(session)
+            }}
+          >
+            <Tooltip direction="top">
+              <div className="text-xs">
+                <div className="font-medium">Saved spatial story</div>
+                <div>{new Date(session.createdAt).toLocaleString()}</div>
+              </div>
+            </Tooltip>
+          </Marker>
+        ))}
         {images.map((image) => (
           <Marker
             key={image.id}
@@ -73,6 +107,11 @@ export function LeafletMap({ images, selectedImage, provider, onLocationClick, o
       <div className="pointer-events-none absolute left-4 top-4 z-[500] rounded-md border border-ink/10 bg-paper/95 px-3 py-2 text-xs text-ink shadow-sm">
         Click the map to search nearby {provider === "google" ? "Google Street View" : "Mapillary"} images.
       </div>
+      {savedSessions.length ? (
+        <div className="pointer-events-none absolute bottom-4 right-4 z-[500] rounded-md border border-ink/10 bg-paper/95 px-3 py-2 text-xs text-ink shadow-sm">
+          Green points are saved stories.
+        </div>
+      ) : null}
     </div>
   );
 }

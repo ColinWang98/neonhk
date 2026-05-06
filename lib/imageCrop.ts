@@ -37,7 +37,7 @@ export async function cropImageFragment(params: {
 
   if (supabase) {
     const { error } = await supabase.storage
-      .from("street-fragments")
+      .from(process.env.SUPABASE_CROP_BUCKET || "fragment-crops")
       .upload(publicPath, cropBuffer, {
         contentType: "image/jpeg",
         upsert: true
@@ -47,7 +47,9 @@ export async function cropImageFragment(params: {
       throw new Error(error.message);
     }
 
-    const { data } = supabase.storage.from("street-fragments").getPublicUrl(publicPath);
+    const { data } = supabase.storage
+      .from(process.env.SUPABASE_CROP_BUCKET || "fragment-crops")
+      .getPublicUrl(publicPath);
     return {
       cropImageUrl: data.publicUrl,
       cropBox: { x: left, y: top, width, height }

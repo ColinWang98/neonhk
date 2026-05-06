@@ -125,6 +125,7 @@ export default function StoryPage() {
       const nextSession = { ...storySession, selectedPersona: persona };
       setStorySession(nextSession);
       sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
+      void saveStorySession(nextSession, runtimeHeaders);
     }
   }
 
@@ -154,6 +155,7 @@ export default function StoryPage() {
         "fragment_selected",
         {
           imageId: selectedImage.id,
+          sessionId: storySession?.id,
           personaId: selectedPersona?.id,
           screenBox,
           cropBox
@@ -166,6 +168,7 @@ export default function StoryPage() {
         headers: { "Content-Type": "application/json", ...runtimeHeaders },
         body: JSON.stringify({
           imageId: selectedImage.id,
+          sessionId: storySession?.id,
           imageUrl: sourceImageUrl || selectedImage.fullUrl || selectedImage.thumbUrl,
           screenBox,
           cropBox
@@ -214,6 +217,17 @@ export default function StoryPage() {
       if (!narrativeRes.ok) throw new Error(narratives.error || "Narrative generation failed.");
 
       updateFragment(cropData.fragmentId, { narratives, status: "ready" });
+      if (storySession) {
+        const nextFragmentIds = Array.from(new Set([cropData.fragmentId, ...storySession.fragmentIds]));
+        const nextSession = {
+          ...storySession,
+          selectedPersona,
+          fragmentIds: nextFragmentIds
+        };
+        setStorySession(nextSession);
+        sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
+        void saveStorySession(nextSession, runtimeHeaders);
+      }
     } catch (err) {
       updateFragment(activeFragmentId, { status: "error" });
       setError(err instanceof Error ? err.message : "Fragment processing failed.");
@@ -385,5 +399,17 @@ async function logClientEvent(
     });
   } catch {
     // Logging should never block the story flow.
+  }
+}
+
+async function saveStorySession(session: StorySession, runtimeHeaders: Record<string, string>) {
+  try {
+    await fetch("/api/story/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...runtimeHeaders },
+      body: JSON.stringify({ session })
+    });
+  } catch {
+    // Saving should not block the story flow.
   }
 }

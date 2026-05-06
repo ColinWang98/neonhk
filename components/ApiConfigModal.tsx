@@ -36,7 +36,7 @@ const advancedFields: Field[] = [
   { key: "aiBaseUrl", label: "DeepSeek Base URL", placeholder: "https://api.deepseek.com" },
   { key: "glmBaseUrl", label: "GLM Base URL", placeholder: "https://open.bigmodel.cn/api/paas/v4" },
   { key: "llmModel", label: "DeepSeek Text Model", placeholder: "deepseek-chat" },
-  { key: "visionModel", label: "GLM Vision Model", placeholder: "glm-4.6v-flash" },
+  { key: "visionModel", label: "GLM Vision Model", placeholder: "glm-4v-flash" },
   { key: "appUrl", label: "App URL", placeholder: "http://localhost:3000" },
   { key: "ttsProvider", label: "TTS Mode", placeholder: "elevenlabs or local-open-source" },
   { key: "localTtsEndpoint", label: "Local TTS Endpoint", placeholder: "http://127.0.0.1:7860/tts" },
@@ -301,7 +301,7 @@ function applyDefaults(config: RuntimeApiConfig): RuntimeApiConfig {
     visionProvider: "glm",
     aiBaseUrl: config.aiBaseUrl || "https://api.deepseek.com",
     glmBaseUrl: config.glmBaseUrl || "https://open.bigmodel.cn/api/paas/v4",
-    visionModel: config.visionModel || "glm-4.6v-flash",
+    visionModel: config.visionModel || "glm-4v-flash",
     llmModel: config.llmModel || "deepseek-chat",
     appUrl: config.appUrl || "http://localhost:3000"
   };

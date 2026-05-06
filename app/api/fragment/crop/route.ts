@@ -8,6 +8,7 @@ import type { ImageCropBox, ScreenBox } from "@/types";
 
 type CropRequest = {
   imageId: string;
+  sessionId?: string;
   imageUrl: string;
   screenBox: ScreenBox;
   cropBox: ImageCropBox;
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     );
     await persistFragment({
       id: fragmentId,
+      sessionId: body.sessionId,
       imageId: body.imageId,
       selectedAt,
       screenBox: body.screenBox,
