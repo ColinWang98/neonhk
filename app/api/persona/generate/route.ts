@@ -10,8 +10,8 @@ type PersonaRequest = {
   snapshotUrl?: string;
 };
 
-const SCENE_ANALYSIS_TIMEOUT_MS = 3000;
-const PERSONA_GENERATION_TIMEOUT_MS = 5000;
+const SCENE_ANALYSIS_TIMEOUT_MS = 10000;
+const PERSONA_GENERATION_TIMEOUT_MS = 20000;
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string) {
   let timer: ReturnType<typeof setTimeout> | undefined;
