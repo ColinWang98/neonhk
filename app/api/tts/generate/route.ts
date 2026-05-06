@@ -99,11 +99,11 @@ async function generateElevenLabsAudio(body: TtsRequest, config: ReturnType<type
   const modelId = config.elevenLabsModel || process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
 
   if (!apiKey) {
-    throw new Error("ELEVENLABS_API_KEY is not configured.");
+    throw new Error("Audio narration is optional and ELEVENLABS_API_KEY is not configured.");
   }
 
   if (!voiceId) {
-    throw new Error("ELEVENLABS_VOICE_ID is not configured.");
+    throw new Error("Audio narration is optional and ELEVENLABS_VOICE_ID is not configured.");
   }
 
   const res = await fetch(

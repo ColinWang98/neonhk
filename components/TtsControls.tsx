@@ -64,7 +64,12 @@ export function TtsControls({ narratives, persona, config }: Props) {
       await audio.play();
     } catch (error) {
       setStatus("error");
-      setMessage(error instanceof Error ? error.message : "TTS failed.");
+      const message = error instanceof Error ? error.message : "TTS failed.";
+      setMessage(
+        message.includes("Audio narration is optional")
+          ? "Audio narration is optional on this deployment. The story text remains available."
+          : message
+      );
     }
   }
 

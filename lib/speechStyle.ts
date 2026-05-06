@@ -26,6 +26,9 @@ Rules:
 - Do not over-act. Do not write stage directions.
 - Output strict JSON: {"speechText": string}`;
 
+const defaultElevenLabsVoicePrompt =
+  "Voice direction: calm, premium documentary narrator for a Hong Kong spatial story. Use clear English, measured pacing, short pauses, restrained warmth, and a reflective but not theatrical tone. Sound observant and grounded, as if guiding someone through a real street scene.";
+
 export async function adaptSpeechText(params: AdaptSpeechTextParams): Promise<SpeechAdaptation> {
   const input = params.text.trim();
   if (!input) {
@@ -49,7 +52,7 @@ export async function adaptSpeechText(params: AdaptSpeechTextParams): Promise<Sp
             content: JSON.stringify({
               provider: params.provider,
               persona: params.persona,
-              targetVoice: speechGuidance(params.persona),
+              targetVoice: speechGuidance(params.persona, params.provider, params.config),
               text: input
             })
           }
@@ -76,10 +79,14 @@ export async function adaptSpeechText(params: AdaptSpeechTextParams): Promise<Sp
   };
 }
 
-function speechGuidance(persona?: GeneratedPersona) {
+function speechGuidance(persona?: GeneratedPersona, provider?: TtsProvider, config?: RuntimeApiConfig) {
+  const configuredPrompt =
+    provider === "elevenlabs"
+      ? config?.voiceAccentPreset || process.env.ELEVENLABS_VOICE_PROMPT || defaultElevenLabsVoicePrompt
+      : config?.voiceAccentPreset || process.env.VOICE_ACCENT_PRESET;
   const profile = persona?.voiceProfile;
   if (!profile) {
-    return "calm English narrator, medium pace, light pauses";
+    return configuredPrompt || "calm English narrator, medium pace, light pauses";
   }
 
   const ageGuidance =
@@ -96,7 +103,7 @@ function speechGuidance(persona?: GeneratedPersona) {
     warm: "warm and accessible"
   }[profile.tone];
 
-  return `${profile.age} ${profile.gender} voice; ${ageGuidance}; ${toneGuidance}; ${profile.pace} pace; ${profile.accent} accent style; English fluency ${profile.englishFluency}`;
+  return `${configuredPrompt || "Voice direction: calm English narrator."} Persona adjustment: ${profile.age} ${profile.gender} voice; ${ageGuidance}; ${toneGuidance}; ${profile.pace} pace; ${profile.accent} accent style; English fluency ${profile.englishFluency}`;
 }
 
 function applyLocalSpeechRules(text: string, persona?: GeneratedPersona) {
