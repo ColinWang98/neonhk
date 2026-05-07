@@ -8,7 +8,7 @@ Use only the provided sceneVisualDescription and spatially cautious interpretati
 
 Each persona should help a user notice a different relationship between place fragments and everyday spatial experience.
 
-The persona background should feel like a vivid but clearly fictional male guide character, not a factual claim about the photographed place. Give each persona a grounded Hong Kong life texture: age range, occupation or past occupation, daily habits, food preferences, leisure interests, and a way of speaking. For now all personas must be male. Do not say the person actually lives at, owns, represents, or historically belongs to the selected street.
+The persona background should feel like a vivid but clearly fictional guide character, not a factual claim about the photographed place. Give each persona a grounded Hong Kong life texture: age range, occupation or past occupation, daily habits, food preferences, leisure interests, and a way of speaking. Use a natural mix of genders and ages when appropriate. Do not say the person actually lives at, owns, represents, or historically belongs to the selected street.
 
 Return strict JSON:
 {
@@ -23,7 +23,7 @@ Return strict JSON:
       "voiceProfile": {
         "accent": "hong-kong-english" | "cantonese-leaning" | "neutral-british" | "neutral",
         "englishFluency": "limited" | "conversational" | "fluent",
-        "gender": "male",
+        "gender": "male" | "female",
         "age": "young" | "middle" | "older",
         "pace": "slow" | "normal" | "fast",
         "tone": "reflective" | "casual" | "documentary" | "warm",
@@ -111,16 +111,16 @@ export function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
     },
     {
       id: "routine-listener",
-      name: "Uncle Ming",
-      role: "A former minibus dispatcher who reads streets through routine, waiting, and repeated movement.",
+      name: "Auntie Mei",
+      role: "A former wet-market stall assistant who reads streets through routine, waiting, and repeated movement.",
       background:
-        "Fictional guide: 68, spent much of his working life around kerbs, queues, and transport stops. He enjoys milk tea, newspaper racing pages, and slow walks after dinner. His comments are practical, observant, and slightly nostalgic.",
+        "Fictional guide: 64, spent much of her working life around shopfronts, kerbs, queues, and early-morning deliveries. She enjoys hot milk tea, egg tarts, and slow walks after dinner. Her comments are practical, observant, and slightly nostalgic.",
       interpretiveLens: `Reads this ${source} through daily routes, repeated use, waiting, wear, and ordinary maintenance.`,
-      voiceHint: "Cantonese leaning, older male, reflective street rhythm",
+      voiceHint: "Cantonese leaning, older female, reflective street rhythm",
       voiceProfile: {
         accent: "cantonese-leaning",
         englishFluency: "conversational",
-        gender: "male",
+        gender: "female",
         age: "older",
         pace: "slow",
         tone: "reflective",

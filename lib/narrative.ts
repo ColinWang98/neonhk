@@ -106,25 +106,29 @@ export async function generateNarratives(
 function fallbackNarratives(vision: VisionDescription, persona?: GeneratedPersona): SchemaNarratives {
   const cues = vision.visibleCues.slice(0, 3).join(", ") || "visible material cues";
   const name = persona?.name || "the guide";
+  const subjective = persona?.voiceProfile?.gender === "female" ? "she" : "he";
+  const objective = persona?.voiceProfile?.gender === "female" ? "her" : "him";
+  const possessive = persona?.voiceProfile?.gender === "female" ? "her" : "his";
+  const subjectiveCap = subjective[0].toUpperCase() + subjective.slice(1);
   const memory = persona?.background
-    ? ` In his fictional background, ${persona.background.toLowerCase()}`
+    ? ` In ${possessive} fictional background, ${persona.background.toLowerCase()}`
     : "";
   return {
     functionalUse: {
       title: "Functional-Use",
-      text: `${name} would first read ${vision.mainFeature} as a practical street detail, not just an object. The visible cues, including ${cues}, may suggest where people pass, wait, avoid crossing, or understand a boundary.${memory} He might say it reminds him of ordinary shopfronts and walkway edges near older Hong Kong streets, while still admitting that the crop cannot prove the actual history of this place.`
+      text: `${name} would first read ${vision.mainFeature} as a practical street detail, not just an object. The visible cues, including ${cues}, may suggest where people pass, wait, avoid crossing, or understand a boundary.${memory} ${subjectiveCap} might say it reminds ${objective} of ordinary shopfronts and walkway edges near older Hong Kong streets, while still admitting that the crop cannot prove the actual history of this place.`
     },
     identityBelonging: {
       title: "Identity-Belonging",
-      text: `From ${name}'s point of view, this fragment shapes whether the place feels approachable or slightly held back. Its form, condition, and relation to nearby surfaces may affect whether someone feels invited to step closer, slow down, or keep moving. He would not claim who belongs here, but he might notice how small thresholds, shutters, signs, railings, or worn surfaces make a street feel familiar, guarded, or socially readable.`
+      text: `From ${name}'s point of view, this fragment shapes whether the place feels approachable or slightly held back. Its form, condition, and relation to nearby surfaces may affect whether someone feels invited to step closer, slow down, or keep moving. ${subjectiveCap} would not claim who belongs here, but ${subjective} might notice how small thresholds, shutters, signs, railings, or worn surfaces make a street feel familiar, guarded, or socially readable.`
     },
     memoryTemporality: {
       title: "Memory-Temporality",
-      text: `${name} might treat the visible traces as reminders of repeated routines: opening and closing, cleaning and neglect, repainting and weathering, passing by and pausing. The fragment does not prove a specific past, so he would phrase it carefully: it looks like the kind of detail that gathers time. It may recall neighbourhood shops, stair landings, or street corners he has known, without turning that personal memory into a fact about this exact site.`
+      text: `${name} might treat the visible traces as reminders of repeated routines: opening and closing, cleaning and neglect, repainting and weathering, passing by and pausing. The fragment does not prove a specific past, so ${subjective} would phrase it carefully: it looks like the kind of detail that gathers time. It may recall neighbourhood shops, stair landings, or street corners ${subjective} has known, without turning that personal memory into a fact about this exact site.`
     },
     socialCulturalResonance: {
       title: "Social-Cultural Resonance",
-      text: `For ${name}, this fragment can be read as part of the quiet etiquette of shared streets. It may guide how people queue, pass, keep distance, respect a shop edge, or understand what is public and what is not. He would connect it to everyday Hong Kong habits, not as verified community history, but as a way to notice how modest street elements help people coordinate movement, attention, and small acts of mutual accommodation.`
+      text: `For ${name}, this fragment can be read as part of the quiet etiquette of shared streets. It may guide how people queue, pass, keep distance, respect a shop edge, or understand what is public and what is not. ${subjectiveCap} would connect it to everyday Hong Kong habits, not as verified community history, but as a way to notice how modest street elements help people coordinate movement, attention, and small acts of mutual accommodation.`
     }
   };
 }
