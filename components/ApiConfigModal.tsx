@@ -49,6 +49,7 @@ const advancedFields: Field[] = [
   { key: "minimaxModel", label: "MiniMax TTS Model", placeholder: "speech-2.8-hd" },
   { key: "minimaxVoiceId", label: "MiniMax Voice ID A", placeholder: "male-qn-qingse" },
   { key: "minimaxVoiceIdAlt", label: "MiniMax Voice ID B" },
+  { key: "minimaxVoiceIdFemale", label: "MiniMax Female Voice ID", placeholder: "female-shaonv" },
   { key: "voiceAccentPreset", label: "Voice / Accent Preset", placeholder: "Hong Kong bilingual" }
 ];
 

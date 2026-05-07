@@ -277,17 +277,23 @@ function minimaxVoiceIdForPersona(
 ) {
   const configured = config.minimaxVoiceId || process.env.MINIMAX_TTS_VOICE_ID;
   const configuredAlt = config.minimaxVoiceIdAlt || process.env.MINIMAX_TTS_VOICE_ID_ALT;
+  const configuredFemale =
+    config.minimaxVoiceIdFemale || process.env.MINIMAX_TTS_VOICE_ID_FEMALE;
+  const profile = persona?.voiceProfile;
+
+  if (profile?.gender === "female" && configuredFemale) {
+    return configuredFemale;
+  }
   if (configured && configuredAlt) {
     return personaVoiceBucket(persona) % 2 === 0 ? configured : configuredAlt;
   }
   if (configured) return configured;
 
-  const profile = persona?.voiceProfile;
   if (profile?.gender === "female" && profile.age === "young") {
-    return process.env.MINIMAX_VOICE_YOUNG_FEMALE || "female-shaonv";
+    return configuredFemale || process.env.MINIMAX_VOICE_YOUNG_FEMALE || "female-shaonv";
   }
   if (profile?.gender === "female") {
-    return process.env.MINIMAX_VOICE_MIDDLE_FEMALE || "female-yujie";
+    return configuredFemale || process.env.MINIMAX_VOICE_MIDDLE_FEMALE || "female-yujie";
   }
   if (profile?.age === "older") {
     return process.env.MINIMAX_VOICE_OLDER_MALE || "male-qn-qingse";

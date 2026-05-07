@@ -24,6 +24,7 @@ export type RuntimeApiConfig = {
   minimaxModel?: string;
   minimaxVoiceId?: string;
   minimaxVoiceIdAlt?: string;
+  minimaxVoiceIdFemale?: string;
   voiceAccentPreset?: string;
 };
 
@@ -65,6 +66,7 @@ export function runtimeConfigToHeaders(config: RuntimeApiConfig) {
   setHeader(headers, "x-minimax-model", config.minimaxModel);
   setHeader(headers, "x-minimax-voice-id", config.minimaxVoiceId);
   setHeader(headers, "x-minimax-voice-id-alt", config.minimaxVoiceIdAlt);
+  setHeader(headers, "x-minimax-voice-id-female", config.minimaxVoiceIdFemale);
   setHeader(headers, "x-voice-accent-preset", config.voiceAccentPreset);
 
   return headers;
@@ -99,6 +101,7 @@ export function runtimeConfigFromHeaders(headers: Headers): RuntimeApiConfig {
     minimaxModel: readHeader(headers, "x-minimax-model"),
     minimaxVoiceId: readHeader(headers, "x-minimax-voice-id"),
     minimaxVoiceIdAlt: readHeader(headers, "x-minimax-voice-id-alt"),
+    minimaxVoiceIdFemale: readHeader(headers, "x-minimax-voice-id-female"),
     voiceAccentPreset: readHeader(headers, "x-voice-accent-preset")
   };
 }
