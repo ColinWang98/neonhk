@@ -32,7 +32,10 @@ export function TtsControls({ narratives, persona, config }: Props) {
 
     setStatus("loading");
     try {
-      const provider = config.ttsProvider === "local-open-source" ? "local-open-source" : "elevenlabs";
+      const provider =
+        config.ttsProvider === "local-open-source" || config.ttsProvider === "minimax"
+          ? config.ttsProvider
+          : "elevenlabs";
       const res = await fetch("/api/tts/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...runtimeConfigToHeaders(config) },
@@ -88,6 +91,8 @@ export function TtsControls({ narratives, persona, config }: Props) {
           <p className="mt-1 text-xs text-ink/60">
             {config.ttsProvider === "local-open-source"
               ? "Local open-source TTS sidecar."
+              : config.ttsProvider === "minimax"
+                ? "MiniMax cloud TTS."
               : "ElevenLabs cloud TTS."}
           </p>
         </div>

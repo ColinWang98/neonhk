@@ -43,6 +43,11 @@ const advancedFields: Field[] = [
   { key: "elevenLabsApiKey", label: "ElevenLabs API Key", secret: true },
   { key: "elevenLabsModel", label: "ElevenLabs Model", placeholder: "eleven_multilingual_v2" },
   { key: "elevenLabsVoiceId", label: "ElevenLabs Voice ID" },
+  { key: "minimaxApiKey", label: "MiniMax API Key", secret: true },
+  { key: "minimaxGroupId", label: "MiniMax Group ID" },
+  { key: "minimaxEndpoint", label: "MiniMax TTS Endpoint", placeholder: "https://api.minimaxi.com/v1/t2a_v2" },
+  { key: "minimaxModel", label: "MiniMax TTS Model", placeholder: "speech-2.8-hd" },
+  { key: "minimaxVoiceId", label: "MiniMax Voice ID", placeholder: "male-qn-qingse" },
   { key: "voiceAccentPreset", label: "Voice / Accent Preset", placeholder: "Hong Kong bilingual" }
 ];
 
@@ -165,6 +170,7 @@ function ApiConfigModal({
                       value={draft.ttsProvider || "elevenlabs"}
                       options={[
                         { value: "elevenlabs", label: "ElevenLabs" },
+                        { value: "minimax", label: "MiniMax" },
                         { value: "local-open-source", label: "Local Open Source" }
                       ]}
                       onChange={(value) => setDraft((current) => ({ ...current, ttsProvider: value }))}
@@ -315,7 +321,12 @@ function cleanConfig(config: RuntimeApiConfig): RuntimeApiConfig {
       .filter(([, value]) => Boolean(value))
   ) as RuntimeApiConfig;
 
-  if (cleaned.ttsProvider && cleaned.ttsProvider !== "local-open-source" && cleaned.ttsProvider !== "elevenlabs") {
+  if (
+    cleaned.ttsProvider &&
+    cleaned.ttsProvider !== "local-open-source" &&
+    cleaned.ttsProvider !== "elevenlabs" &&
+    cleaned.ttsProvider !== "minimax"
+  ) {
     cleaned.ttsProvider = "elevenlabs";
   }
 

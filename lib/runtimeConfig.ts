@@ -18,6 +18,11 @@ export type RuntimeApiConfig = {
   elevenLabsApiKey?: string;
   elevenLabsModel?: string;
   elevenLabsVoiceId?: string;
+  minimaxApiKey?: string;
+  minimaxGroupId?: string;
+  minimaxEndpoint?: string;
+  minimaxModel?: string;
+  minimaxVoiceId?: string;
   voiceAccentPreset?: string;
 };
 
@@ -53,6 +58,11 @@ export function runtimeConfigToHeaders(config: RuntimeApiConfig) {
   setHeader(headers, "x-elevenlabs-api-key", config.elevenLabsApiKey);
   setHeader(headers, "x-elevenlabs-model", config.elevenLabsModel);
   setHeader(headers, "x-elevenlabs-voice-id", config.elevenLabsVoiceId);
+  setHeader(headers, "x-minimax-api-key", config.minimaxApiKey);
+  setHeader(headers, "x-minimax-group-id", config.minimaxGroupId);
+  setHeader(headers, "x-minimax-endpoint", config.minimaxEndpoint);
+  setHeader(headers, "x-minimax-model", config.minimaxModel);
+  setHeader(headers, "x-minimax-voice-id", config.minimaxVoiceId);
   setHeader(headers, "x-voice-accent-preset", config.voiceAccentPreset);
 
   return headers;
@@ -81,6 +91,11 @@ export function runtimeConfigFromHeaders(headers: Headers): RuntimeApiConfig {
     elevenLabsApiKey: readHeader(headers, "x-elevenlabs-api-key"),
     elevenLabsModel: readHeader(headers, "x-elevenlabs-model"),
     elevenLabsVoiceId: readHeader(headers, "x-elevenlabs-voice-id"),
+    minimaxApiKey: readHeader(headers, "x-minimax-api-key"),
+    minimaxGroupId: readHeader(headers, "x-minimax-group-id"),
+    minimaxEndpoint: readHeader(headers, "x-minimax-endpoint"),
+    minimaxModel: readHeader(headers, "x-minimax-model"),
+    minimaxVoiceId: readHeader(headers, "x-minimax-voice-id"),
     voiceAccentPreset: readHeader(headers, "x-voice-accent-preset")
   };
 }

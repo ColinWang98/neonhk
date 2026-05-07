@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import { adaptSpeechText } from "@/lib/speechStyle";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import type { GeneratedPersona, TtsProvider } from "@/types";
 
 export const runtime = "nodejs";
@@ -41,6 +42,19 @@ export async function POST(request: NextRequest) {
         speechText: speech.speechText,
         speechAdaptation: speech.strategy,
         speechAdaptationNote: speech.note
+      });
+    }
+
+    if (provider === "minimax") {
+      const result = await generateMiniMaxAudio({ ...body, text: speech.speechText }, config);
+      return NextResponse.json({
+        provider: "minimax",
+        audioUrl: result.audioUrl,
+        durationMs: result.durationMs,
+        speechText: speech.speechText,
+        speechAdaptation: speech.strategy,
+        speechAdaptationNote: speech.note,
+        voiceInstruction: result.voiceInstruction
       });
     }
 
@@ -87,10 +101,10 @@ export async function POST(request: NextRequest) {
 }
 
 function normalizeProvider(provider?: string): TtsProvider {
-  if (provider === "local-open-source" || provider === "elevenlabs") {
+  if (provider === "local-open-source" || provider === "elevenlabs" || provider === "minimax") {
     return provider;
   }
-  return "elevenlabs";
+  return "minimax";
 }
 
 async function generateElevenLabsAudio(body: TtsRequest, config: ReturnType<typeof runtimeConfigFromHeaders>) {
@@ -130,11 +144,108 @@ async function generateElevenLabsAudio(body: TtsRequest, config: ReturnType<type
   }
 
   const audio = Buffer.from(await res.arrayBuffer());
+  return saveGeneratedAudio(audio, "audio/mpeg", "mp3", config);
+}
+
+async function generateMiniMaxAudio(body: TtsRequest, config: ReturnType<typeof runtimeConfigFromHeaders>) {
+  const apiKey = config.minimaxApiKey || process.env.MINIMAX_API_KEY;
+  const groupId = config.minimaxGroupId || process.env.MINIMAX_GROUP_ID;
+  const endpoint =
+    config.minimaxEndpoint || process.env.MINIMAX_TTS_ENDPOINT || "https://api.minimaxi.com/v1/t2a_v2";
+  const model = config.minimaxModel || process.env.MINIMAX_TTS_MODEL || "speech-2.8-hd";
+  const voiceId = minimaxVoiceIdForPersona(body.persona, config);
+
+  if (!apiKey) {
+    throw new Error("Audio narration is optional and MINIMAX_API_KEY is not configured.");
+  }
+
+  const url = new URL(endpoint);
+  if (groupId && !url.searchParams.has("GroupId")) {
+    url.searchParams.set("GroupId", groupId);
+  }
+
+  const voiceSetting = minimaxVoiceSettingForPersona(body.persona, voiceId);
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      text: body.text,
+      stream: false,
+      language_boost: minimaxLanguageBoost(body.persona),
+      output_format: "hex",
+      voice_setting: voiceSetting,
+      audio_setting: {
+        sample_rate: 32000,
+        bitrate: 128000,
+        format: "mp3",
+        channel: 1
+      }
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok || data.base_resp?.status_code) {
+    throw new Error(
+      `MiniMax TTS failed: ${res.status} ${data.base_resp?.status_msg || data.error || JSON.stringify(data)}`
+    );
+  }
+
+  const hexAudio = data.data?.audio || data.audio;
+  const audioUrl = data.data?.audio_url || data.audio_url;
+  if (hexAudio) {
+    const audio = Buffer.from(hexAudio, "hex");
+    return {
+      audioUrl: await saveGeneratedAudio(audio, "audio/mpeg", "mp3", config),
+      durationMs: data.extra_info?.audio_length,
+      voiceInstruction: voiceSetting
+    };
+  }
+
+  if (audioUrl) {
+    return {
+      audioUrl,
+      durationMs: data.extra_info?.audio_length,
+      voiceInstruction: voiceSetting
+    };
+  }
+
+  throw new Error("MiniMax TTS returned no audio.");
+}
+
+async function saveGeneratedAudio(
+  audio: Buffer,
+  contentType: string,
+  extension: string,
+  config: ReturnType<typeof runtimeConfigFromHeaders>
+) {
+  const filename = `${randomUUID()}.${extension}`;
+  const publicPath = `generated/tts/${filename}`;
+  const supabase = getSupabaseAdmin(config);
+  const bucket = process.env.SUPABASE_TTS_BUCKET || process.env.SUPABASE_CROP_BUCKET || "fragment-crops";
+
+  if (supabase) {
+    const { error } = await supabase.storage.from(bucket).upload(publicPath, audio, {
+      contentType,
+      upsert: true
+    });
+    if (!error) {
+      const { data } = supabase.storage.from(bucket).getPublicUrl(publicPath);
+      return data.publicUrl;
+    }
+    console.warn("[tts.audio] supabase_upload_failed", { bucket, message: error.message });
+  }
+
+  if (process.env.VERCEL) {
+    return `data:${contentType};base64,${audio.toString("base64")}`;
+  }
+
   const outputDir = path.join(process.cwd(), "public", "generated", "tts");
   await mkdir(outputDir, { recursive: true });
-  const filename = `${randomUUID()}.mp3`;
   await writeFile(path.join(outputDir, filename), audio);
-
   return `/generated/tts/${filename}`;
 }
 
@@ -158,4 +269,56 @@ function voiceSeedForPersona(persona?: GeneratedPersona) {
     hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   }
   return hash % 1_000_000;
+}
+
+function minimaxVoiceIdForPersona(
+  persona: GeneratedPersona | undefined,
+  config: ReturnType<typeof runtimeConfigFromHeaders>
+) {
+  const configured = config.minimaxVoiceId || process.env.MINIMAX_TTS_VOICE_ID;
+  if (configured) return configured;
+
+  const profile = persona?.voiceProfile;
+  if (profile?.gender === "female" && profile.age === "young") {
+    return process.env.MINIMAX_VOICE_YOUNG_FEMALE || "female-shaonv";
+  }
+  if (profile?.gender === "female") {
+    return process.env.MINIMAX_VOICE_MIDDLE_FEMALE || "female-yujie";
+  }
+  if (profile?.age === "older") {
+    return process.env.MINIMAX_VOICE_OLDER_MALE || "male-qn-qingse";
+  }
+  return process.env.MINIMAX_VOICE_MALE || "male-qn-qingse";
+}
+
+function minimaxVoiceSettingForPersona(persona: GeneratedPersona | undefined, voiceId: string) {
+  const profile = persona?.voiceProfile;
+  const pace = profile?.pace === "slow" ? 0.86 : profile?.pace === "fast" ? 1.12 : 1;
+  const pitch =
+    profile?.age === "older" ? -2 : profile?.age === "young" ? 1 : profile?.gender === "female" ? 1 : 0;
+
+  return {
+    voice_id: voiceId,
+    speed: pace,
+    vol: 1,
+    pitch,
+    emotion: minimaxEmotion(profile?.tone)
+  };
+}
+
+function minimaxEmotion(tone?: string) {
+  if (tone === "warm" || tone === "casual") return "happy";
+  if (tone === "reflective") return "neutral";
+  return "neutral";
+}
+
+function minimaxLanguageBoost(persona?: GeneratedPersona) {
+  const profile = persona?.voiceProfile;
+  if (profile?.accent === "cantonese-leaning" || (profile?.cantoneseRatio || 0) > 0.2) {
+    return "Chinese,Yue";
+  }
+  if (profile?.accent === "neutral-british") {
+    return "English";
+  }
+  return "auto";
 }

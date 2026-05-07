@@ -40,7 +40,7 @@ export type SceneVisualDescription = {
   uncertainty: string;
 };
 
-export type TtsProvider = "local-open-source" | "elevenlabs";
+export type TtsProvider = "local-open-source" | "elevenlabs" | "minimax";
 
 export type StorySession = {
   id: string;
