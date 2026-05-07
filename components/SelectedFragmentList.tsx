@@ -7,8 +7,8 @@ export function SelectedFragmentList({ fragments }: { fragments: SelectedFragmen
   return (
     <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-md">
       <div className="border-b border-ink/10 px-5 py-4">
-        <p className="fine-label">Fragments</p>
-        <h2 className="mt-1 text-sm font-semibold text-ink">Selected Fragments</h2>
+        <p className="fine-label">Fragments / 碎片</p>
+        <h2 className="mt-1 text-sm font-semibold text-ink">Selected Fragments / 精选片段</h2>
         <p className="mt-1 text-xs text-ink/58">{fragments.length} fragment records</p>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-4">

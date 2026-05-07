@@ -8,7 +8,7 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 import { SchemaNarrativePanel } from "@/components/SchemaNarrativePanel";
 import { SelectedFragmentList } from "@/components/SelectedFragmentList";
 import { StreetImageViewer } from "@/components/StreetImageViewer";
-import { TtsControls } from "@/components/TtsControls";
+import { TtsControls, type CaptionState } from "@/components/TtsControls";
 import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
 import {
   publicRuntimeConfig,
@@ -49,6 +49,7 @@ export default function StoryPage() {
   const [personaStatus, setPersonaStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [caption, setCaption] = useState<CaptionState | null>(null);
   const [storageHydrated, setStorageHydrated] = useState(false);
   const personaRequestIdRef = useRef(0);
   const storySessionIdRef = useRef<string | undefined>(storySession?.id);
@@ -326,20 +327,34 @@ export default function StoryPage() {
           </div>
         </section>
       ) : (
-        <section className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(720px,1fr)_360px]">
-          <div className="grid min-h-0 grid-rows-[minmax(500px,1fr)_240px] gap-5">
-            <StreetImageViewer
-              image={selectedImage}
-              busy={processing}
-              googleMapsApiKey={apiConfig.googleMapsApiKey}
-              onFragmentSelected={handleFragmentSelected}
-            />
-            <SelectedFragmentList fragments={fragments} />
+        <section className="grid min-h-0 flex-1 grid-rows-[minmax(520px,0.62fr)_minmax(340px,0.38fr)] gap-5">
+          <div className="grid min-h-0 gap-5 lg:grid-cols-[minmax(720px,1fr)_380px]">
+            <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
+              <StreetImageViewer
+                image={selectedImage}
+                busy={processing}
+                googleMapsApiKey={apiConfig.googleMapsApiKey}
+                onFragmentSelected={handleFragmentSelected}
+              />
+              <LiveCaption caption={caption} />
+            </div>
+            <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-5">
+              <PersonaSwitcher
+                personas={personas}
+                selectedPersona={selectedPersona}
+                onSelect={choosePersona}
+              />
+              <TtsControls
+                narratives={readyFragment?.narratives}
+                persona={selectedPersona}
+                config={apiConfig}
+                onCaptionChange={setCaption}
+              />
+            </div>
           </div>
-          <div className="grid min-h-0 grid-rows-[auto_minmax(240px,1fr)_auto] gap-5">
-            <PersonaBadge persona={selectedPersona} onChange={() => setSelectedPersona(undefined)} />
+          <div className="grid min-h-0 gap-5 lg:grid-cols-[minmax(380px,0.38fr)_minmax(620px,0.62fr)]">
+            <SelectedFragmentList fragments={fragments} />
             <SchemaNarrativePanel fragment={activeFragment} />
-            <TtsControls narratives={readyFragment?.narratives} persona={selectedPersona} config={apiConfig} />
           </div>
         </section>
       )}
@@ -360,30 +375,65 @@ function SceneSummary({ image }: { image: StreetImage }) {
   );
 }
 
-function PersonaBadge({
-  persona,
-  onChange
+function PersonaSwitcher({
+  personas,
+  selectedPersona,
+  onSelect
 }: {
-  persona?: GeneratedPersona;
-  onChange: () => void;
+  personas: GeneratedPersona[];
+  selectedPersona?: GeneratedPersona;
+  onSelect: (persona: GeneratedPersona) => void;
 }) {
-  if (!persona) return null;
   return (
-    <div className="surface-panel rounded-md p-4">
-      <div className="flex items-start justify-between gap-3">
+    <div className="surface-panel min-h-0 overflow-hidden rounded-md p-4">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="fine-label">Persona</p>
-          <h2 className="mt-1 text-sm font-semibold text-ink">{persona.name}</h2>
-          <p className="mt-1 text-sm leading-6 text-ink/70">{persona.role}</p>
-          {persona.background ? (
-            <p className="mt-2 text-xs leading-5 text-ink/64">{persona.background}</p>
-          ) : null}
-          <p className="mt-2 text-xs leading-5 text-ink/60">{persona.interpretiveLens}</p>
+          <p className="fine-label">Narrator / 讲述人</p>
+          <h2 className="mt-1 text-sm font-semibold text-ink">
+            {selectedPersona?.name || "Choose a narrator"}
+          </h2>
         </div>
-        <button type="button" onClick={onChange} className="text-xs text-ink/55 hover:text-ink">
-          Change
-        </button>
       </div>
+      <div className="mt-3 grid max-h-[36vh] gap-2 overflow-auto pr-1">
+        {personas.map((persona) => {
+          const selected = selectedPersona?.id === persona.id;
+          return (
+            <button
+              type="button"
+              key={persona.id}
+              onClick={() => onSelect(persona)}
+              className={`rounded-md border p-3 text-left transition ${
+                selected
+                  ? "border-signal bg-[#eef7f4]"
+                  : "border-ink/10 bg-paper hover:border-brass/45 hover:bg-[#fbf7ed]"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-ink">{persona.name}</h3>
+                {selected ? <span className="rounded bg-signal px-2 py-0.5 text-[11px] text-white">Active</span> : null}
+              </div>
+              <p className="mt-1 text-xs leading-5 text-ink/68">{persona.role}</p>
+              {persona.background ? (
+                <p className="mt-2 line-clamp-3 text-xs leading-5 text-ink/58">{persona.background}</p>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function LiveCaption({ caption }: { caption: CaptionState | null }) {
+  return (
+    <div className="surface-panel min-h-[84px] rounded-md border border-ink/10 bg-ink px-5 py-4 text-white">
+      <div className="mb-2 flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.14em] text-white/55">
+        <span>Live Subtitle / 实时字幕</span>
+        <span>{caption ? `${caption.index + 1}/${caption.total}` : "Idle"}</span>
+      </div>
+      <p className="text-base leading-7 text-white/90">
+        {caption?.text || "Story narration captions will appear here while audio is playing."}
+      </p>
     </div>
   );
 }
