@@ -3,18 +3,27 @@
 import { ImageIcon } from "lucide-react";
 import type { SelectedFragment } from "@/types";
 
-export function SelectedFragmentList({ fragments }: { fragments: SelectedFragment[] }) {
+export function SelectedFragmentList({
+  fragments,
+  language = "en"
+}: {
+  fragments: SelectedFragment[];
+  language?: "en" | "zh";
+}) {
+  const zh = language === "zh";
   return (
     <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-md">
       <div className="border-b border-ink/10 px-5 py-4">
-        <p className="fine-label">Fragments / 碎片</p>
-        <h2 className="mt-1 text-sm font-semibold text-ink">Selected Fragments / 精选片段</h2>
-        <p className="mt-1 text-xs text-ink/58">{fragments.length} fragment records</p>
+        <p className="fine-label">{zh ? "碎片" : "Fragments"}</p>
+        <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "Selected Fragments / 精选片段" : "Selected Fragments"}</h2>
+        <p className="mt-1 text-xs text-ink/58">
+          {zh ? `${fragments.length} 条片段记录` : `${fragments.length} fragment records`}
+        </p>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {fragments.length === 0 ? (
           <div className="flex h-full items-center justify-center rounded-md border border-dashed border-ink/20 bg-paper/45 px-4 text-center text-sm leading-6 text-ink/55">
-            Box-select a region in the street image to create a fragment.
+            {zh ? "在街景图像中框选一个区域来创建 fragment。" : "Box-select a region in the street image to create a fragment."}
           </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

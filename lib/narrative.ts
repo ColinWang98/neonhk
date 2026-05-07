@@ -89,7 +89,7 @@ export async function generateNarratives(
           visionDescription,
           persona,
           languageStyle:
-            "Use a warm persona voice with light Traditional Chinese/Cantonese spatial phrasing where natural. Prioritize situated story and agent perspective over neutral description. Keep factual claims cautious and grounded in visible cues."
+            "Default to English. Use a warm persona voice and prioritize situated story and agent perspective over neutral description. Keep factual claims cautious and grounded in visible cues."
         })
       }
     ]

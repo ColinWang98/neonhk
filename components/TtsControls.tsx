@@ -16,10 +16,12 @@ type Props = {
   narratives?: SchemaNarratives;
   persona?: GeneratedPersona;
   config: RuntimeApiConfig;
+  language?: "en" | "zh";
   onCaptionChange?: (caption: CaptionState | null) => void;
 };
 
-export function TtsControls({ narratives, persona, config, onCaptionChange }: Props) {
+export function TtsControls({ narratives, persona, config, language = "en", onCaptionChange }: Props) {
+  const zh = language === "zh";
   const [status, setStatus] = useState<"idle" | "loading" | "playing" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -142,8 +144,8 @@ export function TtsControls({ narratives, persona, config, onCaptionChange }: Pr
     <div className="surface-panel rounded-md p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="fine-label">Audio / 音频</p>
-          <h3 className="mt-1 text-sm font-semibold text-ink">Story Voice / 故事旁白</h3>
+          <p className="fine-label">{zh ? "音频" : "Audio"}</p>
+          <h3 className="mt-1 text-sm font-semibold text-ink">{zh ? "故事旁白" : "Story Voice"}</h3>
           <p className="mt-1 text-xs text-ink/60">
             {config.ttsProvider === "local-open-source"
               ? "Local open-source TTS sidecar."
@@ -176,14 +178,20 @@ export function TtsControls({ narratives, persona, config, onCaptionChange }: Pr
       </div>
       <div className="mt-4 rounded-md border border-ink/10 bg-paper p-3">
         <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.12em] text-ink/50">
-          <span>{status === "playing" ? "Playing" : status === "loading" ? "Generating" : "Ready"}</span>
+          <span>
+            {status === "playing"
+              ? zh ? "播放中" : "Playing"
+              : status === "loading"
+                ? zh ? "生成中" : "Generating"
+                : zh ? "就绪" : "Ready"}
+          </span>
           <span>{durationLabel}</span>
         </div>
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-field">
           <div className="h-full rounded-full bg-signal transition-[width]" style={{ width: `${progress * 100}%` }} />
         </div>
         <p className="mt-3 line-clamp-3 text-xs leading-5 text-ink/70">
-          {captionSegments[0] || "Generate a story to enable narration."}
+          {captionSegments[0] || (zh ? "生成故事后可播放旁白。" : "Generate a story to enable narration.")}
         </p>
       </div>
       {message ? <p className="mt-3 text-xs leading-5 text-amber-800">{message}</p> : null}

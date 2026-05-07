@@ -11,6 +11,7 @@ type Props = {
   image?: StreetImage;
   busy?: boolean;
   googleMapsApiKey?: string;
+  language?: "en" | "zh";
   onFragmentSelected: (screenBox: ScreenBox, cropBox: ImageCropBox, sourceImageUrl?: string) => void;
 };
 
@@ -44,7 +45,8 @@ declare global {
   }
 }
 
-export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSelected }: Props) {
+export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "en", onFragmentSelected }: Props) {
+  const zh = language === "zh";
   const imgRef = useRef<HTMLImageElement | null>(null);
   const panoRef = useRef<HTMLDivElement | null>(null);
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
@@ -115,14 +117,14 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
     <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-md">
       <div className="flex items-center justify-between gap-4 border-b border-ink/10 px-5 py-4">
         <div>
-          <p className="fine-label">Panorama / 全景图</p>
-          <h2 className="mt-1 text-sm font-semibold text-ink">Street Image Viewer / 街道图像查看器</h2>
+          <p className="fine-label">{zh ? "全景图" : "Panorama"}</p>
+          <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "街道图像查看器" : "Street Image Viewer"}</h2>
           <p className="mt-1 text-xs text-ink/58">
             {image ? `${providerLabel(image.provider)} image ${image.id}` : "Select a marker to begin"}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {busy ? <LoadingState label="Processing fragment" /> : null}
+          {busy ? <LoadingState label={zh ? "正在处理片段" : "Processing fragment"} /> : null}
           {image?.provider === "google" && googleMapsApiKey ? (
             <button
               type="button"
@@ -131,7 +133,7 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
               className="inline-flex h-10 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-55"
             >
               <Crosshair className="h-4 w-4" />
-              {googleSelecting ? "退出框选" : "开始框选"}
+              {googleSelecting ? (zh ? "退出框选" : "Exit selection") : zh ? "开始框选" : "Select fragment"}
             </button>
           ) : null}
         </div>
@@ -173,19 +175,19 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
                   <div className="pointer-events-none absolute inset-0 z-[30] border-[3px] border-signal bg-signal/10">
                     <div className="absolute left-4 top-4 inline-flex max-w-[360px] items-center gap-2 rounded-md border border-white/25 bg-ink/90 px-4 py-3 text-sm font-medium text-white shadow-lg">
                       <MousePointer2 className="h-4 w-4 shrink-0" />
-                      在全景图上按住鼠标拖拽，框选一个 place fragment
+                      {zh ? "在全景图上按住鼠标拖拽，框选一个 place fragment" : "Drag on the panorama to box-select a place fragment"}
                     </div>
                   </div>
                 ) : null}
                 {googleStatus === "loading" ? (
                   <div className="absolute bottom-3 left-3 rounded-md border border-white/20 bg-paper/95 px-3 py-2 shadow-sm backdrop-blur">
-                    <LoadingState label="Loading Street View" />
+                    <LoadingState label={zh ? "正在加载街景" : "Loading Street View"} />
                   </div>
                 ) : null}
               </>
             ) : (
               <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/70">
-                Add a Google Maps API Key in the API panel to use interactive Street View.
+                {zh ? "请在 API 面板加入 Google Maps API Key 来使用交互式街景。" : "Add a Google Maps API Key in the API panel to use interactive Street View."}
               </div>
             )}
           </div>
@@ -237,7 +239,7 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/70">
             <div>
               <ImageIcon className="mx-auto mb-3 h-6 w-6 text-white/45" />
-              Search a location on the map and choose a street-level image.
+              {zh ? "在地图上搜索地点并选择街道图像。" : "Search a location on the map and choose a street-level image."}
             </div>
           </div>
         )}

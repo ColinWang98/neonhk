@@ -5,7 +5,6 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiConfigButton } from "@/components/ApiConfigModal";
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { SchemaNarrativePanel } from "@/components/SchemaNarrativePanel";
 import { SelectedFragmentList } from "@/components/SelectedFragmentList";
 import { StreetImageViewer } from "@/components/StreetImageViewer";
 import { TtsControls, type CaptionState } from "@/components/TtsControls";
@@ -50,6 +49,7 @@ export default function StoryPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [caption, setCaption] = useState<CaptionState | null>(null);
+  const [uiLanguage, setUiLanguage] = useState<"en" | "zh">("en");
   const [storageHydrated, setStorageHydrated] = useState(false);
   const personaRequestIdRef = useRef(0);
   const storySessionIdRef = useRef<string | undefined>(storySession?.id);
@@ -279,7 +279,23 @@ export default function StoryPage() {
                 : "Step 4: read and listen to the schema story."}
           </p>
         </div>
-        <ApiConfigButton config={apiConfig} onSave={saveApiConfig} />
+        <div className="flex items-center gap-2">
+          <div className="inline-flex h-10 overflow-hidden rounded-md border border-ink/15 bg-paper">
+            {(["en", "zh"] as const).map((language) => (
+              <button
+                key={language}
+                type="button"
+                onClick={() => setUiLanguage(language)}
+                className={`px-3 text-xs font-medium transition ${
+                  uiLanguage === language ? "bg-ink text-white" : "text-ink/65 hover:bg-field"
+                }`}
+              >
+                {language === "en" ? "EN" : "中文"}
+              </button>
+            ))}
+          </div>
+          <ApiConfigButton config={apiConfig} onSave={saveApiConfig} />
+        </div>
       </header>
 
       {error ? (
@@ -334,27 +350,29 @@ export default function StoryPage() {
                 image={selectedImage}
                 busy={processing}
                 googleMapsApiKey={apiConfig.googleMapsApiKey}
+                language={uiLanguage}
                 onFragmentSelected={handleFragmentSelected}
               />
-              <LiveCaption caption={caption} />
+              <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(readyFragment?.narratives)} />
             </div>
             <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-5">
               <PersonaSwitcher
                 personas={personas}
                 selectedPersona={selectedPersona}
+                language={uiLanguage}
                 onSelect={choosePersona}
               />
               <TtsControls
                 narratives={readyFragment?.narratives}
                 persona={selectedPersona}
                 config={apiConfig}
+                language={uiLanguage}
                 onCaptionChange={setCaption}
               />
             </div>
           </div>
-          <div className="grid min-h-0 gap-5 lg:grid-cols-[minmax(380px,0.38fr)_minmax(620px,0.62fr)]">
-            <SelectedFragmentList fragments={fragments} />
-            <SchemaNarrativePanel fragment={activeFragment} />
+          <div className="min-h-0">
+            <SelectedFragmentList fragments={fragments} language={uiLanguage} />
           </div>
         </section>
       )}
@@ -378,19 +396,22 @@ function SceneSummary({ image }: { image: StreetImage }) {
 function PersonaSwitcher({
   personas,
   selectedPersona,
+  language,
   onSelect
 }: {
   personas: GeneratedPersona[];
   selectedPersona?: GeneratedPersona;
+  language: "en" | "zh";
   onSelect: (persona: GeneratedPersona) => void;
 }) {
+  const zh = language === "zh";
   return (
     <div className="surface-panel min-h-0 overflow-hidden rounded-md p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="fine-label">Narrator / 讲述人</p>
+          <p className="fine-label">{zh ? "讲述人" : "Narrator"}</p>
           <h2 className="mt-1 text-sm font-semibold text-ink">
-            {selectedPersona?.name || "Choose a narrator"}
+            {selectedPersona?.name || (zh ? "选择讲述人" : "Choose a narrator")}
           </h2>
         </div>
       </div>
@@ -410,7 +431,7 @@ function PersonaSwitcher({
             >
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-ink">{persona.name}</h3>
-                {selected ? <span className="rounded bg-signal px-2 py-0.5 text-[11px] text-white">Active</span> : null}
+                {selected ? <span className="rounded bg-signal px-2 py-0.5 text-[11px] text-white">{zh ? "当前" : "Active"}</span> : null}
               </div>
               <p className="mt-1 text-xs leading-5 text-ink/68">{persona.role}</p>
               {persona.background ? (
@@ -424,15 +445,31 @@ function PersonaSwitcher({
   );
 }
 
-function LiveCaption({ caption }: { caption: CaptionState | null }) {
+function LiveCaption({
+  caption,
+  language,
+  ready
+}: {
+  caption: CaptionState | null;
+  language: "en" | "zh";
+  ready: boolean;
+}) {
+  const zh = language === "zh";
   return (
-    <div className="surface-panel min-h-[84px] rounded-md border border-ink/10 bg-ink px-5 py-4 text-white">
-      <div className="mb-2 flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.14em] text-white/55">
-        <span>Live Subtitle / 实时字幕</span>
+    <div className="surface-panel min-h-[62px] rounded-md border border-ink/10 bg-ink px-5 py-3 text-white">
+      <div className="mb-1 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.14em] text-white/55">
+        <span>{zh ? "实时字幕" : "Live Subtitle"}</span>
         <span>{caption ? `${caption.index + 1}/${caption.total}` : "Idle"}</span>
       </div>
-      <p className="text-base leading-7 text-white/90">
-        {caption?.text || "Story narration captions will appear here while audio is playing."}
+      <p className="line-clamp-1 text-base leading-7 text-white/90">
+        {caption?.text ||
+          (ready
+            ? zh
+              ? "点击播放后，叙事会像视频字幕一样在这里逐条出现。"
+              : "Press Play; the story will appear here one subtitle line at a time."
+            : zh
+              ? "生成故事后，字幕会显示在这里。"
+              : "After a story is generated, captions will appear here.")}
       </p>
     </div>
   );

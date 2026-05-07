@@ -47,7 +47,8 @@ const advancedFields: Field[] = [
   { key: "minimaxGroupId", label: "MiniMax Group ID" },
   { key: "minimaxEndpoint", label: "MiniMax TTS Endpoint", placeholder: "https://api.minimaxi.com/v1/t2a_v2" },
   { key: "minimaxModel", label: "MiniMax TTS Model", placeholder: "speech-2.8-hd" },
-  { key: "minimaxVoiceId", label: "MiniMax Voice ID", placeholder: "male-qn-qingse" },
+  { key: "minimaxVoiceId", label: "MiniMax Voice ID A", placeholder: "male-qn-qingse" },
+  { key: "minimaxVoiceIdAlt", label: "MiniMax Voice ID B" },
   { key: "voiceAccentPreset", label: "Voice / Accent Preset", placeholder: "Hong Kong bilingual" }
 ];
 

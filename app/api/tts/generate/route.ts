@@ -276,6 +276,10 @@ function minimaxVoiceIdForPersona(
   config: ReturnType<typeof runtimeConfigFromHeaders>
 ) {
   const configured = config.minimaxVoiceId || process.env.MINIMAX_TTS_VOICE_ID;
+  const configuredAlt = config.minimaxVoiceIdAlt || process.env.MINIMAX_TTS_VOICE_ID_ALT;
+  if (configured && configuredAlt) {
+    return personaVoiceBucket(persona) % 2 === 0 ? configured : configuredAlt;
+  }
   if (configured) return configured;
 
   const profile = persona?.voiceProfile;
@@ -289,6 +293,15 @@ function minimaxVoiceIdForPersona(
     return process.env.MINIMAX_VOICE_OLDER_MALE || "male-qn-qingse";
   }
   return process.env.MINIMAX_VOICE_MALE || "male-qn-qingse";
+}
+
+function personaVoiceBucket(persona?: GeneratedPersona) {
+  if (!persona?.id) return 0;
+  let hash = 0;
+  for (const char of persona.id) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return hash;
 }
 
 function minimaxVoiceSettingForPersona(persona: GeneratedPersona | undefined, voiceId: string) {
