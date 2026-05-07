@@ -327,7 +327,7 @@ export default function StoryPage() {
         </section>
       ) : (
         <section className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(720px,1fr)_360px]">
-          <div className="grid min-h-0 grid-rows-[minmax(560px,1fr)_130px] gap-5">
+          <div className="grid min-h-0 grid-rows-[minmax(500px,1fr)_240px] gap-5">
             <StreetImageViewer
               image={selectedImage}
               busy={processing}

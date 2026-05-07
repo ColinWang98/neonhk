@@ -2,11 +2,12 @@ import { createAiClient } from "@/lib/aiProvider";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { GeneratedPersona, SchemaNarratives, VisionDescription } from "@/types";
 
-const narrativePrompt = `You are generating schema-based place interpretation narratives for a user-selected street-level image fragment.
+const narrativePrompt = `You are generating schema-based place interpretation stories for a user-selected street-level image fragment.
 
 Use only:
 1. visually observable cues from the crop
 2. cautious interpretation
+3. the selected fictional persona as a narrator's lens
 
 Do not invent:
 - historical facts
@@ -17,25 +18,33 @@ Do not invent:
 - personal information
 - events that cannot be verified from the image
 
+Important distinction:
+- You may let the persona speak from personal habits, memories, and comparisons, e.g. "this reminds me of the small shops near my old flat".
+- You must not claim an unverifiable fact about the actual photographed place, e.g. do not write "this shop used to be a fish shop" unless the visual evidence says so.
+- Use first-person or close third-person persona perspective. The writing should feel like an agent standing here and noticing the fragment, not a neutral visual report.
+
 Use cautious language such as:
 - "may suggest"
 - "can be read as"
 - "could help users notice"
 - "appears to"
+- "reminds me of"
+- "I would read this as"
+- "I cannot know its history, but..."
 
-Generate four narratives, each 60-90 words:
+Generate four narratives, each 75-110 words:
 
 1. Functional-Use:
-Explain how this fragment may support movement, access, waiting, resting, boundary-making, navigation, or everyday use.
+From the persona's viewpoint, tell a small place story about how this fragment may support movement, access, waiting, resting, boundary-making, navigation, or everyday use.
 
 2. Identity-Belonging:
-Explain how this fragment may shape whether the place feels legible, enterable, accessible, familiar, or socially comfortable.
+From the persona's viewpoint, tell how this fragment may shape whether the place feels legible, enterable, accessible, familiar, or socially comfortable.
 
 3. Memory-Temporality:
-Explain how visible traces may suggest repetition, wear, aging, routine, maintenance, or change over time.
+From the persona's viewpoint, connect visible traces to repetition, wear, aging, routine, maintenance, or change over time, using personal comparison rather than claiming actual history.
 
 4. Social-Cultural Resonance:
-Explain how this fragment may connect to shared space, public order, community rhythm, social norms, maintenance, or collective use.
+From the persona's viewpoint, tell how this fragment may connect to shared space, public order, community rhythm, social norms, maintenance, or collective use.
 
 Return strict JSON with this shape:
 {
@@ -80,7 +89,7 @@ export async function generateNarratives(
           visionDescription,
           persona,
           languageStyle:
-            "Use mixed English with light Traditional Chinese/Cantonese spatial phrasing where natural. Keep claims cautious and grounded in visible cues."
+            "Use a warm persona voice with light Traditional Chinese/Cantonese spatial phrasing where natural. Prioritize situated story and agent perspective over neutral description. Keep factual claims cautious and grounded in visible cues."
         })
       }
     ]
@@ -96,25 +105,26 @@ export async function generateNarratives(
 
 function fallbackNarratives(vision: VisionDescription, persona?: GeneratedPersona): SchemaNarratives {
   const cues = vision.visibleCues.slice(0, 3).join(", ") || "visible material cues";
-  const lens = persona
-    ? ` From ${persona.name}'s lens, ${persona.interpretiveLens.toLowerCase()}`
+  const name = persona?.name || "the guide";
+  const memory = persona?.background
+    ? ` In his fictional background, ${persona.background.toLowerCase()}`
     : "";
   return {
     functionalUse: {
       title: "Functional-Use",
-      text: `This fragment appears to center on ${vision.mainFeature}. The visible cues, including ${cues}, may suggest how the place supports movement, access, boundary-making, or everyday orientation.${lens} The reading stays cautious: it can help users notice where to move, pause, or avoid crossing in this Hong Kong street setting.`
+      text: `${name} would first read ${vision.mainFeature} as a practical street detail, not just an object. The visible cues, including ${cues}, may suggest where people pass, wait, avoid crossing, or understand a boundary.${memory} He might say it reminds him of ordinary shopfronts and walkway edges near older Hong Kong streets, while still admitting that the crop cannot prove the actual history of this place.`
     },
     identityBelonging: {
       title: "Identity-Belonging",
-      text: `The fragment can be read as part of how the place becomes legible and approachable. Its form, condition, and relation to nearby surfaces may affect whether the setting feels enterable, familiar, or socially comfortable. The crop does not verify who uses the place, but it could help users notice how small spatial details shape a sense of access and belonging.`
+      text: `From ${name}'s point of view, this fragment shapes whether the place feels approachable or slightly held back. Its form, condition, and relation to nearby surfaces may affect whether someone feels invited to step closer, slow down, or keep moving. He would not claim who belongs here, but he might notice how small thresholds, shutters, signs, railings, or worn surfaces make a street feel familiar, guarded, or socially readable.`
     },
     memoryTemporality: {
       title: "Memory-Temporality",
-      text: `Visible traces in the selected area may suggest repeated routines, maintenance, weathering, or gradual change over time. The fragment does not prove a specific history, but its surfaces and arrangement can invite attention to how ordinary use leaves marks. It could help users consider the place as something maintained and encountered repeatedly rather than as a static scene.`
+      text: `${name} might treat the visible traces as reminders of repeated routines: opening and closing, cleaning and neglect, repainting and weathering, passing by and pausing. The fragment does not prove a specific past, so he would phrase it carefully: it looks like the kind of detail that gathers time. It may recall neighbourhood shops, stair landings, or street corners he has known, without turning that personal memory into a fact about this exact site.`
     },
     socialCulturalResonance: {
       title: "Social-Cultural Resonance",
-      text: `This detail may connect to shared expectations about public order, access, and collective use. Without inferring community facts, the fragment can be interpreted as part of the practical rules that organize how people move through or share the space. It could help users notice how small urban elements quietly support common rhythms and social coordination.`
+      text: `For ${name}, this fragment can be read as part of the quiet etiquette of shared streets. It may guide how people queue, pass, keep distance, respect a shop edge, or understand what is public and what is not. He would connect it to everyday Hong Kong habits, not as verified community history, but as a way to notice how modest street elements help people coordinate movement, attention, and small acts of mutual accommodation.`
     }
   };
 }

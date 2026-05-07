@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Play, Square } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { runtimeConfigToHeaders, type RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { GeneratedPersona, SchemaNarratives } from "@/types";
 
@@ -15,6 +15,7 @@ export function TtsControls({ narratives, persona, config }: Props) {
   const [status, setStatus] = useState<"idle" | "loading" | "playing" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const autoPlayedKeyRef = useRef<string | null>(null);
   const storyText = useMemo(() => {
     if (!narratives) return "";
     return [
@@ -25,7 +26,15 @@ export function TtsControls({ narratives, persona, config }: Props) {
     ].join("\n\n");
   }, [narratives]);
 
-  async function play() {
+  useEffect(() => {
+    if (!storyText) return;
+    const key = `${persona?.id || "no-persona"}:${storyText.slice(0, 80)}`;
+    if (autoPlayedKeyRef.current === key) return;
+    autoPlayedKeyRef.current = key;
+    void play({ automatic: true });
+  }, [persona?.id, storyText]);
+
+  async function play(options?: { automatic?: boolean }) {
     if (!storyText) return;
     stop();
     setMessage(null);
@@ -33,9 +42,11 @@ export function TtsControls({ narratives, persona, config }: Props) {
     setStatus("loading");
     try {
       const provider =
-        config.ttsProvider === "local-open-source" || config.ttsProvider === "minimax"
+        config.ttsProvider === "local-open-source" ||
+        config.ttsProvider === "minimax" ||
+        config.ttsProvider === "elevenlabs"
           ? config.ttsProvider
-          : "elevenlabs";
+          : undefined;
       const res = await fetch("/api/tts/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...runtimeConfigToHeaders(config) },
@@ -69,7 +80,9 @@ export function TtsControls({ narratives, persona, config }: Props) {
       setStatus("error");
       const message = error instanceof Error ? error.message : "TTS failed.";
       setMessage(
-        message.includes("Audio narration is optional")
+        options?.automatic && message.includes("play()")
+          ? "Audio is ready. Browser autoplay was blocked; press Play to listen."
+          : message.includes("Audio narration is optional")
           ? "Audio narration is optional on this deployment. The story text remains available."
           : message
       );
@@ -93,14 +106,16 @@ export function TtsControls({ narratives, persona, config }: Props) {
               ? "Local open-source TTS sidecar."
               : config.ttsProvider === "minimax"
                 ? "MiniMax cloud TTS."
-              : "ElevenLabs cloud TTS."}
+                : config.ttsProvider === "elevenlabs"
+                  ? "ElevenLabs cloud TTS."
+                  : "Server-configured cloud TTS."}
           </p>
         </div>
         <div className="flex gap-2">
           <button
             type="button"
             disabled={!storyText || status === "loading"}
-            onClick={play}
+            onClick={() => play()}
             className="inline-flex h-9 items-center gap-2 rounded-md bg-ink px-3 text-sm font-medium text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}

@@ -8,7 +8,7 @@ Use only the provided sceneVisualDescription and spatially cautious interpretati
 
 Each persona should help a user notice a different relationship between place fragments and everyday spatial experience.
 
-The persona background should feel like a vivid but clearly fictional guide character, not a factual claim about the photographed place. Give each persona a grounded Hong Kong life texture: age range, occupation or past occupation, daily habits, food preferences, leisure interests, and a way of speaking. Do not say the person actually lives at, owns, represents, or historically belongs to the selected street.
+The persona background should feel like a vivid but clearly fictional male guide character, not a factual claim about the photographed place. Give each persona a grounded Hong Kong life texture: age range, occupation or past occupation, daily habits, food preferences, leisure interests, and a way of speaking. For now all personas must be male. Do not say the person actually lives at, owns, represents, or historically belongs to the selected street.
 
 Return strict JSON:
 {
@@ -23,7 +23,7 @@ Return strict JSON:
       "voiceProfile": {
         "accent": "hong-kong-english" | "cantonese-leaning" | "neutral-british" | "neutral",
         "englishFluency": "limited" | "conversational" | "fluent",
-        "gender": "male" | "female",
+        "gender": "male",
         "age": "young" | "middle" | "older",
         "pace": "slow" | "normal" | "fast",
         "tone": "reflective" | "casual" | "documentary" | "warm",
@@ -91,16 +91,16 @@ export function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
   return [
     {
       id: "threshold-reader",
-      name: "Mrs. Lau Mei-han",
+      name: "Mr. Lau Wai-kin",
       role: "A retired primary-school teacher who notices entrances, edges, and small rules of movement.",
       background:
-        "Fictional guide: 56, born and raised in Hong Kong, taught primary school for three decades, likes morning tea, pork chop rice, and watching horse racing with old colleagues. She speaks carefully, with a teacher's habit of pointing out what people may miss.",
+        "Fictional guide: 56, born and raised in Hong Kong, taught primary school for three decades, likes morning tea, pork chop rice, and watching horse racing with old colleagues. He speaks carefully, with a teacher's habit of pointing out what people may miss.",
       interpretiveLens: `Reads this ${source} through access, boundaries, and how people may understand where to enter, pause, or pass.`,
-      voiceHint: "Hong Kong bilingual, mature female, teacherly warmth",
+      voiceHint: "Hong Kong bilingual, mature male, teacherly warmth",
       voiceProfile: {
         accent: "hong-kong-english",
         englishFluency: "fluent",
-        gender: "female",
+        gender: "male",
         age: "middle",
         pace: "normal",
         tone: "documentary",
@@ -131,16 +131,16 @@ export function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
     },
     {
       id: "public-order-guide",
-      name: "Chloe Tang",
+      name: "Jason Tang",
       role: "A young community arts producer who notices how public space feels shared, readable, and socially comfortable.",
       background:
-        "Fictional guide: 29, grew up between housing estates and MTR exits, works on small neighbourhood exhibitions, likes cha chaan teng set lunches, indie bookshops, and late tram rides. She speaks with quick curiosity and gentle humour.",
+        "Fictional guide: 29, grew up between housing estates and MTR exits, works on small neighbourhood exhibitions, likes cha chaan teng set lunches, indie bookshops, and late tram rides. He speaks with quick curiosity and gentle humour.",
       interpretiveLens: `Reads this ${source} through public order, shared norms, navigation, and small cues that organize collective use.`,
-      voiceHint: "Young Hong Kong English, warm, curious, lightly playful",
+      voiceHint: "Young Hong Kong English male, warm, curious, lightly playful",
       voiceProfile: {
         accent: "neutral-british",
         englishFluency: "fluent",
-        gender: "female",
+        gender: "male",
         age: "young",
         pace: "normal",
         tone: "warm",
