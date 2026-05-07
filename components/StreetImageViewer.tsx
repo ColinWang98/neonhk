@@ -74,10 +74,11 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
           zoom: 1,
           visible: true,
           motionTracking: false,
-          motionTrackingControl: true,
-          addressControl: true,
-          linksControl: true,
-          panControl: true,
+          motionTrackingControl: false,
+          addressControl: false,
+          linksControl: false,
+          panControl: false,
+          fullscreenControl: false,
           enableCloseButton: false
         });
         const currentPanorama = panorama;
@@ -112,7 +113,7 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
 
   return (
     <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-md">
-      <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
+      <div className="flex items-center justify-between gap-4 border-b border-ink/10 px-5 py-4">
         <div>
           <p className="fine-label">Panorama / 全景图</p>
           <h2 className="mt-1 text-sm font-semibold text-ink">Street Image Viewer / 街道图像查看器</h2>
@@ -120,7 +121,20 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
             {image ? `${providerLabel(image.provider)} image ${image.id}` : "Select a marker to begin"}
           </p>
         </div>
-        {busy ? <LoadingState label="Processing fragment" /> : null}
+        <div className="flex items-center gap-3">
+          {busy ? <LoadingState label="Processing fragment" /> : null}
+          {image?.provider === "google" && googleMapsApiKey ? (
+            <button
+              type="button"
+              disabled={busy || googleStatus !== "ready"}
+              onClick={() => setGoogleSelecting((value) => !value)}
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              <Crosshair className="h-4 w-4" />
+              {googleSelecting ? "退出框选" : "开始框选"}
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="relative min-h-0 flex-1 bg-[#121514]">
         {image?.provider === "google" ? (
@@ -155,19 +169,12 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
                     }}
                   />
                 ) : null}
-                <button
-                  type="button"
-                  disabled={busy || googleStatus !== "ready"}
-                  onClick={() => setGoogleSelecting((value) => !value)}
-                  className="absolute right-4 top-4 inline-flex h-11 items-center gap-2 rounded-md border border-white/25 bg-paper px-4 text-sm font-semibold text-ink shadow-lg backdrop-blur transition hover:bg-field disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Crosshair className="h-3.5 w-3.5" />
-                  {googleSelecting ? "Cancel selection" : "框选 Fragment"}
-                </button>
                 {googleSelecting ? (
-                  <div className="pointer-events-none absolute left-4 top-4 z-[40] inline-flex items-center gap-2 rounded-md border border-white/25 bg-ink/85 px-3 py-2 text-xs text-white shadow-lg">
-                    <MousePointer2 className="h-3.5 w-3.5" />
-                    Drag on the panorama to box-select a spatial fragment.
+                  <div className="pointer-events-none absolute inset-0 z-[30] border-[3px] border-signal bg-signal/10">
+                    <div className="absolute left-4 top-4 inline-flex max-w-[360px] items-center gap-2 rounded-md border border-white/25 bg-ink/90 px-4 py-3 text-sm font-medium text-white shadow-lg">
+                      <MousePointer2 className="h-4 w-4 shrink-0" />
+                      在全景图上按住鼠标拖拽，框选一个 place fragment
+                    </div>
                   </div>
                 ) : null}
                 {googleStatus === "loading" ? (

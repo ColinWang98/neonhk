@@ -16,7 +16,7 @@ export function BoxSelectionLayer({ disabled, onSelect }: Props) {
   return (
     <div
       ref={layerRef}
-      className="absolute inset-0 cursor-crosshair touch-none"
+      className="absolute inset-0 z-[50] cursor-crosshair touch-none"
       onPointerDown={(event) => {
         if (disabled || !layerRef.current) return;
         const rect = layerRef.current.getBoundingClientRect();
