@@ -312,6 +312,9 @@ export default function StoryPage() {
                   >
                     <h3 className="text-sm font-semibold text-ink">{persona.name}</h3>
                     <p className="mt-2 text-sm leading-6 text-ink/72">{persona.role}</p>
+                    {persona.background ? (
+                      <p className="mt-3 text-xs leading-5 text-ink/66">{persona.background}</p>
+                    ) : null}
                     <p className="mt-3 text-xs leading-5 text-ink/58">{persona.interpretiveLens}</p>
                     <p className="mt-4 rounded bg-field px-2 py-1 text-[11px] text-ink/60">
                       {persona.voiceHint}
@@ -323,8 +326,8 @@ export default function StoryPage() {
           </div>
         </section>
       ) : (
-        <section className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(520px,1fr)_420px]">
-          <div className="grid min-h-0 grid-rows-[minmax(360px,1fr)_minmax(170px,0.45fr)] gap-5">
+        <section className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(720px,1fr)_360px]">
+          <div className="grid min-h-0 grid-rows-[minmax(560px,1fr)_130px] gap-5">
             <StreetImageViewer
               image={selectedImage}
               busy={processing}
@@ -372,6 +375,9 @@ function PersonaBadge({
           <p className="fine-label">Persona</p>
           <h2 className="mt-1 text-sm font-semibold text-ink">{persona.name}</h2>
           <p className="mt-1 text-sm leading-6 text-ink/70">{persona.role}</p>
+          {persona.background ? (
+            <p className="mt-2 text-xs leading-5 text-ink/64">{persona.background}</p>
+          ) : null}
           <p className="mt-2 text-xs leading-5 text-ink/60">{persona.interpretiveLens}</p>
         </div>
         <button type="button" onClick={onChange} className="text-xs text-ink/55 hover:text-ink">

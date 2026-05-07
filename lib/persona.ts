@@ -2,11 +2,13 @@ import { createAiClient } from "@/lib/aiProvider";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { GeneratedPersona, SceneVisualDescription, StreetImage } from "@/types";
 
-const personaPrompt = `Generate three scene-grounded interpretive personas for a Hong Kong street-view scene.
+const personaPrompt = `Generate three scene-grounded fictional interpretive personas for a Hong Kong street-view scene.
 
 Use only the provided sceneVisualDescription and spatially cautious interpretation. Do not invent historical facts, demographic identities, private information, ownership, events, or community stories.
 
 Each persona should help a user notice a different relationship between place fragments and everyday spatial experience.
+
+The persona background should feel like a vivid but clearly fictional guide character, not a factual claim about the photographed place. Give each persona a grounded Hong Kong life texture: age range, occupation or past occupation, daily habits, food preferences, leisure interests, and a way of speaking. Do not say the person actually lives at, owns, represents, or historically belongs to the selected street.
 
 Return strict JSON:
 {
@@ -15,6 +17,7 @@ Return strict JSON:
       "id": string,
       "name": string,
       "role": string,
+      "background": string,
       "interpretiveLens": string,
       "voiceHint": string,
       "voiceProfile": {
@@ -54,7 +57,7 @@ export async function generatePersonas(params: {
           image: params.image,
           sceneVisualDescription: params.sceneVisualDescription,
           languageStyle:
-            "Persona names and roles should be concise English. Interpretive lens can use light Hong Kong bilingual phrasing where natural."
+            "Persona names and roles should be concise English. Backgrounds should be warm, specific, and human, with light Hong Kong bilingual phrasing where natural."
         })
       }
     ]
@@ -88,10 +91,12 @@ export function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
   return [
     {
       id: "threshold-reader",
-      name: "Threshold Reader",
-      role: "A cautious observer of entrances, edges, and transitions.",
+      name: "Mrs. Lau Mei-han",
+      role: "A retired primary-school teacher who notices entrances, edges, and small rules of movement.",
+      background:
+        "Fictional guide: 56, born and raised in Hong Kong, taught primary school for three decades, likes morning tea, pork chop rice, and watching horse racing with old colleagues. She speaks carefully, with a teacher's habit of pointing out what people may miss.",
       interpretiveLens: `Reads this ${source} through access, boundaries, and how people may understand where to enter, pause, or pass.`,
-      voiceHint: "Hong Kong bilingual, calm, spatially attentive",
+      voiceHint: "Hong Kong bilingual, mature female, teacherly warmth",
       voiceProfile: {
         accent: "hong-kong-english",
         englishFluency: "fluent",
@@ -106,10 +111,12 @@ export function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
     },
     {
       id: "routine-listener",
-      name: "Routine Listener",
-      role: "A listener for everyday repetition, maintenance, and movement.",
+      name: "Uncle Ming",
+      role: "A former minibus dispatcher who reads streets through routine, waiting, and repeated movement.",
+      background:
+        "Fictional guide: 68, spent much of his working life around kerbs, queues, and transport stops. He enjoys milk tea, newspaper racing pages, and slow walks after dinner. His comments are practical, observant, and slightly nostalgic.",
       interpretiveLens: `Reads this ${source} through daily routes, repeated use, waiting, wear, and ordinary maintenance.`,
-      voiceHint: "Cantonese leaning, reflective, everyday rhythm",
+      voiceHint: "Cantonese leaning, older male, reflective street rhythm",
       voiceProfile: {
         accent: "cantonese-leaning",
         englishFluency: "conversational",
@@ -124,10 +131,12 @@ export function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
     },
     {
       id: "public-order-guide",
-      name: "Public Order Guide",
-      role: "A guide to how shared space is organized and made legible.",
+      name: "Chloe Tang",
+      role: "A young community arts producer who notices how public space feels shared, readable, and socially comfortable.",
+      background:
+        "Fictional guide: 29, grew up between housing estates and MTR exits, works on small neighbourhood exhibitions, likes cha chaan teng set lunches, indie bookshops, and late tram rides. She speaks with quick curiosity and gentle humour.",
       interpretiveLens: `Reads this ${source} through public order, shared norms, navigation, and small cues that organize collective use.`,
-      voiceHint: "English narrator with Hong Kong place sensitivity",
+      voiceHint: "Young Hong Kong English, warm, curious, lightly playful",
       voiceProfile: {
         accent: "neutral-british",
         englishFluency: "fluent",
@@ -151,6 +160,10 @@ function normalizePersonas(personas: GeneratedPersona[] | undefined, image: Stre
     id: persona.id || fallback[index]?.id || `persona-${index + 1}`,
     name: persona.name || fallback[index]?.name || `Persona ${index + 1}`,
     role: persona.role || fallback[index]?.role || "A cautious spatial observer.",
+    background:
+      persona.background ||
+      fallback[index]?.background ||
+      "Fictional guide with a grounded Hong Kong everyday perspective.",
     interpretiveLens:
       persona.interpretiveLens ||
       fallback[index]?.interpretiveLens ||

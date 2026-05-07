@@ -1,6 +1,6 @@
 "use client";
 
-import { Crosshair, ImageIcon } from "lucide-react";
+import { Crosshair, ImageIcon, MousePointer2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BoxSelectionLayer } from "@/components/BoxSelectionLayer";
 import { LoadingState } from "@/components/LoadingState";
@@ -114,8 +114,8 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
     <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-md">
       <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
         <div>
-          <p className="fine-label">Panorama</p>
-          <h2 className="mt-1 text-sm font-semibold text-ink">Street Image Viewer</h2>
+          <p className="fine-label">Panorama / 全景图</p>
+          <h2 className="mt-1 text-sm font-semibold text-ink">Street Image Viewer / 街道图像查看器</h2>
           <p className="mt-1 text-xs text-ink/58">
             {image ? `${providerLabel(image.provider)} image ${image.id}` : "Select a marker to begin"}
           </p>
@@ -159,11 +159,17 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, onFragmentSel
                   type="button"
                   disabled={busy || googleStatus !== "ready"}
                   onClick={() => setGoogleSelecting((value) => !value)}
-                  className="absolute right-3 top-3 inline-flex h-9 items-center gap-2 rounded-md border border-white/20 bg-paper/95 px-3 text-xs font-medium text-ink shadow-sm backdrop-blur transition hover:bg-field disabled:cursor-not-allowed disabled:opacity-60"
+                  className="absolute right-4 top-4 inline-flex h-11 items-center gap-2 rounded-md border border-white/25 bg-paper px-4 text-sm font-semibold text-ink shadow-lg backdrop-blur transition hover:bg-field disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Crosshair className="h-3.5 w-3.5" />
-                  {googleSelecting ? "Cancel selection" : "Select fragment"}
+                  {googleSelecting ? "Cancel selection" : "框选 Fragment"}
                 </button>
+                {googleSelecting ? (
+                  <div className="pointer-events-none absolute left-4 top-4 z-[40] inline-flex items-center gap-2 rounded-md border border-white/25 bg-ink/85 px-3 py-2 text-xs text-white shadow-lg">
+                    <MousePointer2 className="h-3.5 w-3.5" />
+                    Drag on the panorama to box-select a spatial fragment.
+                  </div>
+                ) : null}
                 {googleStatus === "loading" ? (
                   <div className="absolute bottom-3 left-3 rounded-md border border-white/20 bg-paper/95 px-3 py-2 shadow-sm backdrop-blur">
                     <LoadingState label="Loading Street View" />
