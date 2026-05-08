@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiConfigButton } from "@/components/ApiConfigModal";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SelectedFragmentList } from "@/components/SelectedFragmentList";
-import { StreetImageViewer } from "@/components/StreetImageViewer";
+import { StreetImageViewer, type FragmentSelectionMeta } from "@/components/StreetImageViewer";
 import { TtsControls, type CaptionState } from "@/components/TtsControls";
 import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
 import {
@@ -19,6 +19,7 @@ import { useExplorerStore } from "@/lib/store";
 import type {
   GeneratedPersona,
   ImageCropBox,
+  PlaceContext,
   SchemaNarratives,
   ScreenBox,
   SelectedFragment,
@@ -129,6 +130,7 @@ export default function StoryPage() {
 
   function choosePersona(persona: GeneratedPersona) {
     setSelectedPersona(persona);
+    setCaption(null);
     if (storySession) {
       const nextSession = { ...storySession, selectedPersona: persona };
       setStorySession(nextSession);
@@ -137,10 +139,65 @@ export default function StoryPage() {
     }
   }
 
+  useEffect(() => {
+    if (!readyFragment?.visionDescription || !selectedPersona) return;
+    if (readyFragment.narrativePersonaId === selectedPersona.id) return;
+
+    let cancelled = false;
+    const fragmentId = readyFragment.id;
+    const visionDescription = readyFragment.visionDescription;
+    const placeContext = readyFragment.placeContext;
+    setCaption(null);
+
+    fetch("/api/narrative/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...runtimeHeaders },
+      body: JSON.stringify({
+        fragmentId,
+        sessionId: storySession?.id,
+        visionDescription,
+        persona: selectedPersona,
+        placeContext
+      })
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Narrative generation failed.");
+        return data as SchemaNarratives;
+      })
+      .then((narratives) => {
+        if (cancelled) return;
+        updateFragment(fragmentId, {
+          narratives,
+          narrativePersonaId: selectedPersona.id,
+          status: "ready"
+        });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Narrative generation failed.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    readyFragment?.id,
+    readyFragment?.narrativePersonaId,
+    readyFragment?.placeContext,
+    readyFragment?.visionDescription,
+    runtimeHeaders,
+    selectedPersona,
+    setCaption,
+    storySession?.id,
+    updateFragment
+  ]);
+
   async function handleFragmentSelected(
     screenBox: ScreenBox,
     cropBox: ImageCropBox,
-    sourceImageUrl?: string
+    sourceImageUrl?: string,
+    selectionMeta?: FragmentSelectionMeta
   ) {
     if (!selectedImage) return;
 
@@ -212,6 +269,7 @@ export default function StoryPage() {
       }
 
       updateFragment(cropData.fragmentId, { visionDescription, status: "generating" });
+      const placeContext = await fetchPlaceContext(selectedImage, selectionMeta, runtimeHeaders);
 
       const narrativeRes = await fetch("/api/narrative/generate", {
         method: "POST",
@@ -220,13 +278,19 @@ export default function StoryPage() {
           fragmentId: cropData.fragmentId,
           sessionId: storySession?.id,
           visionDescription,
-          persona: selectedPersona
+          persona: selectedPersona,
+          placeContext
         })
       });
       const narratives = (await narrativeRes.json()) as SchemaNarratives & { error?: string };
       if (!narrativeRes.ok) throw new Error(narratives.error || "Narrative generation failed.");
 
-      updateFragment(cropData.fragmentId, { narratives, status: "ready" });
+      updateFragment(cropData.fragmentId, {
+        narratives,
+        narrativePersonaId: selectedPersona?.id,
+        placeContext,
+        status: "ready"
+      });
       if (storySession) {
         const nextFragmentIds = Array.from(new Set([cropData.fragmentId, ...storySession.fragmentIds]));
         const nextSession = {
@@ -343,8 +407,8 @@ export default function StoryPage() {
           </div>
         </section>
       ) : (
-        <section className="grid min-h-0 flex-1 grid-rows-[minmax(520px,0.62fr)_minmax(340px,0.38fr)] gap-5">
-          <div className="grid min-h-0 gap-5 lg:grid-cols-[minmax(720px,1fr)_380px]">
+        <section className="grid min-h-0 flex-1 grid-rows-[minmax(660px,1fr)_minmax(220px,0.26fr)] gap-5">
+          <div className="grid min-h-0 gap-5 lg:grid-cols-[minmax(860px,1fr)_340px]">
             <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
               <StreetImageViewer
                 image={selectedImage}
@@ -486,6 +550,34 @@ function getSceneSnapshotUrl(image: StreetImage, config: RuntimeApiConfig) {
   }
 
   return image.fullUrl || image.thumbUrl;
+}
+
+async function fetchPlaceContext(
+  image: StreetImage,
+  selectionMeta: FragmentSelectionMeta | undefined,
+  runtimeHeaders: Record<string, string>
+): Promise<PlaceContext | undefined> {
+  if (image.provider !== "google") return undefined;
+
+  const params = new URLSearchParams({
+    lat: String(image.lat),
+    lng: String(image.lng),
+    radius: "120"
+  });
+  if (Number.isFinite(selectionMeta?.heading)) {
+    params.set("heading", String(selectionMeta?.heading));
+  }
+
+  try {
+    const res = await fetch(`/api/google/context?${params.toString()}`, {
+      headers: runtimeHeaders
+    });
+    const data = (await res.json()) as { context?: PlaceContext; error?: string };
+    if (!res.ok) return undefined;
+    return data.context;
+  } catch {
+    return undefined;
+  }
 }
 
 async function logClientEvent(

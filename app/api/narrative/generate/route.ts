@@ -5,13 +5,14 @@ import { persistFragment } from "@/lib/fragments";
 import { logEvent } from "@/lib/logger";
 import { generateNarratives } from "@/lib/narrative";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
-import type { GeneratedPersona, VisionDescription } from "@/types";
+import type { GeneratedPersona, PlaceContext, VisionDescription } from "@/types";
 
 type NarrativeRequest = {
   fragmentId: string;
   sessionId?: string;
   visionDescription: VisionDescription;
   persona?: GeneratedPersona;
+  placeContext?: PlaceContext;
 };
 
 export async function POST(request: NextRequest) {
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     const startedAt = performance.now();
     const aiDiagnostics = getAiProviderDiagnostics(config);
-    const narratives = await generateNarratives(body.visionDescription, config, body.persona);
+    const narratives = await generateNarratives(body.visionDescription, config, body.persona, body.placeContext);
     await logAiGeneration(
       {
         sessionId: body.sessionId,
@@ -36,7 +37,8 @@ export async function POST(request: NextRequest) {
         status: "success",
         inputSummary: {
           visionDescription: body.visionDescription,
-          personaId: body.persona?.id
+          personaId: body.persona?.id,
+          placeContext: body.placeContext
         },
         output: narratives,
         durationMs: Math.round(performance.now() - startedAt)

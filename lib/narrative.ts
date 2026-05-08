@@ -1,6 +1,6 @@
 import { createAiClient } from "@/lib/aiProvider";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
-import type { GeneratedPersona, SchemaNarratives, VisionDescription } from "@/types";
+import type { GeneratedPersona, PlaceContext, SchemaNarratives, VisionDescription } from "@/types";
 
 const narrativePrompt = `You are generating spoken place stories for a user-selected street-level image fragment.
 
@@ -8,6 +8,7 @@ Use only:
 1. visually observable cues from the crop
 2. cautious interpretation
 3. the selected fictional persona as a narrator's lens
+4. optional nearby place context, only as approximate context around the panorama coordinate
 
 Do not invent:
 - historical facts
@@ -21,6 +22,7 @@ Do not invent:
 Important distinction:
 - You may let the persona speak from personal habits, memories, and comparisons, e.g. "this reminds me of the small shops near my old flat".
 - You must not claim an unverifiable fact about the actual photographed place, e.g. do not write "this shop used to be a fish shop" unless the visual evidence says so.
+- If nearby place context is provided, use it carefully: you may say a named shop or address is nearby, but do not say it is the selected fragment unless the crop itself visually supports that.
 - Use first-person persona perspective by default. The writing should feel like the narrator is standing here, speaking to one visitor beside them.
 - Make it oral and human: short sentences, natural rhythm, small reactions, light hesitation, and concrete everyday comparisons.
 - Avoid academic or report-like language. Do not sound like an image caption, urban studies abstract, or museum label.
@@ -73,12 +75,13 @@ Return strict JSON with this shape:
 export async function generateNarratives(
   visionDescription: VisionDescription,
   config: RuntimeApiConfig = {},
-  persona?: GeneratedPersona
+  persona?: GeneratedPersona,
+  placeContext?: PlaceContext
 ): Promise<SchemaNarratives> {
   const ai = createAiClient(config, "text");
 
   if (!ai) {
-    return fallbackNarratives(visionDescription, persona);
+    return fallbackNarratives(visionDescription, persona, placeContext);
   }
 
   const response = await ai.client.chat.completions.create({
@@ -92,6 +95,7 @@ export async function generateNarratives(
         content: JSON.stringify({
           visionDescription,
           persona,
+          placeContext,
           languageStyle:
             "Default to English. Write like natural spoken subtitles for TTS: first-person, conversational, concrete, and slightly personal. Keep the schema logic hidden. Do not use headings inside text. Avoid stiff phrases like 'visible cues indicate', 'this fragment shapes', or 'social-cultural resonance'. Keep factual claims cautious and grounded in observable details."
         })
@@ -107,7 +111,7 @@ export async function generateNarratives(
   return JSON.parse(content) as SchemaNarratives;
 }
 
-function fallbackNarratives(vision: VisionDescription, persona?: GeneratedPersona): SchemaNarratives {
+function fallbackNarratives(vision: VisionDescription, persona?: GeneratedPersona, placeContext?: PlaceContext): SchemaNarratives {
   const cues = vision.visibleCues.slice(0, 3).join(", ") || "visible material cues";
   const name = persona?.name || "the guide";
   const subjective = persona?.voiceProfile?.gender === "female" ? "she" : "he";
@@ -117,10 +121,13 @@ function fallbackNarratives(vision: VisionDescription, persona?: GeneratedPerson
   const memory = persona?.background
     ? ` In ${possessive} fictional background, ${persona.background.toLowerCase()}`
     : "";
+  const localContext = placeContext?.places[0]
+    ? ` Around here, Google Maps also places ${placeContext.places[0].name} ${placeContext.places[0].relativeDirection || "nearby"}, so I would treat the wider location carefully rather than guessing from the crop alone.`
+    : "";
   return {
     functionalUse: {
       title: "Functional-Use",
-      text: `I would stop at ${vision.mainFeature} first, because small things like this tell you how to move. With ${cues}, it feels like a little street instruction: pass here, wait there, don't cross too quickly.${memory} ${name} might say it reminds ${objective} of older Hong Kong shopfronts and pavement edges. I can't know the real history from one crop, but I can feel how it organizes ordinary movement.`
+      text: `I would stop at ${vision.mainFeature} first, because small things like this tell you how to move. With ${cues}, it feels like a little street instruction: pass here, wait there, don't cross too quickly.${memory}${localContext} ${name} might say it reminds ${objective} of older Hong Kong shopfronts and pavement edges. I can't know the real history from one crop, but I can feel how it organizes ordinary movement.`
     },
     identityBelonging: {
       title: "Identity-Belonging",

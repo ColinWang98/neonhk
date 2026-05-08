@@ -27,7 +27,7 @@ export function TtsControls({ narratives, persona, config, language = "en", onCa
   const [progress, setProgress] = useState(0);
   const [durationLabel, setDurationLabel] = useState("0:00");
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const autoPlayedKeyRef = useRef<string | null>(null);
+  const requestIdRef = useRef(0);
   const storyText = useMemo(() => {
     if (!narratives) return "";
     return [
@@ -40,6 +40,7 @@ export function TtsControls({ narratives, persona, config, language = "en", onCa
   const captionSegments = useMemo(() => splitCaptionSegments(storyText), [storyText]);
 
   const stop = useCallback(() => {
+    requestIdRef.current += 1;
     audioRef.current?.pause();
     audioRef.current = null;
     setProgress(0);
@@ -47,9 +48,10 @@ export function TtsControls({ narratives, persona, config, language = "en", onCa
     setStatus("idle");
   }, [onCaptionChange]);
 
-  const play = useCallback(async (options?: { automatic?: boolean }) => {
+  const play = useCallback(async () => {
     if (!storyText) return;
     stop();
+    const requestId = requestIdRef.current;
     setMessage(null);
     setProgress(0);
 
@@ -73,6 +75,7 @@ export function TtsControls({ narratives, persona, config, language = "en", onCa
         })
       });
       const data = await res.json();
+      if (requestId !== requestIdRef.current) return;
       if (!res.ok || !data.audioUrl) {
         throw new Error(data.error || "TTS returned no audio URL.");
       }
@@ -82,6 +85,10 @@ export function TtsControls({ narratives, persona, config, language = "en", onCa
           : null
       );
       const audio = new Audio(data.audioUrl);
+      if (requestId !== requestIdRef.current) {
+        audio.pause();
+        return;
+      }
       audioRef.current = audio;
       audio.onloadedmetadata = () => {
         setDurationLabel(formatTime(audio.duration || 0));
@@ -119,12 +126,11 @@ export function TtsControls({ narratives, persona, config, language = "en", onCa
       }
       await audio.play();
     } catch (error) {
+      if (requestId !== requestIdRef.current) return;
       setStatus("error");
       const message = error instanceof Error ? error.message : "TTS failed.";
       setMessage(
-        options?.automatic && message.includes("play()")
-          ? "Audio is ready. Browser autoplay was blocked; press Play to listen."
-          : message.includes("Audio narration is optional")
+        message.includes("Audio narration is optional")
           ? "Audio narration is optional on this deployment. The story text remains available."
           : message
       );
@@ -133,12 +139,9 @@ export function TtsControls({ narratives, persona, config, language = "en", onCa
   }, [captionSegments, config, onCaptionChange, persona, stop, storyText]);
 
   useEffect(() => {
-    if (!storyText) return;
-    const key = `${persona?.id || "no-persona"}:${storyText.slice(0, 80)}`;
-    if (autoPlayedKeyRef.current === key) return;
-    autoPlayedKeyRef.current = key;
-    void play({ automatic: true });
-  }, [persona?.id, play, storyText]);
+    stop();
+    return stop;
+  }, [persona?.id, stop, storyText]);
 
   return (
     <div className="surface-panel rounded-md p-4">

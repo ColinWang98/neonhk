@@ -40,6 +40,24 @@ export type SceneVisualDescription = {
   uncertainty: string;
 };
 
+export type NearbyPlace = {
+  name: string;
+  type?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  distanceMeters?: number;
+  bearingFromScene?: number;
+  relativeDirection?: "ahead" | "left" | "right" | "behind" | "nearby";
+};
+
+export type PlaceContext = {
+  address?: string;
+  heading?: number;
+  places: NearbyPlace[];
+  uncertainty: string;
+};
+
 export type TtsProvider = "local-open-source" | "elevenlabs" | "minimax";
 
 export type StorySession = {
@@ -121,6 +139,8 @@ export type SelectedFragment = {
   cropImageUrl?: string;
   visionDescription?: VisionDescription;
   narratives?: SchemaNarratives;
+  narrativePersonaId?: string;
+  placeContext?: PlaceContext;
   status: FragmentStatus;
 };
 

@@ -12,13 +12,24 @@ type Props = {
   busy?: boolean;
   googleMapsApiKey?: string;
   language?: "en" | "zh";
-  onFragmentSelected: (screenBox: ScreenBox, cropBox: ImageCropBox, sourceImageUrl?: string) => void;
+  onFragmentSelected: (
+    screenBox: ScreenBox,
+    cropBox: ImageCropBox,
+    sourceImageUrl?: string,
+    meta?: FragmentSelectionMeta
+  ) => void;
 };
 
 type GooglePov = {
   heading: number;
   pitch: number;
   zoom?: number;
+};
+
+export type FragmentSelectionMeta = {
+  heading?: number;
+  pitch?: number;
+  fov?: number;
 };
 
 type GoogleStreetViewPanorama = {
@@ -122,6 +133,12 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "e
           <p className="mt-1 text-xs text-ink/58">
             {image ? `${providerLabel(image.provider)} image ${image.id}` : "Select a marker to begin"}
           </p>
+          {image ? (
+            <p className="mt-1 text-[11px] text-ink/45">
+              {image.lat.toFixed(5)}, {image.lng.toFixed(5)}
+              {image.provider === "google" ? ` · heading ${Math.round(pov.heading)}° · pitch ${Math.round(pov.pitch)}°` : ""}
+            </p>
+          ) : null}
         </div>
         <div className="flex items-center gap-3">
           {busy ? <LoadingState label={zh ? "正在处理片段" : "Processing fragment"} /> : null}
@@ -167,7 +184,11 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "e
                         fov: 90
                       });
                       setGoogleSelecting(false);
-                      onFragmentSelected(screenBox, cropBox, sourceImageUrl);
+                      onFragmentSelected(screenBox, cropBox, sourceImageUrl, {
+                        heading: pov.heading,
+                        pitch: pov.pitch,
+                        fov: 90
+                      });
                     }}
                   />
                 ) : null}
