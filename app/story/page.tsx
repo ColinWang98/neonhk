@@ -456,12 +456,12 @@ function LiveCaption({
 }) {
   const zh = language === "zh";
   return (
-    <div className="min-h-[72px] rounded-md border border-white/20 bg-[#070707]/95 px-5 py-3 text-white shadow-[0_14px_40px_rgba(0,0,0,0.35)]">
-      <div className="mb-1 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.14em] text-white/60">
+    <div className="min-h-[72px] rounded-md border border-brass/25 bg-paper px-5 py-3 text-brass shadow-[0_12px_30px_rgba(82,61,38,0.12)]">
+      <div className="mb-1 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.14em] text-brass/65">
         <span>{zh ? "实时字幕" : "Live Subtitle"}</span>
         <span>{caption ? `${caption.index + 1}/${caption.total}` : "Idle"}</span>
       </div>
-      <p className="line-clamp-2 text-[17px] font-medium leading-7 text-[#fff7d1] [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
+      <p className="line-clamp-2 text-[17px] font-medium leading-7 text-brass">
         {caption?.text ||
           (ready
             ? zh
