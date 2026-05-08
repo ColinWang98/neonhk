@@ -4,7 +4,7 @@ import { persistFragment } from "@/lib/fragments";
 import { cropImageFragment } from "@/lib/imageCrop";
 import { logEvent } from "@/lib/logger";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
-import type { ImageCropBox, ScreenBox } from "@/types";
+import type { ImageCropBox, PanoramaPov, ScreenBox } from "@/types";
 
 type CropRequest = {
   imageId: string;
@@ -12,6 +12,7 @@ type CropRequest = {
   imageUrl: string;
   screenBox: ScreenBox;
   cropBox: ImageCropBox;
+  panoramaPov?: PanoramaPov;
 };
 
 export async function POST(request: NextRequest) {
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
       screenBox: body.screenBox,
       cropBox: result.cropBox,
       cropImageUrl: result.cropImageUrl,
+      panoramaPov: body.panoramaPov,
       status: "cropping"
     }, config);
 

@@ -15,8 +15,10 @@ type ExplorerState = {
   setStorySession: (session?: StorySession) => void;
   setPersonas: (personas: GeneratedPersona[]) => void;
   setSelectedPersona: (persona?: GeneratedPersona) => void;
+  setFragments: (fragments: SelectedFragment[]) => void;
   addFragment: (fragment: SelectedFragment) => void;
   updateFragment: (id: string, patch: Partial<SelectedFragment>) => void;
+  selectFragment: (id: string) => void;
   resetFragments: () => void;
 };
 
@@ -29,6 +31,7 @@ export const useExplorerStore = create<ExplorerState>((set) => ({
   setStorySession: (storySession) => set({ storySession }),
   setPersonas: (personas) => set({ personas }),
   setSelectedPersona: (selectedPersona) => set({ selectedPersona }),
+  setFragments: (fragments) => set({ fragments }),
   addFragment: (fragment) =>
     set((state) => ({
       fragments: [fragment, ...state.fragments]
@@ -39,5 +42,13 @@ export const useExplorerStore = create<ExplorerState>((set) => ({
         fragment.id === id ? { ...fragment, ...patch } : fragment
       )
     })),
+  selectFragment: (id) =>
+    set((state) => {
+      const fragment = state.fragments.find((item) => item.id === id);
+      if (!fragment) return state;
+      return {
+        fragments: [fragment, ...state.fragments.filter((item) => item.id !== id)]
+      };
+    }),
   resetFragments: () => set({ fragments: [] })
 }));

@@ -1,9 +1,9 @@
 "use client";
 
 import { Loader2, Play, Square } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { runtimeConfigToHeaders, type RuntimeApiConfig } from "@/lib/runtimeConfig";
-import type { GeneratedPersona, SchemaNarratives } from "@/types";
+import type { GeneratedPersona, SchemaNarratives, TtsAudioGeneration } from "@/types";
 
 export type CaptionState = {
   text: string;
@@ -17,10 +17,22 @@ type Props = {
   persona?: GeneratedPersona;
   config: RuntimeApiConfig;
   language?: "en" | "zh";
+  fragmentId?: string;
+  cachedAudio?: TtsAudioGeneration;
   onCaptionChange?: (caption: CaptionState | null) => void;
+  onAudioGenerated?: (entry: TtsAudioGeneration) => void;
 };
 
-export function TtsControls({ narratives, persona, config, language = "en", onCaptionChange }: Props) {
+export function TtsControls({
+  narratives,
+  persona,
+  config,
+  language = "en",
+  fragmentId,
+  cachedAudio,
+  onCaptionChange,
+  onAudioGenerated
+}: Props) {
   const zh = language === "zh";
   const [status, setStatus] = useState<"idle" | "loading" | "playing" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -57,6 +69,21 @@ export function TtsControls({ narratives, persona, config, language = "en", onCa
 
     setStatus("loading");
     try {
+      if (cachedAudio?.audioUrl) {
+        await playAudioUrl(
+          cachedAudio.audioUrl,
+          captionSegments,
+          requestId,
+          requestIdRef,
+          audioRef,
+          onCaptionChange,
+          setStatus,
+          setProgress,
+          setDurationLabel
+        );
+        return;
+      }
+
       const provider =
         config.ttsProvider === "local-open-source" ||
         config.ttsProvider === "minimax" ||
@@ -69,6 +96,7 @@ export function TtsControls({ narratives, persona, config, language = "en", onCa
         body: JSON.stringify({
           text: storyText,
           persona,
+          fragmentId,
           language: "zh-HK-en-mixed",
           format: provider === "local-open-source" ? "wav" : undefined,
           provider
@@ -84,6 +112,16 @@ export function TtsControls({ narratives, persona, config, language = "en", onCa
           ? `Speech adapted with ${data.speechAdaptation}${data.referenceAudio ? `; reference: ${data.referenceAudio.split("/").pop()}` : ""}${data.referencePoolSize ? ` from ${data.referencePoolSize} candidates` : ""}.`
           : null
       );
+      onAudioGenerated?.({
+        cacheKey: data.cacheKey,
+        provider: data.provider,
+        audioUrl: data.audioUrl,
+        durationMs: data.durationMs,
+        speechText: data.speechText,
+        personaId: data.personaId || persona?.id,
+        voiceId: data.voiceId,
+        createdAt: data.createdAt || new Date().toISOString()
+      });
       const audio = new Audio(data.audioUrl);
       if (requestId !== requestIdRef.current) {
         audio.pause();
@@ -136,7 +174,7 @@ export function TtsControls({ narratives, persona, config, language = "en", onCa
       );
       onCaptionChange?.(null);
     }
-  }, [captionSegments, config, onCaptionChange, persona, stop, storyText]);
+  }, [cachedAudio, captionSegments, config, fragmentId, onAudioGenerated, onCaptionChange, persona, stop, storyText]);
 
   useEffect(() => {
     stop();
@@ -200,6 +238,59 @@ export function TtsControls({ narratives, persona, config, language = "en", onCa
       {message ? <p className="mt-3 text-xs leading-5 text-amber-800">{message}</p> : null}
     </div>
   );
+}
+
+async function playAudioUrl(
+  audioUrl: string,
+  captionSegments: string[],
+  requestId: number,
+  requestIdRef: MutableRefObject<number>,
+  audioRef: MutableRefObject<HTMLAudioElement | null>,
+  onCaptionChange: Props["onCaptionChange"],
+  setStatus: Dispatch<SetStateAction<"idle" | "loading" | "playing" | "error">>,
+  setProgress: Dispatch<SetStateAction<number>>,
+  setDurationLabel: Dispatch<SetStateAction<string>>
+) {
+  const audio = new Audio(audioUrl);
+  if (requestId !== requestIdRef.current) {
+    audio.pause();
+    return;
+  }
+  audioRef.current = audio;
+  audio.onloadedmetadata = () => {
+    setDurationLabel(formatTime(audio.duration || 0));
+  };
+  audio.ontimeupdate = () => {
+    const duration = audio.duration || 0;
+    const ratio = duration > 0 ? audio.currentTime / duration : 0;
+    setProgress(Math.min(1, Math.max(0, ratio)));
+    const index = Math.min(
+      captionSegments.length - 1,
+      Math.max(0, Math.floor(ratio * captionSegments.length))
+    );
+    if (captionSegments[index]) {
+      onCaptionChange?.({
+        text: captionSegments[index],
+        index,
+        total: captionSegments.length,
+        active: true
+      });
+    }
+  };
+  audio.onended = () => {
+    setStatus("idle");
+    setProgress(1);
+    onCaptionChange?.(null);
+  };
+  audio.onerror = () => {
+    setStatus("error");
+    onCaptionChange?.(null);
+  };
+  setStatus("playing");
+  if (captionSegments[0]) {
+    onCaptionChange?.({ text: captionSegments[0], index: 0, total: captionSegments.length, active: true });
+  }
+  await audio.play();
 }
 
 function splitCaptionSegments(text: string) {

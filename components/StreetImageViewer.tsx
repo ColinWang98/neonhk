@@ -5,13 +5,14 @@ import { useEffect, useRef, useState } from "react";
 import { BoxSelectionLayer } from "@/components/BoxSelectionLayer";
 import { LoadingState } from "@/components/LoadingState";
 import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
-import type { ImageCropBox, ScreenBox, StreetImage } from "@/types";
+import type { ImageCropBox, PanoramaPov, ScreenBox, StreetImage } from "@/types";
 
 type Props = {
   image?: StreetImage;
   busy?: boolean;
   googleMapsApiKey?: string;
   language?: "en" | "zh";
+  targetPov?: PanoramaPov;
   onFragmentSelected: (
     screenBox: ScreenBox,
     cropBox: ImageCropBox,
@@ -37,6 +38,7 @@ type GoogleStreetViewPanorama = {
   getPov: () => GooglePov;
   getZoom?: () => number;
   getPano?: () => string;
+  setPov?: (pov: { heading: number; pitch: number }) => void;
   setVisible: (visible: boolean) => void;
 };
 
@@ -56,10 +58,12 @@ declare global {
   }
 }
 
-export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "en", onFragmentSelected }: Props) {
+export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "en", targetPov, onFragmentSelected }: Props) {
   const zh = language === "zh";
   const imgRef = useRef<HTMLImageElement | null>(null);
   const panoRef = useRef<HTMLDivElement | null>(null);
+  const panoramaRef = useRef<GoogleStreetViewPanorama | null>(null);
+  const targetPovRef = useRef<PanoramaPov | undefined>(targetPov);
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [pov, setPov] = useState<GooglePov>({ heading: 0, pitch: 0, zoom: 1 });
   const [googleStatus, setGoogleStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -68,6 +72,10 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "e
   useEffect(() => {
     setGoogleSelecting(false);
   }, [image?.id]);
+
+  useEffect(() => {
+    targetPovRef.current = targetPov;
+  }, [targetPov]);
 
   useEffect(() => {
     if (image?.provider !== "google" || !panoRef.current || !googleMapsApiKey) return;
@@ -95,6 +103,13 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "e
           enableCloseButton: false
         });
         const currentPanorama = panorama;
+        panoramaRef.current = currentPanorama;
+        if (targetPovRef.current) {
+          currentPanorama.setPov?.({
+            heading: targetPovRef.current.heading || 0,
+            pitch: targetPovRef.current.pitch || 0
+          });
+        }
 
         currentPanorama.addListener("pov_changed", () => {
           const nextPov = currentPanorama.getPov();
@@ -121,8 +136,19 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "e
       if (panorama) {
         panorama.setVisible(false);
       }
+      if (panoramaRef.current === panorama) {
+        panoramaRef.current = null;
+      }
     };
   }, [googleMapsApiKey, image?.id, image?.lat, image?.lng, image?.panoId, image?.provider]);
+
+  useEffect(() => {
+    if (!targetPov || image?.provider !== "google") return;
+    panoramaRef.current?.setPov?.({
+      heading: targetPov.heading || 0,
+      pitch: targetPov.pitch || 0
+    });
+  }, [image?.provider, targetPov]);
 
   return (
     <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-md">

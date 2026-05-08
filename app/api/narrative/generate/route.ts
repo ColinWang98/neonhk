@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
       id: body.fragmentId,
       visionDescription: body.visionDescription,
       narratives,
+      narrativePersonaId: body.persona?.id,
+      placeContext: body.placeContext,
       status: "ready"
     }, config);
     await logEvent(

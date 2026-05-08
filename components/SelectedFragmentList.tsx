@@ -5,10 +5,14 @@ import type { SelectedFragment } from "@/types";
 
 export function SelectedFragmentList({
   fragments,
-  language = "en"
+  language = "en",
+  activeFragmentId,
+  onSelect
 }: {
   fragments: SelectedFragment[];
   language?: "en" | "zh";
+  activeFragmentId?: string;
+  onSelect?: (fragment: SelectedFragment) => void;
 }) {
   const zh = language === "zh";
   return (
@@ -28,7 +32,14 @@ export function SelectedFragmentList({
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {fragments.map((fragment) => (
-              <article key={fragment.id} className="quiet-panel rounded-md p-3">
+              <button
+                type="button"
+                key={fragment.id}
+                onClick={() => onSelect?.(fragment)}
+                className={`quiet-panel rounded-md p-3 text-left transition hover:border-brass/45 ${
+                  activeFragmentId === fragment.id ? "border-signal bg-[#eef7f4]" : ""
+                }`}
+              >
                 <div className="space-y-3">
                   <div className="flex aspect-[4/3] w-full shrink-0 items-center justify-center overflow-hidden rounded border border-ink/10 bg-field">
                     {fragment.cropImageUrl ? (
@@ -56,9 +67,14 @@ export function SelectedFragmentList({
                         {fragment.visionDescription.mainFeature}
                       </p>
                     ) : null}
+                    {fragment.audioGenerations && Object.keys(fragment.audioGenerations).length > 0 ? (
+                      <p className="mt-2 text-[11px] font-medium text-signal">
+                        {zh ? "已有音频" : "Audio saved"}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
-              </article>
+              </button>
             ))}
           </div>
         )}

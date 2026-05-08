@@ -25,6 +25,7 @@ import type {
   SelectedFragment,
   StorySession,
   StreetImage,
+  TtsProvider,
   VisionDescription
 } from "@/types";
 
@@ -42,8 +43,10 @@ export default function StoryPage() {
     setStorySession,
     setPersonas,
     setSelectedPersona,
+    setFragments,
     addFragment,
-    updateFragment
+    updateFragment,
+    selectFragment
   } = useExplorerStore();
   const [apiConfig, setApiConfig] = useState<RuntimeApiConfig>(() => publicRuntimeConfig());
   const [personaStatus, setPersonaStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -123,6 +126,32 @@ export default function StoryPage() {
       });
   }, [apiConfig, personaStatus, personas.length, runtimeHeaders, selectedImage, setPersonas, storageHydrated]);
 
+  useEffect(() => {
+    if (!storageHydrated || !storySession?.id) return;
+
+    let cancelled = false;
+    fetch(`/api/fragments?sessionId=${encodeURIComponent(storySession.id)}`, {
+      headers: runtimeHeaders
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Fragment loading failed.");
+        return data.fragments as SelectedFragment[];
+      })
+      .then((loadedFragments) => {
+        if (!cancelled && loadedFragments.length > 0) {
+          setFragments(loadedFragments);
+        }
+      })
+      .catch(() => {
+        // Saved fragments are optional; new story creation should not be blocked.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [runtimeHeaders, setFragments, storageHydrated, storySession?.id]);
+
   function saveApiConfig(nextConfig: RuntimeApiConfig) {
     setApiConfig(nextConfig);
     localStorage.setItem(runtimeConfigStorageKey, JSON.stringify(nextConfig));
@@ -170,6 +199,7 @@ export default function StoryPage() {
         updateFragment(fragmentId, {
           narratives,
           narrativePersonaId: selectedPersona.id,
+          audioGenerations: {},
           status: "ready"
         });
       })
@@ -210,6 +240,7 @@ export default function StoryPage() {
       selectedAt: new Date().toISOString(),
       screenBox,
       cropBox,
+      panoramaPov: selectionMeta,
       status: "cropping"
     };
     addFragment(baseFragment);
@@ -236,7 +267,8 @@ export default function StoryPage() {
           sessionId: storySession?.id,
           imageUrl: sourceImageUrl || selectedImage.fullUrl || selectedImage.thumbUrl,
           screenBox,
-          cropBox
+          cropBox,
+          panoramaPov: selectionMeta
         })
       });
       const cropData = await cropRes.json();
@@ -246,6 +278,7 @@ export default function StoryPage() {
         id: cropData.fragmentId,
         cropImageUrl: cropData.cropImageUrl,
         cropBox: cropData.cropBox,
+        panoramaPov: selectionMeta,
         status: "analyzing"
       });
       activeFragmentId = cropData.fragmentId;
@@ -289,6 +322,7 @@ export default function StoryPage() {
         narratives,
         narrativePersonaId: selectedPersona?.id,
         placeContext,
+        panoramaPov: selectionMeta,
         status: "ready"
       });
       if (storySession) {
@@ -415,6 +449,7 @@ export default function StoryPage() {
                 busy={processing}
                 googleMapsApiKey={apiConfig.googleMapsApiKey}
                 language={uiLanguage}
+                targetPov={activeFragment?.panoramaPov}
                 onFragmentSelected={handleFragmentSelected}
               />
               <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(readyFragment?.narratives)} />
@@ -431,12 +466,31 @@ export default function StoryPage() {
                 persona={selectedPersona}
                 config={apiConfig}
                 language={uiLanguage}
+                fragmentId={readyFragment?.id}
+                cachedAudio={findCachedAudio(readyFragment, selectedPersona, apiConfig)}
                 onCaptionChange={setCaption}
+                onAudioGenerated={(entry) => {
+                  if (!readyFragment) return;
+                  updateFragment(readyFragment.id, {
+                    audioGenerations: {
+                      ...(readyFragment.audioGenerations || {}),
+                      [entry.cacheKey]: entry
+                    }
+                  });
+                }}
               />
             </div>
           </div>
           <div className="min-h-0">
-            <SelectedFragmentList fragments={fragments} language={uiLanguage} />
+            <SelectedFragmentList
+              fragments={fragments}
+              language={uiLanguage}
+              activeFragmentId={activeFragment?.id}
+              onSelect={(fragment) => {
+                selectFragment(fragment.id);
+                setCaption(null);
+              }}
+            />
           </div>
         </section>
       )}
@@ -578,6 +632,28 @@ async function fetchPlaceContext(
   } catch {
     return undefined;
   }
+}
+
+function findCachedAudio(
+  fragment: SelectedFragment | undefined,
+  persona: GeneratedPersona | undefined,
+  config: RuntimeApiConfig
+) {
+  const generations = Object.values(fragment?.audioGenerations || {});
+  if (generations.length === 0) return undefined;
+
+  const provider = normalizeTtsProvider(config.ttsProvider);
+  return generations
+    .filter((entry) => entry.provider === provider)
+    .filter((entry) => !persona?.id || entry.personaId === persona.id)
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+}
+
+function normalizeTtsProvider(provider?: string): TtsProvider {
+  if (provider === "local-open-source" || provider === "elevenlabs" || provider === "minimax") {
+    return provider;
+  }
+  return "minimax";
 }
 
 async function logClientEvent(

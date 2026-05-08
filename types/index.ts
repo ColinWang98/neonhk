@@ -130,6 +130,23 @@ export type FragmentStatus =
   | "blocked"
   | "error";
 
+export type PanoramaPov = {
+  heading?: number;
+  pitch?: number;
+  fov?: number;
+};
+
+export type TtsAudioGeneration = {
+  cacheKey: string;
+  provider: TtsProvider;
+  audioUrl: string;
+  durationMs?: number;
+  speechText?: string;
+  personaId?: string;
+  voiceId?: string;
+  createdAt: string;
+};
+
 export type SelectedFragment = {
   id: string;
   imageId: string;
@@ -141,6 +158,8 @@ export type SelectedFragment = {
   narratives?: SchemaNarratives;
   narrativePersonaId?: string;
   placeContext?: PlaceContext;
+  panoramaPov?: PanoramaPov;
+  audioGenerations?: Record<string, TtsAudioGeneration>;
   status: FragmentStatus;
 };
 

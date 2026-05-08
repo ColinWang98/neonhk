@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import { persistFragment } from "@/lib/fragments";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import { adaptSpeechText } from "@/lib/speechStyle";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import type { GeneratedPersona, TtsProvider } from "@/types";
+import type { GeneratedPersona, TtsAudioGeneration, TtsProvider } from "@/types";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,9 @@ type TtsRequest = {
   language?: "zh-HK-en-mixed";
   format?: "wav";
   provider?: TtsProvider;
+  fragmentId?: string;
+  sessionId?: string;
+  cacheKey?: string;
 };
 
 export async function POST(request: NextRequest) {
@@ -27,6 +31,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "text is required." }, { status: 400 });
     }
 
+    const cacheKey = body.cacheKey || buildTtsCacheKey(body, provider, config);
+    const cached = body.fragmentId
+      ? await readCachedAudio(body.fragmentId, cacheKey, config)
+      : undefined;
+    if (cached) {
+      return NextResponse.json({
+        ...cached,
+        provider: cached.provider,
+        cached: true
+      });
+    }
+
     const speech = await adaptSpeechText({
       text: body.text,
       persona: body.persona,
@@ -36,25 +52,42 @@ export async function POST(request: NextRequest) {
 
     if (provider === "elevenlabs") {
       const audioUrl = await generateElevenLabsAudio({ ...body, text: speech.speechText }, config);
-      return NextResponse.json({
+      const payload = await persistAudioGeneration({
+        fragmentId: body.fragmentId,
+        cacheKey,
         provider: "elevenlabs",
         audioUrl,
         speechText: speech.speechText,
+        personaId: body.persona?.id,
+        config
+      });
+      return NextResponse.json({
+        ...payload,
         speechAdaptation: speech.strategy,
-        speechAdaptationNote: speech.note
+        speechAdaptationNote: speech.note,
+        cached: false
       });
     }
 
     if (provider === "minimax") {
       const result = await generateMiniMaxAudio({ ...body, text: speech.speechText }, config);
-      return NextResponse.json({
+      const payload = await persistAudioGeneration({
+        fragmentId: body.fragmentId,
+        cacheKey,
         provider: "minimax",
         audioUrl: result.audioUrl,
         durationMs: result.durationMs,
         speechText: speech.speechText,
+        personaId: body.persona?.id,
+        voiceId: result.voiceId,
+        config
+      });
+      return NextResponse.json({
+        ...payload,
         speechAdaptation: speech.strategy,
         speechAdaptationNote: speech.note,
-        voiceInstruction: result.voiceInstruction
+        voiceInstruction: result.voiceInstruction,
+        cached: false
       });
     }
 
@@ -80,17 +113,26 @@ export async function POST(request: NextRequest) {
       throw new Error(data.error || `Local TTS failed: ${res.status}`);
     }
 
-    return NextResponse.json({
+    const payload = await persistAudioGeneration({
+      fragmentId: body.fragmentId,
+      cacheKey,
       provider: "local-open-source",
       audioUrl: data.audioUrl,
       durationMs: data.durationMs,
       speechText: speech.speechText,
+      personaId: body.persona?.id,
+      config
+    });
+
+    return NextResponse.json({
+      ...payload,
       speechAdaptation: speech.strategy,
       speechAdaptationNote: speech.note,
       voiceInstruction: data.voiceInstruction,
       referenceAudio: data.referenceAudio,
       preparedReferenceAudio: data.preparedReferenceAudio,
-      referencePoolSize: data.referencePoolSize
+      referencePoolSize: data.referencePoolSize,
+      cached: false
     });
   } catch (error) {
     return NextResponse.json(
@@ -98,6 +140,110 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function buildTtsCacheKey(
+  body: TtsRequest,
+  provider: TtsProvider,
+  config: ReturnType<typeof runtimeConfigFromHeaders>
+) {
+  const voiceConfig = {
+    provider,
+    personaId: body.persona?.id,
+    voiceProfile: body.persona?.voiceProfile,
+    elevenLabsVoiceId: config.elevenLabsVoiceId || process.env.ELEVENLABS_VOICE_ID,
+    elevenLabsModel: config.elevenLabsModel || process.env.ELEVENLABS_MODEL_ID,
+    minimaxModel: config.minimaxModel || process.env.MINIMAX_TTS_MODEL,
+    minimaxVoiceId: minimaxVoiceIdForPersona(body.persona, config),
+    localEndpoint: provider === "local-open-source" ? config.localTtsEndpoint || process.env.LOCAL_TTS_ENDPOINT : undefined,
+    accentPreset: config.voiceAccentPreset || process.env.VOICE_ACCENT_PRESET,
+    text: body.text.trim(),
+    version: 1
+  };
+  return createHash("sha256").update(JSON.stringify(voiceConfig)).digest("hex");
+}
+
+async function readCachedAudio(
+  fragmentId: string,
+  cacheKey: string,
+  config: ReturnType<typeof runtimeConfigFromHeaders>
+): Promise<TtsAudioGeneration | undefined> {
+  const supabase = getSupabaseAdmin(config);
+  if (!supabase) return undefined;
+
+  const { data, error } = await supabase
+    .from("selected_fragments")
+    .select("audio_generations")
+    .eq("id", fragmentId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[tts.cache] read_failed", { fragmentId, message: error.message });
+    return undefined;
+  }
+
+  const audioGenerations = data?.audio_generations as Record<string, TtsAudioGeneration> | null | undefined;
+  return audioGenerations?.[cacheKey];
+}
+
+async function persistAudioGeneration(params: {
+  fragmentId?: string;
+  cacheKey: string;
+  provider: TtsProvider;
+  audioUrl: string;
+  durationMs?: number;
+  speechText?: string;
+  personaId?: string;
+  voiceId?: string;
+  config: ReturnType<typeof runtimeConfigFromHeaders>;
+}): Promise<TtsAudioGeneration> {
+  const entry: TtsAudioGeneration = {
+    cacheKey: params.cacheKey,
+    provider: params.provider,
+    audioUrl: params.audioUrl,
+    durationMs: params.durationMs,
+    speechText: params.speechText,
+    personaId: params.personaId,
+    voiceId: params.voiceId,
+    createdAt: new Date().toISOString()
+  };
+
+  if (params.fragmentId) {
+    const existing = await readAudioGenerations(params.fragmentId, params.config);
+    await persistFragment(
+      {
+        id: params.fragmentId,
+        audioGenerations: {
+          ...existing,
+          [params.cacheKey]: entry
+        }
+      },
+      params.config
+    );
+  }
+
+  return entry;
+}
+
+async function readAudioGenerations(
+  fragmentId: string,
+  config: ReturnType<typeof runtimeConfigFromHeaders>
+) {
+  const supabase = getSupabaseAdmin(config);
+  if (!supabase) return {};
+
+  const { data, error } = await supabase
+    .from("selected_fragments")
+    .select("audio_generations")
+    .eq("id", fragmentId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[tts.cache] merge_read_failed", { fragmentId, message: error.message });
+    return {};
+  }
+
+  return (data?.audio_generations || {}) as Record<string, TtsAudioGeneration>;
 }
 
 function normalizeProvider(provider?: string): TtsProvider {
@@ -201,6 +347,7 @@ async function generateMiniMaxAudio(body: TtsRequest, config: ReturnType<typeof 
     return {
       audioUrl: await saveGeneratedAudio(audio, "audio/mpeg", "mp3", config),
       durationMs: data.extra_info?.audio_length,
+      voiceId,
       voiceInstruction: voiceSetting
     };
   }
@@ -209,6 +356,7 @@ async function generateMiniMaxAudio(body: TtsRequest, config: ReturnType<typeof 
     return {
       audioUrl,
       durationMs: data.extra_info?.audio_length,
+      voiceId,
       voiceInstruction: voiceSetting
     };
   }
