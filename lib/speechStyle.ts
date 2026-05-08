@@ -21,8 +21,10 @@ Rules:
 - Preserve the original meaning. Do not add new place facts, identities, histories, events, or private information.
 - Prefer English speech text. If the source contains Chinese or Cantonese, translate its meaning into natural English.
 - Use the persona only to adjust voice, rhythm, and phrasing.
+- Make the result sound spoken, not written: short sentences, simple words, contractions, and a little breathing room.
+- Turn stiff analytical phrases into conversational ones. For example, "this fragment may suggest" becomes "this makes me think", or "I would notice".
 - Add readable punctuation for speech: short sentences, commas, ellipses, and paragraph breaks.
-- Use at most two light English discourse markers, such as "well", "you know", or "I mean".
+- Use two to four light English discourse markers when natural, such as "well", "you know", "I mean", or "honestly".
 - Do not over-act. Do not write stage directions.
 - Output strict JSON: {"speechText": string}`;
 
