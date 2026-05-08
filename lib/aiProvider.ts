@@ -2,12 +2,13 @@ import OpenAI from "openai";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 
 export type ModelPurpose = "text" | "vision";
+export type AiProvider = "deepseek" | "glm" | "qwen";
 
-export function createAiClient(config: RuntimeApiConfig, purpose: ModelPurpose) {
-  const provider = resolveProvider(purpose);
+export function createAiClient(config: RuntimeApiConfig, purpose: ModelPurpose, options?: { provider?: AiProvider; model?: string }) {
+  const provider = options?.provider || resolveProvider(config, purpose);
   const apiKey = resolveApiKey(config, provider);
   const baseURL = resolveBaseUrl(config, provider);
-  const model = resolveModel(config, provider);
+  const model = options?.model || resolveModel(config, provider);
 
   if (!apiKey) {
     return null;
@@ -22,8 +23,8 @@ export function createAiClient(config: RuntimeApiConfig, purpose: ModelPurpose) 
 }
 
 export function getAiProviderDiagnostics(config: RuntimeApiConfig) {
-  const visionProvider = resolveProvider("vision");
-  const textProvider = resolveProvider("text");
+  const visionProvider = resolveProvider(config, "vision");
+  const textProvider = resolveProvider(config, "text");
 
   return {
     vision: {
@@ -41,14 +42,26 @@ export function getAiProviderDiagnostics(config: RuntimeApiConfig) {
   };
 }
 
-export function resolveProvider(purpose: ModelPurpose) {
-  return purpose === "vision" ? "glm" : "deepseek";
+export function resolveProvider(config: RuntimeApiConfig, purpose: ModelPurpose): AiProvider {
+  if (purpose === "vision") {
+    return config.visionProvider === "glm" ? "glm" : "qwen";
+  }
+  return "deepseek";
 }
 
-function resolveApiKey(config: RuntimeApiConfig, provider: ReturnType<typeof resolveProvider>) {
+function resolveApiKey(config: RuntimeApiConfig, provider: AiProvider) {
   const unifiedKey =
     process.env.AI_API_KEY ||
     process.env.OPENAI_API_KEY;
+
+  if (provider === "qwen") {
+    return (
+      config.qwenApiKey ||
+      process.env.QWEN_API_KEY ||
+      process.env.DASHSCOPE_API_KEY ||
+      unifiedKey
+    );
+  }
 
   if (provider === "glm") {
     return (
@@ -65,8 +78,12 @@ function resolveApiKey(config: RuntimeApiConfig, provider: ReturnType<typeof res
 
 function resolveBaseUrl(
   config: RuntimeApiConfig,
-  provider: ReturnType<typeof resolveProvider>
+  provider: AiProvider
 ) {
+  if (provider === "qwen") {
+    return config.qwenBaseUrl || process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1";
+  }
+
   if (provider === "glm") {
     return config.glmBaseUrl || process.env.GLM_BASE_URL || "https://open.bigmodel.cn/api/paas/v4";
   }
@@ -76,8 +93,12 @@ function resolveBaseUrl(
 
 function resolveModel(
   config: RuntimeApiConfig,
-  provider: ReturnType<typeof resolveProvider>
+  provider: AiProvider
 ) {
+  if (provider === "qwen") {
+    return config.visionModel || process.env.VISION_MODEL || "qwen3.6-plus";
+  }
+
   if (provider === "glm") {
     return config.visionModel || process.env.VISION_MODEL || "glm-4v-flash";
   }

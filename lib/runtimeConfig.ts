@@ -6,6 +6,9 @@ export type RuntimeApiConfig = {
   aiProvider?: string;
   glmApiKey?: string;
   glmBaseUrl?: string;
+  qwenApiKey?: string;
+  qwenBaseUrl?: string;
+  sceneVisionModel?: string;
   visionProvider?: string;
   visionModel?: string;
   llmModel?: string;
@@ -34,7 +37,7 @@ export function publicRuntimeConfig(): RuntimeApiConfig {
   return {
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
     aiProvider: "deepseek",
-    visionProvider: "glm"
+    visionProvider: "qwen"
   };
 }
 
@@ -48,6 +51,9 @@ export function runtimeConfigToHeaders(config: RuntimeApiConfig) {
   setHeader(headers, "x-ai-provider", config.aiProvider);
   setHeader(headers, "x-glm-api-key", config.glmApiKey);
   setHeader(headers, "x-glm-base-url", config.glmBaseUrl);
+  setHeader(headers, "x-qwen-api-key", config.qwenApiKey);
+  setHeader(headers, "x-qwen-base-url", config.qwenBaseUrl);
+  setHeader(headers, "x-scene-vision-model", config.sceneVisionModel);
   setHeader(headers, "x-vision-provider", config.visionProvider);
   setHeader(headers, "x-vision-model", config.visionModel);
   setHeader(headers, "x-llm-model", config.llmModel);
@@ -83,6 +89,9 @@ export function runtimeConfigFromHeaders(headers: Headers): RuntimeApiConfig {
     aiProvider: readHeader(headers, "x-ai-provider"),
     glmApiKey: readHeader(headers, "x-glm-api-key"),
     glmBaseUrl: readHeader(headers, "x-glm-base-url"),
+    qwenApiKey: readHeader(headers, "x-qwen-api-key"),
+    qwenBaseUrl: readHeader(headers, "x-qwen-base-url"),
+    sceneVisionModel: readHeader(headers, "x-scene-vision-model"),
     visionProvider: readHeader(headers, "x-vision-provider"),
     visionModel: readHeader(headers, "x-vision-model"),
     llmModel: readHeader(headers, "x-llm-model"),

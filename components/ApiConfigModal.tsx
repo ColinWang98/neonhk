@@ -22,6 +22,7 @@ type Field = {
 const overrideFields: Field[] = [
   { key: "googleMapsApiKey", label: "Google Maps API Key Override", secret: true },
   { key: "aiApiKey", label: "DeepSeek API Key Override", secret: true },
+  { key: "qwenApiKey", label: "Qwen Vision API Key Override", secret: true },
   { key: "glmApiKey", label: "GLM Vision API Key Override", secret: true }
 ];
 
@@ -34,9 +35,12 @@ const optionalFields: Field[] = [
 const advancedFields: Field[] = [
   { key: "mapillaryAccessToken", label: "Mapillary Access Token", secret: true },
   { key: "aiBaseUrl", label: "DeepSeek Base URL", placeholder: "https://api.deepseek.com" },
+  { key: "qwenBaseUrl", label: "Qwen Base URL", placeholder: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
   { key: "glmBaseUrl", label: "GLM Base URL", placeholder: "https://open.bigmodel.cn/api/paas/v4" },
   { key: "llmModel", label: "DeepSeek Text Model", placeholder: "deepseek-chat" },
-  { key: "visionModel", label: "GLM Vision Model", placeholder: "glm-4v-flash" },
+  { key: "visionProvider", label: "Vision Provider", placeholder: "qwen or glm" },
+  { key: "visionModel", label: "Fragment Vision Model", placeholder: "qwen3.6-plus" },
+  { key: "sceneVisionModel", label: "Scene Vision Model", placeholder: "qwen3.6-flash" },
   { key: "appUrl", label: "App URL", placeholder: "http://localhost:3000" },
   { key: "ttsProvider", label: "TTS Mode", placeholder: "elevenlabs or local-open-source" },
   { key: "localTtsEndpoint", label: "Local TTS Endpoint", placeholder: "http://127.0.0.1:7860/tts" },
@@ -306,10 +310,12 @@ function applyDefaults(config: RuntimeApiConfig): RuntimeApiConfig {
   return {
     ...config,
     aiProvider: "deepseek",
-    visionProvider: "glm",
+    visionProvider: "qwen",
     aiBaseUrl: config.aiBaseUrl || "https://api.deepseek.com",
+    qwenBaseUrl: config.qwenBaseUrl || "https://dashscope.aliyuncs.com/compatible-mode/v1",
     glmBaseUrl: config.glmBaseUrl || "https://open.bigmodel.cn/api/paas/v4",
-    visionModel: config.visionModel || "glm-4v-flash",
+    visionModel: config.visionModel || "qwen3.6-plus",
+    sceneVisionModel: config.sceneVisionModel || "qwen3.6-flash",
     llmModel: config.llmModel || "deepseek-chat",
     appUrl: config.appUrl || "http://localhost:3000"
   };
@@ -333,7 +339,9 @@ function cleanConfig(config: RuntimeApiConfig): RuntimeApiConfig {
   }
 
   cleaned.aiProvider = "deepseek";
-  cleaned.visionProvider = "glm";
+  if (cleaned.visionProvider !== "qwen" && cleaned.visionProvider !== "glm") {
+    cleaned.visionProvider = "qwen";
+  }
 
   return cleaned;
 }
