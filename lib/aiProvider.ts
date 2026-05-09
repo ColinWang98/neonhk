@@ -8,7 +8,8 @@ export function createAiClient(config: RuntimeApiConfig, purpose: ModelPurpose, 
   const provider = options?.provider || resolveProvider(config, purpose);
   const apiKey = resolveApiKey(config, provider);
   const baseURL = resolveBaseUrl(config, provider);
-  const model = options?.model || resolveModel(config, provider);
+  const resolvedModel = options?.model || resolveModel(config, provider);
+  const model = provider === "qwen" ? normalizeQwenVisionModel(resolvedModel) : resolvedModel;
 
   if (!apiKey) {
     return null;
@@ -96,12 +97,22 @@ function resolveModel(
   provider: AiProvider
 ) {
   if (provider === "qwen") {
-    return config.visionModel || process.env.VISION_MODEL || "qwen3.6-plus";
+    const model = config.visionModel || process.env.VISION_MODEL || "qwen3-vl-plus";
+    return normalizeQwenVisionModel(model);
   }
 
   if (provider === "glm") {
-    return config.visionModel || process.env.VISION_MODEL || "glm-4v-flash";
+    const configuredModel = config.visionModel || process.env.GLM_VISION_MODEL;
+    return configuredModel?.startsWith("glm") ? configuredModel : "glm-4v-flash";
   }
 
   return config.llmModel || process.env.LLM_MODEL || "deepseek-chat";
+}
+
+export function normalizeQwenVisionModel(model?: string) {
+  if (!model) return "qwen3-vl-plus";
+  const trimmed = model.trim();
+  if (trimmed === "qwen3.6-plus") return "qwen3-vl-plus";
+  if (trimmed === "qwen3.6-flash") return "qwen3-vl-flash";
+  return trimmed;
 }

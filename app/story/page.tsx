@@ -412,9 +412,8 @@ export default function StoryPage() {
               Generated from cautious visual interpretation of the selected street scene.
             </p>
             {personaStatus === "loading" ? (
-              <div className="mt-6 flex items-center gap-2 text-sm text-ink/65">
+              <div className="mt-6 flex items-center gap-2 text-sm text-ink/65" aria-label="Generating personas">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Generating personas; using defaults if cloud models are slow
               </div>
             ) : (
               <div className="mt-5 grid gap-4 md:grid-cols-3">

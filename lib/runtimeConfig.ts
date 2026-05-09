@@ -53,9 +53,9 @@ export function runtimeConfigToHeaders(config: RuntimeApiConfig) {
   setHeader(headers, "x-glm-base-url", config.glmBaseUrl);
   setHeader(headers, "x-qwen-api-key", config.qwenApiKey);
   setHeader(headers, "x-qwen-base-url", config.qwenBaseUrl);
-  setHeader(headers, "x-scene-vision-model", config.sceneVisionModel);
+  setHeader(headers, "x-scene-vision-model", normalizeLegacyVisionModel(config.sceneVisionModel));
   setHeader(headers, "x-vision-provider", config.visionProvider);
-  setHeader(headers, "x-vision-model", config.visionModel);
+  setHeader(headers, "x-vision-model", normalizeLegacyVisionModel(config.visionModel));
   setHeader(headers, "x-llm-model", config.llmModel);
   setHeader(headers, "x-supabase-url", config.supabaseUrl);
   setHeader(headers, "x-supabase-anon-key", config.supabaseAnonKey);
@@ -124,4 +124,10 @@ function setHeader(headers: Record<string, string>, name: string, value?: string
 function readHeader(headers: Headers, name: string) {
   const value = headers.get(name);
   return value?.trim() || undefined;
+}
+
+function normalizeLegacyVisionModel(model?: string) {
+  if (model === "qwen3.6-plus") return "qwen3-vl-plus";
+  if (model === "qwen3.6-flash") return "qwen3-vl-flash";
+  return model;
 }

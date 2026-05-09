@@ -156,6 +156,15 @@ export function StreetImageViewer({
           }
         });
 
+        currentPanorama.addListener("zoom_changed", () => {
+          const nextPov = currentPanorama.getPov();
+          setPov({
+            heading: nextPov.heading || 0,
+            pitch: nextPov.pitch || 0,
+            zoom: currentPanorama.getZoom?.() || 1
+          });
+        });
+
         setGoogleStatus("ready");
       })
       .catch(() => setGoogleStatus("error"));
@@ -220,6 +229,7 @@ export function StreetImageViewer({
                   fragments={fragments}
                   activeFragmentId={activeFragmentId}
                   viewportSize={viewportSize}
+                  pov={pov}
                   disabled={googleSelecting}
                   onFragmentClick={onFragmentClick}
                 />
@@ -236,6 +246,7 @@ export function StreetImageViewer({
                         width: (screenBox.width / rect.width) * sourceSize.width,
                         height: (screenBox.height / rect.height) * sourceSize.height
                       };
+                      const snapshotFov = currentHorizontalFov(pov.zoom);
                       const sourceImageUrl = buildGoogleStreetViewStaticUrl({
                         key: googleMapsApiKey,
                         panoId: image.panoId || image.id,
@@ -243,13 +254,13 @@ export function StreetImageViewer({
                         height: sourceSize.height,
                         heading: pov.heading,
                         pitch: pov.pitch,
-                        fov: 90
+                        fov: snapshotFov
                       });
                       setGoogleSelecting(false);
                       onFragmentSelected(screenBox, cropBox, sourceImageUrl, {
                         heading: pov.heading,
                         pitch: pov.pitch,
-                        fov: 90,
+                        fov: snapshotFov,
                         viewportWidth: rect.width,
                         viewportHeight: rect.height
                       });
@@ -337,12 +348,14 @@ function FragmentBoxOverlay({
   fragments,
   activeFragmentId,
   viewportSize,
+  pov,
   disabled,
   onFragmentClick
 }: {
   fragments: SelectedFragment[];
   activeFragmentId?: string;
   viewportSize: { width: number; height: number };
+  pov: GooglePov;
   disabled?: boolean;
   onFragmentClick?: (fragment: SelectedFragment) => void;
 }) {
@@ -351,7 +364,7 @@ function FragmentBoxOverlay({
   return (
     <div className="pointer-events-none absolute inset-0 z-[35]">
       {fragments.map((fragment, index) => {
-        const box = scaleFragmentBox(fragment, viewportSize);
+        const box = projectFragmentBox(fragment, viewportSize, pov);
         if (!box || box.width < 8 || box.height < 8) return null;
         const active = fragment.id === activeFragmentId;
         const ready = fragment.status === "ready";
@@ -388,7 +401,77 @@ function FragmentBoxOverlay({
   );
 }
 
-function scaleFragmentBox(fragment: SelectedFragment, viewportSize: { width: number; height: number }) {
+function projectFragmentBox(
+  fragment: SelectedFragment,
+  viewportSize: { width: number; height: number },
+  pov: GooglePov
+) {
+  const sourceWidth = fragment.panoramaPov?.viewportWidth || viewportSize.width;
+  const sourceHeight = fragment.panoramaPov?.viewportHeight || viewportSize.height;
+  const sourceHeading = fragment.panoramaPov?.heading;
+  const sourcePitch = fragment.panoramaPov?.pitch;
+  if (
+    sourceWidth <= 0 ||
+    sourceHeight <= 0 ||
+    !Number.isFinite(sourceHeading) ||
+    !Number.isFinite(sourcePitch)
+  ) {
+    return scaleScreenBox(fragment, viewportSize);
+  }
+
+  const sourceFov = fragment.panoramaPov?.fov || 90;
+  const sourceVerticalFov = verticalFov(sourceFov, sourceWidth, sourceHeight);
+  const currentFov = currentHorizontalFov(pov.zoom);
+  const currentVerticalFov = verticalFov(currentFov, viewportSize.width, viewportSize.height);
+  const box = fragment.screenBox;
+  const sourceCorners = [
+    { x: box.x, y: box.y },
+    { x: box.x + box.width, y: box.y },
+    { x: box.x + box.width, y: box.y + box.height },
+    { x: box.x, y: box.y + box.height }
+  ];
+  const projected = sourceCorners
+    .map((corner) =>
+      screenPointToPanoramaPoint(corner, {
+        width: sourceWidth,
+        height: sourceHeight,
+        heading: sourceHeading || 0,
+        pitch: sourcePitch || 0,
+        horizontalFov: sourceFov,
+        verticalFov: sourceVerticalFov
+      })
+    )
+    .map((point) =>
+      panoramaPointToScreenPoint(point, {
+        width: viewportSize.width,
+        height: viewportSize.height,
+        heading: pov.heading || 0,
+        pitch: pov.pitch || 0,
+        horizontalFov: currentFov,
+        verticalFov: currentVerticalFov
+      })
+    );
+
+  if (projected.some((point) => !point.visible)) return undefined;
+
+  const xs = projected.map((point) => point.x);
+  const ys = projected.map((point) => point.y);
+  const left = Math.min(...xs);
+  const right = Math.max(...xs);
+  const top = Math.min(...ys);
+  const bottom = Math.max(...ys);
+
+  if (right < 0 || bottom < 0 || left > viewportSize.width || top > viewportSize.height) return undefined;
+
+  return {
+    x: clamp(left, 0, viewportSize.width),
+    y: clamp(top, 0, viewportSize.height),
+    width: clamp(right - left, 0, viewportSize.width),
+    height: clamp(bottom - top, 0, viewportSize.height)
+  };
+}
+
+function scaleScreenBox(fragment: SelectedFragment, viewportSize: { width: number; height: number }) {
   const sourceWidth = fragment.panoramaPov?.viewportWidth || viewportSize.width;
   const sourceHeight = fragment.panoramaPov?.viewportHeight || viewportSize.height;
   if (sourceWidth <= 0 || sourceHeight <= 0) return undefined;
@@ -401,6 +484,78 @@ function scaleFragmentBox(fragment: SelectedFragment, viewportSize: { width: num
     width: clamp(fragment.screenBox.width * scaleX, 0, viewportSize.width),
     height: clamp(fragment.screenBox.height * scaleY, 0, viewportSize.height)
   };
+}
+
+function screenPointToPanoramaPoint(
+  point: { x: number; y: number },
+  camera: {
+    width: number;
+    height: number;
+    heading: number;
+    pitch: number;
+    horizontalFov: number;
+    verticalFov: number;
+  }
+) {
+  const xNorm = (point.x / camera.width) * 2 - 1;
+  const yNorm = (point.y / camera.height) * 2 - 1;
+  const headingOffset = toDegrees(Math.atan(xNorm * Math.tan(toRadians(camera.horizontalFov / 2))));
+  const pitchOffset = -toDegrees(Math.atan(yNorm * Math.tan(toRadians(camera.verticalFov / 2))));
+  return {
+    heading: normalizeDegrees(camera.heading + headingOffset),
+    pitch: clamp(camera.pitch + pitchOffset, -89, 89)
+  };
+}
+
+function panoramaPointToScreenPoint(
+  point: { heading: number; pitch: number },
+  camera: {
+    width: number;
+    height: number;
+    heading: number;
+    pitch: number;
+    horizontalFov: number;
+    verticalFov: number;
+  }
+) {
+  const headingOffset = shortestAngleDifference(point.heading, camera.heading);
+  const pitchOffset = point.pitch - camera.pitch;
+  const halfHorizontal = camera.horizontalFov / 2;
+  const halfVertical = camera.verticalFov / 2;
+  const margin = 8;
+  const visible = Math.abs(headingOffset) <= halfHorizontal + margin && Math.abs(pitchOffset) <= halfVertical + margin;
+  const xNorm = Math.tan(toRadians(headingOffset)) / Math.tan(toRadians(halfHorizontal));
+  const yNorm = -Math.tan(toRadians(pitchOffset)) / Math.tan(toRadians(halfVertical));
+  return {
+    x: ((xNorm + 1) / 2) * camera.width,
+    y: ((yNorm + 1) / 2) * camera.height,
+    visible
+  };
+}
+
+function currentHorizontalFov(zoom?: number) {
+  const safeZoom = Number.isFinite(zoom) ? zoom || 1 : 1;
+  return clamp(180 / Math.pow(2, safeZoom), 20, 120);
+}
+
+function verticalFov(horizontalFov: number, width: number, height: number) {
+  return toDegrees(2 * Math.atan(Math.tan(toRadians(horizontalFov / 2)) * (height / Math.max(1, width))));
+}
+
+function shortestAngleDifference(a: number, b: number) {
+  return ((normalizeDegrees(a) - normalizeDegrees(b) + 540) % 360) - 180;
+}
+
+function normalizeDegrees(value: number) {
+  return ((value % 360) + 360) % 360;
+}
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
+}
+
+function toDegrees(value: number) {
+  return (value * 180) / Math.PI;
 }
 
 function clamp(value: number, min: number, max: number) {

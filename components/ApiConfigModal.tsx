@@ -39,8 +39,8 @@ const advancedFields: Field[] = [
   { key: "glmBaseUrl", label: "GLM Base URL", placeholder: "https://open.bigmodel.cn/api/paas/v4" },
   { key: "llmModel", label: "DeepSeek Text Model", placeholder: "deepseek-chat" },
   { key: "visionProvider", label: "Vision Provider", placeholder: "qwen or glm" },
-  { key: "visionModel", label: "Fragment Vision Model", placeholder: "qwen3.6-plus" },
-  { key: "sceneVisionModel", label: "Scene Vision Model", placeholder: "qwen3.6-flash" },
+  { key: "visionModel", label: "Fragment Vision Model", placeholder: "qwen3-vl-plus" },
+  { key: "sceneVisionModel", label: "Scene Vision Model", placeholder: "qwen3-vl-flash" },
   { key: "appUrl", label: "App URL", placeholder: "http://localhost:3000" },
   { key: "ttsProvider", label: "TTS Mode", placeholder: "elevenlabs or local-open-source" },
   { key: "localTtsEndpoint", label: "Local TTS Endpoint", placeholder: "http://127.0.0.1:7860/tts" },
@@ -314,11 +314,17 @@ function applyDefaults(config: RuntimeApiConfig): RuntimeApiConfig {
     aiBaseUrl: config.aiBaseUrl || "https://api.deepseek.com",
     qwenBaseUrl: config.qwenBaseUrl || "https://dashscope.aliyuncs.com/compatible-mode/v1",
     glmBaseUrl: config.glmBaseUrl || "https://open.bigmodel.cn/api/paas/v4",
-    visionModel: config.visionModel || "qwen3.6-plus",
-    sceneVisionModel: config.sceneVisionModel || "qwen3.6-flash",
+    visionModel: normalizeLegacyVisionModel(config.visionModel) || "qwen3-vl-plus",
+    sceneVisionModel: normalizeLegacyVisionModel(config.sceneVisionModel) || "qwen3-vl-flash",
     llmModel: config.llmModel || "deepseek-chat",
     appUrl: config.appUrl || "http://localhost:3000"
   };
+}
+
+function normalizeLegacyVisionModel(model?: string) {
+  if (model === "qwen3.6-plus") return "qwen3-vl-plus";
+  if (model === "qwen3.6-flash") return "qwen3-vl-flash";
+  return model;
 }
 
 function cleanConfig(config: RuntimeApiConfig): RuntimeApiConfig {

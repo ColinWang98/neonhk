@@ -1,5 +1,5 @@
 import type { ChatCompletion } from "openai/resources/chat/completions";
-import { createAiClient, type AiProvider } from "@/lib/aiProvider";
+import { createAiClient, normalizeQwenVisionModel, type AiProvider } from "@/lib/aiProvider";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { SceneVisualDescription, StreetImage, VisionDescription } from "@/types";
 
@@ -111,7 +111,7 @@ async function callVisionWithFallback(params: {
   for (const provider of providers) {
     const model =
       params.purpose === "scene" && provider === "qwen"
-        ? params.config.sceneVisionModel || process.env.SCENE_VISION_MODEL || "qwen3.6-flash"
+        ? normalizeQwenVisionModel(params.config.sceneVisionModel || process.env.SCENE_VISION_MODEL || "qwen3-vl-flash")
         : undefined;
     const ai = createAiClient(params.config, "vision", { provider, model });
     if (!ai || ai.model === "fallback") continue;
