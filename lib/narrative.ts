@@ -19,10 +19,11 @@ Do not invent:
 - ownership
 - personal information
 - events that cannot be verified from the image
-- poetic cultural meaning that the persona would not actually say out loud
+- abstract cultural meaning that is not grounded in the persona's everyday experience
 
 Important distinction:
 - You may let the persona speak from personal habits, memories, and comparisons, e.g. "this reminds me of the small shops near my old flat".
+- Cultural interpretation is allowed and desired, but it must be internalized as personal understanding, street habit, taste, memory, or practical judgement. It should sound like what this person would actually say while standing here.
 - You must not claim an unverifiable fact about the actual photographed place, e.g. do not write "this shop used to be a fish shop" unless the visual evidence says so.
 - If nearby place context is provided, use it carefully: you may say a named shop or address is nearby, but do not say it is the selected fragment unless the crop itself visually supports that.
 - If Wikidata/Wikipedia source notes are provided, treat them as sourced nearby context, not as direct evidence about the selected fragment. Use wording like "nearby, there is..." or "around this pano point..." unless the crop clearly shows that entity.
@@ -31,7 +32,8 @@ Important distinction:
 - Use first-person persona perspective by default. The writing should feel like the narrator is standing here, speaking to one visitor beside them.
 - Make it oral and human: short sentences, natural rhythm, small reactions, light hesitation, concrete everyday comparisons, and small practical details.
 - Avoid academic or report-like language. Do not sound like an image caption, urban studies abstract, or museum label.
-- Avoid cultural-essay language. Do not overuse words like identity, belonging, resonance, temporality, community rhythm, collective use, spatial practice, or public order inside the actual story text.
+- Avoid cultural-essay language. Instead of naming ideas like identity, belonging, resonance, temporality, community rhythm, collective use, spatial practice, or public order, translate them into everyday phrases: "I feel okay standing here", "people know how to queue", "this looks like a place someone checks every morning", "this corner has its own manners".
+- Keep the schema's cultural reading, but hide the schema labels. The listener should feel the cultural idea through the narrator's small examples and personal sense-making.
 - The persona can sound ordinary: mention things like walking to lunch, waiting for a minibus, buying tea, avoiding rain, carrying shopping, opening a shutter, or finding where to stand.
 - Keep it a little messy in a human way. It is fine to say "I mean", "you know", "maybe not", "to be honest", or "I would just..." when natural.
 - Avoid repeated formula phrases such as "the visible cues", "this fragment may suggest", "can be read as", and "spatial context".
@@ -58,7 +60,7 @@ From the persona's viewpoint, tell how this fragment may shape whether the place
 From the persona's viewpoint, connect visible traces to repetition, wear, aging, routine, maintenance, or change over time, using personal comparison rather than claiming actual history.
 
 4. Social-Cultural Resonance:
-From the persona's viewpoint, tell how this fragment may connect to shared space, public order, community rhythm, social norms, maintenance, or collective use.
+From the persona's viewpoint, tell how this fragment may connect to shared space, public order, community rhythm, social norms, maintenance, or collective use, but express those ideas as everyday personal judgement rather than cultural analysis.
 
 Return strict JSON with this shape:
 {
@@ -105,7 +107,7 @@ export async function generateNarratives(
           persona,
           placeContext,
           languageStyle:
-            "Default to English. Write like natural spoken subtitles for TTS: first-person, conversational, concrete, and slightly personal. Keep the schema logic hidden. Do not use headings inside text. Avoid stiff phrases like 'visible cues indicate', 'this fragment shapes', 'social-cultural resonance', 'collective rhythm', or 'identity and belonging'. Make it sound like a Hong Kong person casually guiding a friend on the street, not a cultural essay. Keep factual claims cautious and grounded in observable details. If sourceNotes are relevant, paraphrase them briefly and make the relationship explicit as nearby context."
+            "Default to English. Write like natural spoken subtitles for TTS: first-person, conversational, concrete, and slightly personal. Keep the schema logic hidden. Do not use headings inside text. Avoid stiff phrases like 'visible cues indicate', 'this fragment shapes', 'social-cultural resonance', 'collective rhythm', or 'identity and belonging'. Cultural interpretation is welcome, but it must come through personal anecdotes, habits, taste, discomfort, memory, humour, or practical street judgement. Make it sound like a Hong Kong person casually guiding a friend on the street, not a cultural essay. Keep factual claims cautious and grounded in observable details. If sourceNotes are relevant, paraphrase them briefly and make the relationship explicit as nearby context."
         })
       }
     ]

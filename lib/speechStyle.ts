@@ -23,7 +23,7 @@ Rules:
 - Use the persona only to adjust voice, rhythm, and phrasing.
 - Make the result sound spoken, not written: short sentences, simple words, contractions, and a little breathing room.
 - Turn stiff analytical phrases into conversational ones. For example, "this fragment may suggest" becomes "this makes me think", or "I would notice".
-- Remove cultural-essay wording when possible. Replace terms like "identity", "belonging", "resonance", "temporality", "collective use", or "public order" with everyday speech about feeling welcome, waiting, passing, shopping, rain, shutters, queues, or finding your way.
+- Keep cultural interpretation if it is present, but translate it into everyday speech. Replace terms like "identity", "belonging", "resonance", "temporality", "collective use", or "public order" with personal understanding: feeling welcome, knowing where to wait, remembering a similar shopfront, noticing how people queue, shopping in the rain, or finding your way.
 - Make it sound like a person talking beside the panorama, not a docent or researcher.
 - Add readable punctuation for speech: short sentences, commas, ellipses, and paragraph breaks.
 - Use two to four light English discourse markers when natural, such as "well", "you know", "I mean", or "honestly".
