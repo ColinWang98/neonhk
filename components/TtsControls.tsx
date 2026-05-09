@@ -72,7 +72,7 @@ export function TtsControls({
       if (cachedAudio?.audioUrl) {
         await playAudioUrl(
           cachedAudio.audioUrl,
-          captionSegments,
+          splitCaptionSegments(cachedAudio.speechText || storyText),
           requestId,
           requestIdRef,
           audioRef,
@@ -122,47 +122,17 @@ export function TtsControls({
         voiceId: data.voiceId,
         createdAt: data.createdAt || new Date().toISOString()
       });
-      const audio = new Audio(data.audioUrl);
-      if (requestId !== requestIdRef.current) {
-        audio.pause();
-        return;
-      }
-      audioRef.current = audio;
-      audio.onloadedmetadata = () => {
-        setDurationLabel(formatTime(audio.duration || 0));
-      };
-      audio.ontimeupdate = () => {
-        const duration = audio.duration || 0;
-        const ratio = duration > 0 ? audio.currentTime / duration : 0;
-        setProgress(Math.min(1, Math.max(0, ratio)));
-        const index = Math.min(
-          captionSegments.length - 1,
-          Math.max(0, Math.floor(ratio * captionSegments.length))
-        );
-        if (captionSegments[index]) {
-          onCaptionChange?.({
-            text: captionSegments[index],
-            index,
-            total: captionSegments.length,
-            active: true
-          });
-        }
-      };
-      audio.onended = () => {
-        setStatus("idle");
-        setProgress(1);
-        onCaptionChange?.(null);
-      };
-      audio.onerror = () => {
-        setStatus("error");
-        setMessage("Audio playback failed.");
-        onCaptionChange?.(null);
-      };
-      setStatus("playing");
-      if (captionSegments[0]) {
-        onCaptionChange?.({ text: captionSegments[0], index: 0, total: captionSegments.length, active: true });
-      }
-      await audio.play();
+      await playAudioUrl(
+        data.audioUrl,
+        splitCaptionSegments(data.speechText || storyText),
+        requestId,
+        requestIdRef,
+        audioRef,
+        onCaptionChange,
+        setStatus,
+        setProgress,
+        setDurationLabel
+      );
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
       setStatus("error");
@@ -174,7 +144,7 @@ export function TtsControls({
       );
       onCaptionChange?.(null);
     }
-  }, [cachedAudio, captionSegments, config, fragmentId, onAudioGenerated, onCaptionChange, persona, stop, storyText]);
+  }, [cachedAudio, config, fragmentId, onAudioGenerated, onCaptionChange, persona, stop, storyText]);
 
   useEffect(() => {
     stop();
@@ -264,10 +234,7 @@ async function playAudioUrl(
     const duration = audio.duration || 0;
     const ratio = duration > 0 ? audio.currentTime / duration : 0;
     setProgress(Math.min(1, Math.max(0, ratio)));
-    const index = Math.min(
-      captionSegments.length - 1,
-      Math.max(0, Math.floor(ratio * captionSegments.length))
-    );
+    const index = captionIndexForTime(audio.currentTime, duration, captionSegments.length);
     if (captionSegments[index]) {
       onCaptionChange?.({
         text: captionSegments[index],
@@ -280,7 +247,15 @@ async function playAudioUrl(
   audio.onended = () => {
     setStatus("idle");
     setProgress(1);
-    onCaptionChange?.(null);
+    const lastIndex = Math.max(0, captionSegments.length - 1);
+    if (captionSegments[lastIndex]) {
+      onCaptionChange?.({
+        text: captionSegments[lastIndex],
+        index: lastIndex,
+        total: captionSegments.length,
+        active: false
+      });
+    }
   };
   audio.onerror = () => {
     setStatus("error");
@@ -296,18 +271,27 @@ async function playAudioUrl(
 function splitCaptionSegments(text: string) {
   return text
     .replace(/\s+/g, " ")
-    .split(/(?<=[.!?。！？])\s+/)
+    .split(/(?<=[.!?。！？])\s+|(?<=,)\s+(?=(?:and|but|so|then|because|maybe|I|you|we|it|this|that)\b)/i)
     .map((segment) => segment.trim())
     .filter(Boolean)
     .reduce<string[]>((segments, sentence) => {
       const last = segments[segments.length - 1];
-      if (last && last.length + sentence.length < 180) {
+      if (last && last.length + sentence.length < 115) {
         segments[segments.length - 1] = `${last} ${sentence}`;
       } else {
         segments.push(sentence);
       }
       return segments;
     }, []);
+}
+
+function captionIndexForTime(currentTime: number, duration: number, total: number) {
+  if (total <= 1 || !Number.isFinite(duration) || duration <= 0) return 0;
+  if (currentTime >= duration) return total - 1;
+
+  const usableDuration = Math.max(0.1, duration - 0.2);
+  const segmentDuration = usableDuration / total;
+  return Math.min(total - 1, Math.max(0, Math.floor(currentTime / segmentDuration)));
 }
 
 function formatTime(seconds: number) {
