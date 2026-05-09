@@ -51,10 +51,34 @@ export type NearbyPlace = {
   relativeDirection?: "ahead" | "left" | "right" | "behind" | "nearby";
 };
 
+export type LocalEntity = {
+  id: string;
+  label: string;
+  description?: string;
+  distanceMeters?: number;
+  lat?: number;
+  lng?: number;
+  wikipediaUrl?: string;
+  wikipediaTitle?: string;
+  source: "wikidata";
+  relation: "nearby" | "visible-candidate";
+};
+
+export type SourceNote = {
+  title: string;
+  extract: string;
+  url: string;
+  relatedEntityId?: string;
+  relation: "nearby" | "visible-candidate";
+  source: "wikipedia";
+};
+
 export type PlaceContext = {
   address?: string;
   heading?: number;
   places: NearbyPlace[];
+  wikidataEntities?: LocalEntity[];
+  sourceNotes?: SourceNote[];
   uncertainty: string;
 };
 

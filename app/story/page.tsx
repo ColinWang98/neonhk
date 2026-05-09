@@ -623,7 +623,7 @@ async function fetchPlaceContext(
   }
 
   try {
-    const res = await fetch(`/api/google/context?${params.toString()}`, {
+    const res = await fetch(`/api/local-context?${params.toString()}`, {
       headers: runtimeHeaders
     });
     const data = (await res.json()) as { context?: PlaceContext; error?: string };

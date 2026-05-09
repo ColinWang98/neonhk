@@ -9,6 +9,7 @@ Use only:
 2. cautious interpretation
 3. the selected fictional persona as a narrator's lens
 4. optional nearby place context, only as approximate context around the panorama coordinate
+5. optional Wikidata/Wikipedia notes, only when they have a natural nearby relationship to the pano point
 
 Do not invent:
 - historical facts
@@ -23,6 +24,9 @@ Important distinction:
 - You may let the persona speak from personal habits, memories, and comparisons, e.g. "this reminds me of the small shops near my old flat".
 - You must not claim an unverifiable fact about the actual photographed place, e.g. do not write "this shop used to be a fish shop" unless the visual evidence says so.
 - If nearby place context is provided, use it carefully: you may say a named shop or address is nearby, but do not say it is the selected fragment unless the crop itself visually supports that.
+- If Wikidata/Wikipedia source notes are provided, treat them as sourced nearby context, not as direct evidence about the selected fragment. Use wording like "nearby, there is..." or "around this pano point..." unless the crop clearly shows that entity.
+- Only weave a Wikipedia note into the story when it has a natural relation to the location or street atmosphere. Do not force a famous landmark into a tiny crop if the connection would feel random.
+- Never invent news, events, ownership, former shop uses, or community history from a nearby entity name alone.
 - Use first-person persona perspective by default. The writing should feel like the narrator is standing here, speaking to one visitor beside them.
 - Make it oral and human: short sentences, natural rhythm, small reactions, light hesitation, and concrete everyday comparisons.
 - Avoid academic or report-like language. Do not sound like an image caption, urban studies abstract, or museum label.
@@ -97,7 +101,7 @@ export async function generateNarratives(
           persona,
           placeContext,
           languageStyle:
-            "Default to English. Write like natural spoken subtitles for TTS: first-person, conversational, concrete, and slightly personal. Keep the schema logic hidden. Do not use headings inside text. Avoid stiff phrases like 'visible cues indicate', 'this fragment shapes', or 'social-cultural resonance'. Keep factual claims cautious and grounded in observable details."
+            "Default to English. Write like natural spoken subtitles for TTS: first-person, conversational, concrete, and slightly personal. Keep the schema logic hidden. Do not use headings inside text. Avoid stiff phrases like 'visible cues indicate', 'this fragment shapes', or 'social-cultural resonance'. Keep factual claims cautious and grounded in observable details. If sourceNotes are relevant, paraphrase them briefly and make the relationship explicit as nearby context."
         })
       }
     ]
@@ -124,10 +128,13 @@ function fallbackNarratives(vision: VisionDescription, persona?: GeneratedPerson
   const localContext = placeContext?.places[0]
     ? ` Around here, Google Maps also places ${placeContext.places[0].name} ${placeContext.places[0].relativeDirection || "nearby"}, so I would treat the wider location carefully rather than guessing from the crop alone.`
     : "";
+  const sourceContext = placeContext?.sourceNotes?.[0]
+    ? ` A nearby Wikipedia note mentions ${placeContext.sourceNotes[0].title}, but I would only use that as wider context, not as proof about this exact fragment.`
+    : "";
   return {
     functionalUse: {
       title: "Functional-Use",
-      text: `I would stop at ${vision.mainFeature} first, because small things like this tell you how to move. With ${cues}, it feels like a little street instruction: pass here, wait there, don't cross too quickly.${memory}${localContext} ${name} might say it reminds ${objective} of older Hong Kong shopfronts and pavement edges. I can't know the real history from one crop, but I can feel how it organizes ordinary movement.`
+      text: `I would stop at ${vision.mainFeature} first, because small things like this tell you how to move. With ${cues}, it feels like a little street instruction: pass here, wait there, don't cross too quickly.${memory}${localContext}${sourceContext} ${name} might say it reminds ${objective} of older Hong Kong shopfronts and pavement edges. I can't know the real history from one crop, but I can feel how it organizes ordinary movement.`
     },
     identityBelonging: {
       title: "Identity-Belonging",
