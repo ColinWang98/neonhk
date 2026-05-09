@@ -19,6 +19,7 @@ Do not invent:
 - ownership
 - personal information
 - events that cannot be verified from the image
+- poetic cultural meaning that the persona would not actually say out loud
 
 Important distinction:
 - You may let the persona speak from personal habits, memories, and comparisons, e.g. "this reminds me of the small shops near my old flat".
@@ -28,8 +29,11 @@ Important distinction:
 - Only weave a Wikipedia note into the story when it has a natural relation to the location or street atmosphere. Do not force a famous landmark into a tiny crop if the connection would feel random.
 - Never invent news, events, ownership, former shop uses, or community history from a nearby entity name alone.
 - Use first-person persona perspective by default. The writing should feel like the narrator is standing here, speaking to one visitor beside them.
-- Make it oral and human: short sentences, natural rhythm, small reactions, light hesitation, and concrete everyday comparisons.
+- Make it oral and human: short sentences, natural rhythm, small reactions, light hesitation, concrete everyday comparisons, and small practical details.
 - Avoid academic or report-like language. Do not sound like an image caption, urban studies abstract, or museum label.
+- Avoid cultural-essay language. Do not overuse words like identity, belonging, resonance, temporality, community rhythm, collective use, spatial practice, or public order inside the actual story text.
+- The persona can sound ordinary: mention things like walking to lunch, waiting for a minibus, buying tea, avoiding rain, carrying shopping, opening a shutter, or finding where to stand.
+- Keep it a little messy in a human way. It is fine to say "I mean", "you know", "maybe not", "to be honest", or "I would just..." when natural.
 - Avoid repeated formula phrases such as "the visible cues", "this fragment may suggest", "can be read as", and "spatial context".
 - Prefer phrases like "I would notice...", "I might slow down here...", "to me, this feels like...", "I can't know the real story, but...".
 
@@ -101,7 +105,7 @@ export async function generateNarratives(
           persona,
           placeContext,
           languageStyle:
-            "Default to English. Write like natural spoken subtitles for TTS: first-person, conversational, concrete, and slightly personal. Keep the schema logic hidden. Do not use headings inside text. Avoid stiff phrases like 'visible cues indicate', 'this fragment shapes', or 'social-cultural resonance'. Keep factual claims cautious and grounded in observable details. If sourceNotes are relevant, paraphrase them briefly and make the relationship explicit as nearby context."
+            "Default to English. Write like natural spoken subtitles for TTS: first-person, conversational, concrete, and slightly personal. Keep the schema logic hidden. Do not use headings inside text. Avoid stiff phrases like 'visible cues indicate', 'this fragment shapes', 'social-cultural resonance', 'collective rhythm', or 'identity and belonging'. Make it sound like a Hong Kong person casually guiding a friend on the street, not a cultural essay. Keep factual claims cautious and grounded in observable details. If sourceNotes are relevant, paraphrase them briefly and make the relationship explicit as nearby context."
         })
       }
     ]
@@ -134,19 +138,19 @@ function fallbackNarratives(vision: VisionDescription, persona?: GeneratedPerson
   return {
     functionalUse: {
       title: "Functional-Use",
-      text: `I would stop at ${vision.mainFeature} first, because small things like this tell you how to move. With ${cues}, it feels like a little street instruction: pass here, wait there, don't cross too quickly.${memory}${localContext}${sourceContext} ${name} might say it reminds ${objective} of older Hong Kong shopfronts and pavement edges. I can't know the real history from one crop, but I can feel how it organizes ordinary movement.`
+      text: `I would stop at ${vision.mainFeature} first, because small things like this tell you what to do without making a big announcement. With ${cues}, I would think, okay, pass this side, wait there, don't block people.${memory}${localContext}${sourceContext} ${name} might say it feels like the kind of detail you notice while going for lunch or carrying shopping. I can't know the real history from one crop, but I can see how it guides everyday movement.`
     },
     identityBelonging: {
       title: "Identity-Belonging",
-      text: `To ${name}, this detail changes the mood of approaching the place. Maybe it says, come closer. Maybe it says, keep moving. That depends on its edge, its condition, and how it sits beside the pavement. ${subjectiveCap} would not claim who belongs here. ${subjectiveCap} would just notice how shutters, railings, signs, or worn surfaces can make a street feel familiar, guarded, or easy to read.`
+      text: `To ${name}, this detail changes how comfortable it feels to come closer. Maybe I would pause and check where the entrance is. Maybe I would just keep walking. It depends on the edge, the condition, and how it sits beside the pavement. ${subjectiveCap} would not claim who belongs here. ${subjectiveCap} would only say: some corners feel easy, some feel a bit closed off, and you sense it very quickly.`
     },
     memoryTemporality: {
       title: "Memory-Temporality",
-      text: `${name} would probably look for time in the surface: what has been rubbed, closed, cleaned, ignored, or repaired. It doesn't prove a story. Still, details like this often carry the feeling of repetition. People pass, someone opens up, someone locks up, rain comes, paint fades. For ${objective}, it may recall other stair landings, shop gates, or corners ${subjective} has known, without saying this exact place had the same past.`
+      text: `${name} would probably look at the surface and think about ordinary repetition. Not a grand story. Just opening, closing, wiping, repairing, getting wet in the rain, fading a little. People pass by, someone locks up, someone comes back tomorrow. For ${objective}, it may recall other shop gates or corners ${subjective} has known, but ${subjective} would not say this exact place had the same past.`
     },
     socialCulturalResonance: {
       title: "Social-Cultural Resonance",
-      text: `For ${name}, the interesting part is how quietly this helps people share the street. No one needs a big explanation. You just sense where to queue, where to give way, where a shop edge begins, or where public space continues. ${subjectiveCap} might connect it to everyday Hong Kong habits, carefully, not as proven community history. More like a small reminder that street order is built from tiny agreements.`
+      text: `For ${name}, the interesting part is how quietly this helps people get along on a tight street. No one needs to announce it. You just sense where to queue, where to give way, where not to stand too long, where a shop edge begins. ${subjectiveCap} might connect it to everyday Hong Kong habits, carefully, not as proven history. More like, okay, this is how people avoid bumping into each other.`
     }
   };
 }

@@ -6,9 +6,9 @@ const personaPrompt = `Generate three scene-grounded fictional interpretive pers
 
 Use only the provided sceneVisualDescription and spatially cautious interpretation. Do not invent historical facts, demographic identities, private information, ownership, events, or community stories.
 
-Each persona should help a user notice a different relationship between place fragments and everyday spatial experience.
+Each persona should help a user notice a different relationship between place fragments and everyday spatial experience, but their voice should feel like a regular person talking on the street.
 
-The persona background should feel like a vivid but clearly fictional guide character, not a factual claim about the photographed place. Give each persona a grounded Hong Kong life texture: age range, occupation or past occupation, daily habits, food preferences, leisure interests, and a way of speaking. Use a natural mix of genders and ages when appropriate. Do not say the person actually lives at, owns, represents, or historically belongs to the selected street.
+The persona background should feel like a vivid but clearly fictional guide character, not a factual claim about the photographed place. Give each persona a grounded Hong Kong life texture: age range, occupation or past occupation, daily habits, food preferences, leisure interests, and a way of speaking. Keep it everyday and specific rather than literary, symbolic, or culturally grand. Use a natural mix of genders and ages when appropriate. Do not say the person actually lives at, owns, represents, or historically belongs to the selected street.
 
 Return strict JSON:
 {
@@ -57,7 +57,7 @@ export async function generatePersonas(params: {
           image: params.image,
           sceneVisualDescription: params.sceneVisualDescription,
           languageStyle:
-            "Persona names and roles should be concise English. Backgrounds should be warm, specific, and human, with light Hong Kong bilingual phrasing where natural."
+            "Persona names and roles should be concise English. Backgrounds should be warm, specific, and human, with light Hong Kong bilingual phrasing where natural. Avoid artsy or cultural-theory roles; prefer ordinary jobs, routines, food, transport, shopping, weather, and street habits."
         })
       }
     ]

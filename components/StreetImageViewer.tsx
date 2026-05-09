@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { BoxSelectionLayer } from "@/components/BoxSelectionLayer";
 import { LoadingState } from "@/components/LoadingState";
 import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
-import type { ImageCropBox, PanoramaPov, ScreenBox, StreetImage } from "@/types";
+import type { ImageCropBox, PanoramaPov, ScreenBox, SelectedFragment, StreetImage } from "@/types";
 
 type Props = {
   image?: StreetImage;
@@ -13,6 +13,9 @@ type Props = {
   googleMapsApiKey?: string;
   language?: "en" | "zh";
   targetPov?: PanoramaPov;
+  fragments?: SelectedFragment[];
+  activeFragmentId?: string;
+  onFragmentClick?: (fragment: SelectedFragment) => void;
   onFragmentSelected: (
     screenBox: ScreenBox,
     cropBox: ImageCropBox,
@@ -31,6 +34,8 @@ export type FragmentSelectionMeta = {
   heading?: number;
   pitch?: number;
   fov?: number;
+  viewportWidth?: number;
+  viewportHeight?: number;
 };
 
 type GoogleStreetViewPanorama = {
@@ -58,7 +63,17 @@ declare global {
   }
 }
 
-export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "en", targetPov, onFragmentSelected }: Props) {
+export function StreetImageViewer({
+  image,
+  busy,
+  googleMapsApiKey,
+  language = "en",
+  targetPov,
+  fragments = [],
+  activeFragmentId,
+  onFragmentClick,
+  onFragmentSelected
+}: Props) {
   const zh = language === "zh";
   const imgRef = useRef<HTMLImageElement | null>(null);
   const panoRef = useRef<HTMLDivElement | null>(null);
@@ -66,6 +81,7 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "e
   const targetPovRef = useRef<PanoramaPov | undefined>(targetPov);
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [pov, setPov] = useState<GooglePov>({ heading: 0, pitch: 0, zoom: 1 });
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [googleStatus, setGoogleStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [googleSelecting, setGoogleSelecting] = useState(false);
 
@@ -76,6 +92,19 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "e
   useEffect(() => {
     targetPovRef.current = targetPov;
   }, [targetPov]);
+
+  useEffect(() => {
+    if (image?.provider !== "google" || !panoRef.current) return;
+    const node = panoRef.current;
+    const update = () => {
+      const rect = node.getBoundingClientRect();
+      setViewportSize({ width: rect.width, height: rect.height });
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [googleStatus, image?.provider]);
 
   useEffect(() => {
     if (image?.provider !== "google" || !panoRef.current || !googleMapsApiKey) return;
@@ -187,6 +216,13 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "e
             {googleMapsApiKey ? (
               <>
                 <div ref={panoRef} className="absolute inset-0" />
+                <FragmentBoxOverlay
+                  fragments={fragments}
+                  activeFragmentId={activeFragmentId}
+                  viewportSize={viewportSize}
+                  disabled={googleSelecting}
+                  onFragmentClick={onFragmentClick}
+                />
                 {googleSelecting ? (
                   <BoxSelectionLayer
                     disabled={busy || googleStatus !== "ready"}
@@ -213,7 +249,9 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "e
                       onFragmentSelected(screenBox, cropBox, sourceImageUrl, {
                         heading: pov.heading,
                         pitch: pov.pitch,
-                        fov: 90
+                        fov: 90,
+                        viewportWidth: rect.width,
+                        viewportHeight: rect.height
                       });
                     }}
                   />
@@ -293,6 +331,76 @@ export function StreetImageViewer({ image, busy, googleMapsApiKey, language = "e
       </div>
     </div>
   );
+}
+
+function FragmentBoxOverlay({
+  fragments,
+  activeFragmentId,
+  viewportSize,
+  disabled,
+  onFragmentClick
+}: {
+  fragments: SelectedFragment[];
+  activeFragmentId?: string;
+  viewportSize: { width: number; height: number };
+  disabled?: boolean;
+  onFragmentClick?: (fragment: SelectedFragment) => void;
+}) {
+  if (disabled || viewportSize.width <= 0 || viewportSize.height <= 0 || fragments.length === 0) return null;
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[35]">
+      {fragments.map((fragment, index) => {
+        const box = scaleFragmentBox(fragment, viewportSize);
+        if (!box || box.width < 8 || box.height < 8) return null;
+        const active = fragment.id === activeFragmentId;
+        const ready = fragment.status === "ready";
+        const hasAudio = Object.keys(fragment.audioGenerations || {}).length > 0;
+
+        return (
+          <button
+            key={fragment.id}
+            type="button"
+            aria-label={`Select fragment ${index + 1}`}
+            onClick={() => onFragmentClick?.(fragment)}
+            className={`pointer-events-auto absolute rounded-[2px] border-2 border-dashed border-white text-left shadow-[0_0_0_1px_rgba(0,0,0,0.55),0_8px_20px_rgba(0,0,0,0.25)] transition hover:bg-white/15 ${
+              active ? "bg-white/20 ring-2 ring-signal" : "bg-black/10"
+            }`}
+            style={{
+              left: box.x,
+              top: box.y,
+              width: box.width,
+              height: box.height
+            }}
+          >
+            <span className="absolute -left-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full border border-white/90 bg-ink px-1 text-[11px] font-semibold text-white shadow">
+              {index + 1}
+            </span>
+            {ready ? (
+              <span className="absolute -bottom-7 left-0 whitespace-nowrap rounded-sm border border-white/70 bg-white px-2 py-1 text-[11px] font-semibold text-ink shadow">
+                {active ? (hasAudio ? "Active audio" : "Active") : hasAudio ? "Play saved audio" : "Select this"}
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function scaleFragmentBox(fragment: SelectedFragment, viewportSize: { width: number; height: number }) {
+  const sourceWidth = fragment.panoramaPov?.viewportWidth || viewportSize.width;
+  const sourceHeight = fragment.panoramaPov?.viewportHeight || viewportSize.height;
+  if (sourceWidth <= 0 || sourceHeight <= 0) return undefined;
+
+  const scaleX = viewportSize.width / sourceWidth;
+  const scaleY = viewportSize.height / sourceHeight;
+  return {
+    x: clamp(fragment.screenBox.x * scaleX, 0, viewportSize.width),
+    y: clamp(fragment.screenBox.y * scaleY, 0, viewportSize.height),
+    width: clamp(fragment.screenBox.width * scaleX, 0, viewportSize.width),
+    height: clamp(fragment.screenBox.height * scaleY, 0, viewportSize.height)
+  };
 }
 
 function clamp(value: number, min: number, max: number) {

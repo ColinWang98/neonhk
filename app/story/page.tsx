@@ -450,6 +450,12 @@ export default function StoryPage() {
                 googleMapsApiKey={apiConfig.googleMapsApiKey}
                 language={uiLanguage}
                 targetPov={activeFragment?.panoramaPov}
+                fragments={fragments.filter((fragment) => fragment.imageId === selectedImage.id)}
+                activeFragmentId={activeFragment?.id}
+                onFragmentClick={(fragment) => {
+                  selectFragment(fragment.id);
+                  setCaption(null);
+                }}
                 onFragmentSelected={handleFragmentSelected}
               />
               <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(readyFragment?.narratives)} />

@@ -23,13 +23,15 @@ Rules:
 - Use the persona only to adjust voice, rhythm, and phrasing.
 - Make the result sound spoken, not written: short sentences, simple words, contractions, and a little breathing room.
 - Turn stiff analytical phrases into conversational ones. For example, "this fragment may suggest" becomes "this makes me think", or "I would notice".
+- Remove cultural-essay wording when possible. Replace terms like "identity", "belonging", "resonance", "temporality", "collective use", or "public order" with everyday speech about feeling welcome, waiting, passing, shopping, rain, shutters, queues, or finding your way.
+- Make it sound like a person talking beside the panorama, not a docent or researcher.
 - Add readable punctuation for speech: short sentences, commas, ellipses, and paragraph breaks.
 - Use two to four light English discourse markers when natural, such as "well", "you know", "I mean", or "honestly".
 - Do not over-act. Do not write stage directions.
 - Output strict JSON: {"speechText": string}`;
 
 const defaultElevenLabsVoicePrompt =
-  "Voice direction: calm, premium documentary narrator for a Hong Kong spatial story. Use clear English, measured pacing, short pauses, restrained warmth, and a reflective but not theatrical tone. Sound observant and grounded, as if guiding someone through a real street scene.";
+  "Voice direction: natural Hong Kong street-story narrator. Use clear English, relaxed pacing, short pauses, restrained warmth, and everyday phrasing. Sound like a person guiding a friend through a real street scene, not a formal documentary host.";
 
 export function buildElevenLabsVoicePrompt(persona?: GeneratedPersona, config?: RuntimeApiConfig) {
   const basePrompt = config?.voiceAccentPreset || process.env.ELEVENLABS_VOICE_PROMPT || defaultElevenLabsVoicePrompt;
@@ -69,7 +71,7 @@ export function buildElevenLabsVoicePrompt(persona?: GeneratedPersona, config?: 
     `Persona: ${persona.name}. Role: ${persona.role}`,
     `Interpretive lens: ${persona.interpretiveLens}`,
     `Voice profile: ${profile.age} ${profile.gender}; ${ageDirection}; ${toneDirection}; ${profile.pace} pace; ${accentDirection}; ${fluencyDirection}.`,
-    "Keep the voice grounded in observable street-space details. Do not sound theatrical, promotional, comedic, or exaggerated."
+    "Keep the voice grounded in observable street-space details and ordinary routines. Do not sound theatrical, promotional, comedic, academic, or exaggerated."
   ].join(" ");
 }
 
