@@ -8,7 +8,13 @@ Use only the provided sceneVisualDescription and spatially cautious interpretati
 
 Each persona should help a user notice a different relationship between place fragments and everyday spatial experience. They may carry cultural judgement and local sensibility, but their voice should feel like a regular person talking on the street.
 
-The persona background should feel like a vivid but clearly fictional guide character, not a factual claim about the photographed place. Give each persona a grounded Hong Kong life texture: age range, occupation or past occupation, daily habits, food preferences, leisure interests, and a way of speaking. Keep cultural interpretation internalized through everyday details rather than literary, symbolic, or grand language. Use a natural mix of genders and ages when appropriate. Do not say the person actually lives at, owns, represents, or historically belongs to the selected street.
+Age and residency constraints:
+- Generate only personas aged 40 or above.
+- Do not generate young adult personas.
+- Keep identities diverse through relationship to Hong Kong rather than age: include a mix such as local resident, visitor/tourist, temporary resident, return visitor, or short-term worker.
+- Across the three personas, prefer one local resident, one visitor/tourist, and one temporary resident or recent arrival when this fits the scene.
+
+The persona background should feel like a vivid but clearly fictional guide character, not a factual claim about the photographed place. Give each persona a grounded life texture: age, relationship to Hong Kong, occupation or past occupation, daily habits, food preferences, leisure interests, and a way of speaking. Keep cultural interpretation internalized through everyday details rather than literary, symbolic, or grand language. Use a natural mix of genders when appropriate. Do not say the person actually lives at, owns, represents, or historically belongs to the selected street.
 
 Return strict JSON:
 {
@@ -57,7 +63,7 @@ export async function generatePersonas(params: {
           image: params.image,
           sceneVisualDescription: params.sceneVisualDescription,
           languageStyle:
-            "Persona names and roles should be concise English. Backgrounds should be warm, specific, and human, with light Hong Kong bilingual phrasing where natural. They can have cultural perspective, but express it through ordinary jobs, routines, food, transport, shopping, weather, family habits, and street manners."
+            "Persona names and roles should be concise English. All personas must be 40 or older. Backgrounds should be warm, specific, and human, with light Hong Kong bilingual phrasing where natural. Vary their relationship to Hong Kong: local resident, tourist/visitor, temporary resident, recent arrival, or return visitor. They can have cultural perspective, but express it through ordinary jobs, routines, food, transport, shopping, weather, family habits, and street manners."
         })
       }
     ]
@@ -130,24 +136,24 @@ export function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
         "Write with attention to repeated use, maintenance, and visible traces of routine, using cautious bilingual Hong Kong phrasing."
     },
     {
-      id: "public-order-guide",
-      name: "Jason Tang",
-      role: "A young community arts producer who notices how public space feels shared, readable, and socially comfortable.",
+      id: "return-visitor",
+      name: "Martin Chow",
+      role: "A return visitor in his late forties who reads streets through comparison, wayfinding, and small habits picked up while travelling.",
       background:
-        "Fictional guide: 29, grew up between housing estates and MTR exits, works on small neighbourhood exhibitions, likes cha chaan teng set lunches, indie bookshops, and late tram rides. He speaks with quick curiosity and gentle humour.",
+        "Fictional guide: 48, grew up partly overseas and visits Hong Kong every few years to see relatives, buy old camera parts, eat wonton noodles, and walk without a strict plan. He notices what feels familiar, what confuses him, and how quickly a visitor learns the manners of a street.",
       interpretiveLens: `Reads this ${source} through public order, shared norms, navigation, and small cues that organize collective use.`,
-      voiceHint: "Young Hong Kong English male, warm, curious, lightly playful",
+      voiceHint: "Middle-aged Hong Kong English male, curious return visitor, lightly playful",
       voiceProfile: {
         accent: "neutral-british",
         englishFluency: "fluent",
         gender: "male",
-        age: "young",
+        age: "middle",
         pace: "normal",
         tone: "warm",
         cantoneseRatio: 0.1
       },
       promptInstruction:
-        "Write as a public-space guide who explains visible cues of order, navigation, and shared use without claiming unverifiable cultural history."
+        "Write as a middle-aged return visitor who notices visible cues of order, navigation, and shared use through personal comparison, without claiming unverifiable cultural history."
     }
   ];
 }
@@ -169,10 +175,18 @@ function normalizePersonas(personas: GeneratedPersona[] | undefined, image: Stre
       fallback[index]?.interpretiveLens ||
       "Reads visible spatial cues with caution.",
     voiceHint: persona.voiceHint || fallback[index]?.voiceHint || "Hong Kong bilingual",
-    voiceProfile: persona.voiceProfile || fallback[index]?.voiceProfile,
+    voiceProfile: normalizeVoiceProfile(persona.voiceProfile || fallback[index]?.voiceProfile),
     promptInstruction:
       persona.promptInstruction ||
       fallback[index]?.promptInstruction ||
       "Use only observable cues and cautious interpretation."
   }));
+}
+
+function normalizeVoiceProfile(profile: GeneratedPersona["voiceProfile"]) {
+  if (!profile) return profile;
+  return {
+    ...profile,
+    age: profile.age === "young" ? "middle" : profile.age
+  };
 }
