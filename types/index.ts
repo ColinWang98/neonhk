@@ -160,6 +160,10 @@ export type PanoramaPov = {
   fov?: number;
   viewportWidth?: number;
   viewportHeight?: number;
+  boxCorners?: {
+    heading: number;
+    pitch: number;
+  }[];
 };
 
 export type TtsAudioGeneration = {

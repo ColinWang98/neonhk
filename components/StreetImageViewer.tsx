@@ -36,6 +36,12 @@ export type FragmentSelectionMeta = {
   fov?: number;
   viewportWidth?: number;
   viewportHeight?: number;
+  boxCorners?: PanoramaPoint[];
+};
+
+type PanoramaPoint = {
+  heading: number;
+  pitch: number;
 };
 
 type GoogleStreetViewPanorama = {
@@ -247,6 +253,17 @@ export function StreetImageViewer({
                         height: (screenBox.height / rect.height) * sourceSize.height
                       };
                       const snapshotFov = currentHorizontalFov(pov.zoom);
+                      const snapshotVerticalFov = verticalFov(snapshotFov, rect.width, rect.height);
+                      const boxCorners = screenBoxCorners(screenBox).map((corner) =>
+                        screenPointToPanoramaPoint(corner, {
+                          width: rect.width,
+                          height: rect.height,
+                          heading: pov.heading,
+                          pitch: pov.pitch,
+                          horizontalFov: snapshotFov,
+                          verticalFov: snapshotVerticalFov
+                        })
+                      );
                       const sourceImageUrl = buildGoogleStreetViewStaticUrl({
                         key: googleMapsApiKey,
                         panoId: image.panoId || image.id,
@@ -261,6 +278,7 @@ export function StreetImageViewer({
                         heading: pov.heading,
                         pitch: pov.pitch,
                         fov: snapshotFov,
+                        boxCorners,
                         viewportWidth: rect.width,
                         viewportHeight: rect.height
                       });
@@ -406,6 +424,13 @@ function projectFragmentBox(
   viewportSize: { width: number; height: number },
   pov: GooglePov
 ) {
+  const currentFov = currentHorizontalFov(pov.zoom);
+  const currentVerticalFov = verticalFov(currentFov, viewportSize.width, viewportSize.height);
+  const savedCorners = validPanoramaCorners(fragment.panoramaPov?.boxCorners);
+  if (savedCorners) {
+    return projectPanoramaCorners(savedCorners, viewportSize, pov, currentFov, currentVerticalFov);
+  }
+
   const sourceWidth = fragment.panoramaPov?.viewportWidth || viewportSize.width;
   const sourceHeight = fragment.panoramaPov?.viewportHeight || viewportSize.height;
   const sourceHeading = fragment.panoramaPov?.heading;
@@ -421,16 +446,8 @@ function projectFragmentBox(
 
   const sourceFov = fragment.panoramaPov?.fov || 90;
   const sourceVerticalFov = verticalFov(sourceFov, sourceWidth, sourceHeight);
-  const currentFov = currentHorizontalFov(pov.zoom);
-  const currentVerticalFov = verticalFov(currentFov, viewportSize.width, viewportSize.height);
   const box = fragment.screenBox;
-  const sourceCorners = [
-    { x: box.x, y: box.y },
-    { x: box.x + box.width, y: box.y },
-    { x: box.x + box.width, y: box.y + box.height },
-    { x: box.x, y: box.y + box.height }
-  ];
-  const projected = sourceCorners
+  const panoramaCorners = screenBoxCorners(box)
     .map((corner) =>
       screenPointToPanoramaPoint(corner, {
         width: sourceWidth,
@@ -440,19 +457,55 @@ function projectFragmentBox(
         horizontalFov: sourceFov,
         verticalFov: sourceVerticalFov
       })
-    )
-    .map((point) =>
-      panoramaPointToScreenPoint(point, {
-        width: viewportSize.width,
-        height: viewportSize.height,
-        heading: pov.heading || 0,
-        pitch: pov.pitch || 0,
-        horizontalFov: currentFov,
-        verticalFov: currentVerticalFov
-      })
     );
 
-  if (projected.some((point) => !point.visible)) return undefined;
+  return projectPanoramaCorners(panoramaCorners, viewportSize, pov, currentFov, currentVerticalFov);
+}
+
+function screenBoxCorners(box: ScreenBox) {
+  return [
+    { x: box.x, y: box.y },
+    { x: box.x + box.width, y: box.y },
+    { x: box.x + box.width, y: box.y + box.height },
+    { x: box.x, y: box.y + box.height }
+  ];
+}
+
+function validPanoramaCorners(corners?: PanoramaPoint[]) {
+  if (!corners || corners.length < 4) return undefined;
+  const firstFour = corners.slice(0, 4);
+  if (
+    firstFour.some(
+      (point) =>
+        !Number.isFinite(point.heading) ||
+        !Number.isFinite(point.pitch)
+    )
+  ) {
+    return undefined;
+  }
+  return firstFour;
+}
+
+function projectPanoramaCorners(
+  corners: PanoramaPoint[],
+  viewportSize: { width: number; height: number },
+  pov: GooglePov,
+  currentFov: number,
+  currentVerticalFov: number
+) {
+  const projected = corners.map((point) =>
+    panoramaPointToScreenPoint(point, {
+      width: viewportSize.width,
+      height: viewportSize.height,
+      heading: pov.heading || 0,
+      pitch: pov.pitch || 0,
+      horizontalFov: currentFov,
+      verticalFov: currentVerticalFov
+    })
+  );
+
+  if (projected.every((point) => !point.visible)) return undefined;
+  if (projected.some((point) => !point.inFront)) return undefined;
 
   const xs = projected.map((point) => point.x);
   const ys = projected.map((point) => point.y);
@@ -524,12 +577,14 @@ function panoramaPointToScreenPoint(
   const halfVertical = camera.verticalFov / 2;
   const margin = 8;
   const visible = Math.abs(headingOffset) <= halfHorizontal + margin && Math.abs(pitchOffset) <= halfVertical + margin;
+  const inFront = Math.abs(headingOffset) < 88 && Math.abs(pitchOffset) < 88;
   const xNorm = Math.tan(toRadians(headingOffset)) / Math.tan(toRadians(halfHorizontal));
   const yNorm = -Math.tan(toRadians(pitchOffset)) / Math.tan(toRadians(halfVertical));
   return {
     x: ((xNorm + 1) / 2) * camera.width,
     y: ((yNorm + 1) / 2) * camera.height,
-    visible
+    visible,
+    inFront
   };
 }
 
