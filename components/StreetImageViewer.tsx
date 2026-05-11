@@ -190,11 +190,11 @@ export function StreetImageViewer({
 
   return (
     <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-md">
-      <div className="flex items-center justify-between gap-4 border-b border-ink/10 px-5 py-4">
-        <div>
+      <div className="flex flex-col gap-3 border-b border-ink/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-4">
+        <div className="min-w-0">
           <p className="fine-label">{zh ? "全景图" : "Panorama"}</p>
           <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "街道图像查看器" : "Street Image Viewer"}</h2>
-          <p className="mt-1 text-xs text-ink/58">
+          <p className="mt-1 break-all text-xs text-ink/58">
             {image ? `${providerLabel(image.provider)} image ${image.id}` : "Select a marker to begin"}
           </p>
           {image ? (
@@ -204,14 +204,14 @@ export function StreetImageViewer({
             </p>
           ) : null}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
           {busy ? <LoadingState label={zh ? "正在处理片段" : "Processing fragment"} /> : null}
           {image?.provider === "google" && googleMapsApiKey ? (
             <button
               type="button"
               disabled={busy || googleStatus !== "ready"}
               onClick={() => setGoogleSelecting((value) => !value)}
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-55"
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-ink px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-55 sm:px-4"
             >
               <Crosshair className="h-4 w-4" />
               {googleSelecting ? (zh ? "退出框选" : "Exit selection") : zh ? "开始框选" : "Select fragment"}
@@ -269,7 +269,7 @@ export function StreetImageViewer({
                 ) : null}
                 {googleSelecting ? (
                   <div className="pointer-events-none absolute inset-0 z-[30] border-[3px] border-signal bg-signal/10">
-                    <div className="absolute left-4 top-4 inline-flex max-w-[360px] items-center gap-2 rounded-md border border-white/25 bg-ink/90 px-4 py-3 text-sm font-medium text-white shadow-lg">
+                    <div className="absolute left-3 right-3 top-3 inline-flex max-w-[360px] items-center gap-2 rounded-md border border-white/25 bg-ink/90 px-3 py-2 text-xs font-medium text-white shadow-lg sm:left-4 sm:right-auto sm:top-4 sm:px-4 sm:py-3 sm:text-sm">
                       <MousePointer2 className="h-4 w-4 shrink-0" />
                       {zh ? "在全景图上按住鼠标拖拽，框选一个 place fragment" : "Drag on the panorama to box-select a place fragment"}
                     </div>
@@ -389,7 +389,7 @@ function FragmentBoxOverlay({
             <span className="absolute -left-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full border border-white/90 bg-ink px-1 text-[11px] font-semibold text-white shadow">
               {index + 1}
             </span>
-            {ready ? (
+            {ready && box.width >= 96 ? (
               <span className="absolute -bottom-7 left-0 whitespace-nowrap rounded-sm border border-white/70 bg-white px-2 py-1 text-[11px] font-semibold text-ink shadow">
                 {active ? (hasAudio ? "Active audio" : "Active") : hasAudio ? "Play saved audio" : "Select this"}
               </span>

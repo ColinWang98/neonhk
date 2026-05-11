@@ -346,7 +346,7 @@ export default function StoryPage() {
 
   if (!selectedImage) {
     return (
-      <main className="flex h-screen items-center justify-center p-6 text-ink">
+      <main className="flex min-h-dvh items-center justify-center p-4 text-ink sm:p-6">
         <div className="surface-panel max-w-md rounded-md p-7 text-center">
           <p className="fine-label">Start Required</p>
           <h1 className="text-xl font-semibold">No scene selected</h1>
@@ -360,15 +360,15 @@ export default function StoryPage() {
   }
 
   return (
-    <main className="flex h-screen flex-col p-5 text-ink">
-      <header className="mb-5 flex flex-col gap-3 border-b border-ink/10 pb-5 md:flex-row md:items-end md:justify-between">
+    <main className="flex min-h-dvh flex-col p-3 text-ink sm:p-5 lg:h-screen">
+      <header className="mb-4 flex flex-col gap-3 border-b border-ink/10 pb-4 sm:mb-5 sm:pb-5 md:flex-row md:items-end md:justify-between">
         <div>
           <Link href="/" className="mb-2 inline-flex items-center gap-1 text-xs text-ink/58 transition hover:text-ink">
             <ArrowLeft className="h-3 w-3" />
             Map
           </Link>
           <p className="fine-label mb-2">Guided panorama reading</p>
-          <h1 className="text-[2rem] font-semibold tracking-normal md:text-[2.4rem]">HK Spatial Story</h1>
+          <h1 className="text-[1.75rem] font-semibold tracking-normal sm:text-[2rem] md:text-[2.4rem]">HK Spatial Story</h1>
           <p className="mt-2 text-sm leading-6 text-ink/62">
             {currentStage === "persona"
               ? "Step 2: choose a generated spatial persona."
@@ -377,7 +377,7 @@ export default function StoryPage() {
                 : "Step 4: read and listen to the schema story."}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex h-10 overflow-hidden rounded-md border border-ink/15 bg-paper">
             {(["en", "zh"] as const).map((language) => (
               <button
@@ -403,9 +403,9 @@ export default function StoryPage() {
       ) : null}
 
       {currentStage === "persona" ? (
-        <section className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[360px_1fr]">
+        <section className="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[360px_1fr] lg:gap-5">
           <SceneSummary image={selectedImage} />
-          <div className="surface-panel min-h-0 overflow-auto rounded-md p-5">
+          <div className="surface-panel min-h-0 overflow-auto rounded-md p-4 sm:p-5">
             <p className="fine-label">Step 2</p>
             <h2 className="mt-1 text-lg font-semibold">Scene Personas</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-ink/62">
@@ -416,7 +416,7 @@ export default function StoryPage() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               </div>
             ) : (
-              <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <div className="mt-5 grid gap-3 md:grid-cols-3 md:gap-4">
                 {personas.map((persona) => (
                   <button
                     type="button"
@@ -440,9 +440,9 @@ export default function StoryPage() {
           </div>
         </section>
       ) : (
-        <section className="grid min-h-0 flex-1 grid-rows-[minmax(660px,1fr)_minmax(220px,0.26fr)] gap-5">
-          <div className="grid min-h-0 gap-5 lg:grid-cols-[minmax(860px,1fr)_340px]">
-            <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
+        <section className="grid flex-1 gap-4 lg:min-h-0 lg:grid-rows-[minmax(660px,1fr)_minmax(220px,0.26fr)] lg:gap-5">
+          <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(720px,1fr)_340px] lg:gap-5">
+            <div className="grid min-h-[56vh] grid-rows-[minmax(420px,1fr)_auto] gap-3 sm:min-h-[62vh] sm:grid-rows-[minmax(500px,1fr)_auto] lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto]">
               <StreetImageViewer
                 image={selectedImage}
                 busy={processing}
@@ -459,7 +459,7 @@ export default function StoryPage() {
               />
               <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(readyFragment?.narratives)} />
             </div>
-            <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-5">
+            <div className="grid gap-4 lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto] lg:gap-5">
               <PersonaSwitcher
                 personas={personas}
                 selectedPersona={selectedPersona}
@@ -486,7 +486,7 @@ export default function StoryPage() {
               />
             </div>
           </div>
-          <div className="min-h-0">
+          <div className="min-h-[260px] lg:min-h-0">
             <SelectedFragmentList
               fragments={fragments}
               language={uiLanguage}
@@ -507,7 +507,7 @@ function SceneSummary({ image }: { image: StreetImage }) {
   return (
     <aside className="surface-panel rounded-md p-5">
       <div className="overflow-hidden rounded-md border border-ink/10 bg-field">
-        <img src={image.thumbUrl} alt="Selected scene" className="aspect-square w-full object-cover" />
+        <img src={image.thumbUrl} alt="Selected scene" className="aspect-[16/10] w-full object-cover lg:aspect-square" />
       </div>
       <p className="fine-label mt-5">Selected Scene</p>
       <h2 className="mt-1 text-sm font-semibold text-ink">{image.provider === "google" ? "Google Street View" : "Mapillary"}</h2>
@@ -538,7 +538,7 @@ function PersonaSwitcher({
           </h2>
         </div>
       </div>
-      <div className="mt-3 grid max-h-[36vh] gap-2 overflow-auto pr-1">
+      <div className="mt-3 grid max-h-[42vh] gap-2 overflow-auto pr-1 lg:max-h-[36vh]">
         {personas.map((persona) => {
           const selected = selectedPersona?.id === persona.id;
           return (
@@ -579,12 +579,12 @@ function LiveCaption({
 }) {
   const zh = language === "zh";
   return (
-    <div className="min-h-[72px] rounded-md border border-brass/25 bg-paper px-5 py-3 text-brass shadow-[0_12px_30px_rgba(82,61,38,0.12)]">
+    <div className="min-h-[76px] rounded-md border border-brass/25 bg-paper px-4 py-3 text-brass shadow-[0_12px_30px_rgba(82,61,38,0.12)] sm:px-5">
       <div className="mb-1 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.14em] text-brass/65">
         <span>{zh ? "实时字幕" : "Live Subtitle"}</span>
         <span>{caption ? `${caption.index + 1}/${caption.total}` : "Idle"}</span>
       </div>
-      <p className="line-clamp-2 text-[17px] font-medium leading-7 text-brass">
+      <p className="line-clamp-3 text-[15px] font-medium leading-6 text-brass sm:line-clamp-2 sm:text-[17px] sm:leading-7">
         {caption?.text ||
           (ready
             ? zh

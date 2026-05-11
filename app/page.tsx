@@ -167,11 +167,11 @@ export default function Home() {
   }
 
   return (
-    <main className="flex h-screen flex-col p-5 text-ink">
-      <header className="mb-5 flex flex-col gap-4 border-b border-ink/10 pb-5 md:flex-row md:items-end md:justify-between">
+    <main className="flex min-h-dvh flex-col p-3 text-ink sm:p-5 lg:h-screen">
+      <header className="mb-4 flex flex-col gap-4 border-b border-ink/10 pb-4 sm:mb-5 sm:pb-5 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="fine-label mb-2">Street-level narrative prototype</p>
-          <h1 className="text-[2rem] font-semibold tracking-normal text-ink md:text-[2.4rem]">
+          <h1 className="text-[1.75rem] font-semibold tracking-normal text-ink sm:text-[2rem] md:text-[2.4rem]">
             HK Spatial Story
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-6 text-ink/62">
@@ -200,7 +200,7 @@ export default function Home() {
             />
             <button
               type="submit"
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white transition hover:bg-ink/90"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-ink px-3 text-sm font-medium text-white transition hover:bg-ink/90 sm:px-4"
             >
               <Search className="h-4 w-4" />
               Search
@@ -216,8 +216,8 @@ export default function Home() {
         </div>
       ) : null}
 
-      <section className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(560px,1fr)_380px]">
-        <div className="relative min-h-0">
+      <section className="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[minmax(560px,1fr)_380px] lg:gap-5">
+        <div className="quiet-panel relative min-h-[58vh] overflow-hidden rounded-md bg-field lg:min-h-0">
           <LeafletMap
             images={images}
             selectedImage={selectedImage}
@@ -241,20 +241,20 @@ export default function Home() {
           ) : null}
         </div>
 
-        <aside className="surface-panel flex min-h-0 flex-col rounded-md">
+        <aside className="surface-panel flex min-h-[360px] flex-col rounded-md lg:min-h-0">
           <div className="border-b border-ink/10 px-5 py-4">
             <p className="fine-label">Step 1</p>
             <h2 className="mt-1 text-base font-semibold text-ink">Select a Scene</h2>
             <p className="mt-1 text-xs leading-5 text-ink/58">Map first, story second.</p>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5">
             {selectedImage ? (
               <>
                 <div className="overflow-hidden rounded-md border border-ink/10 bg-field">
                   <img
                     src={selectedImage.thumbUrl}
                     alt="Selected street scene"
-                    className="aspect-square w-full object-cover"
+                    className="aspect-[16/10] w-full object-cover lg:aspect-square"
                   />
                 </div>
                 <div className="space-y-1 text-sm text-ink/75">

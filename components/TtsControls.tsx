@@ -153,7 +153,7 @@ export function TtsControls({
 
   return (
     <div className="surface-panel rounded-md p-4">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="fine-label">{zh ? "音频" : "Audio"}</p>
           <h3 className="mt-1 text-sm font-semibold text-ink">{zh ? "故事旁白" : "Story Voice"}</h3>
@@ -167,12 +167,12 @@ export function TtsControls({
                   : "Server-configured cloud TTS."}
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
           <button
             type="button"
             disabled={!storyText || status === "loading"}
             onClick={() => play()}
-            className="inline-flex h-10 items-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             Play
@@ -180,7 +180,7 @@ export function TtsControls({
           <button
             type="button"
             onClick={stop}
-            className="inline-flex h-10 items-center gap-2 rounded-md border border-ink/15 bg-paper px-3 text-sm text-ink transition hover:bg-field"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-ink/15 bg-paper px-3 text-sm text-ink transition hover:bg-field"
           >
             <Square className="h-4 w-4" />
             Stop
