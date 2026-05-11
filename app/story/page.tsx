@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiConfigButton } from "@/components/ApiConfigModal";
 import { ErrorMessage } from "@/components/ErrorMessage";
@@ -55,6 +55,7 @@ export default function StoryPage() {
   const [caption, setCaption] = useState<CaptionState | null>(null);
   const [uiLanguage, setUiLanguage] = useState<"en" | "zh">("en");
   const [storageHydrated, setStorageHydrated] = useState(false);
+  const [storyDrawerOpen, setStoryDrawerOpen] = useState(false);
   const personaRequestIdRef = useRef(0);
   const storySessionIdRef = useRef<string | undefined>(storySession?.id);
 
@@ -497,6 +498,17 @@ export default function StoryPage() {
               }}
             />
           </div>
+          <StoryArchiveDrawer
+            open={storyDrawerOpen}
+            fragments={fragments}
+            activeFragmentId={activeFragment?.id}
+            language={uiLanguage}
+            onOpenChange={setStoryDrawerOpen}
+            onSelect={(fragment) => {
+              selectFragment(fragment.id);
+              setCaption(null);
+            }}
+          />
         </section>
       )}
     </main>
@@ -595,6 +607,132 @@ function LiveCaption({
               : "Once the story is ready, captions will appear here.")}
       </p>
     </div>
+  );
+}
+
+const storyKeys = [
+  "functionalUse",
+  "identityBelonging",
+  "memoryTemporality",
+  "socialCulturalResonance"
+] as const;
+
+const storyLabels = {
+  en: ["Everyday use", "Feeling of entry", "Time and routine", "Shared space"],
+  zh: ["日常使用", "进入感", "时间与惯常", "共享空间"]
+} as const;
+
+function StoryArchiveDrawer({
+  open,
+  fragments,
+  activeFragmentId,
+  language,
+  onOpenChange,
+  onSelect
+}: {
+  open: boolean;
+  fragments: SelectedFragment[];
+  activeFragmentId?: string;
+  language: "en" | "zh";
+  onOpenChange: (open: boolean) => void;
+  onSelect: (fragment: SelectedFragment) => void;
+}) {
+  const zh = language === "zh";
+  const storyFragments = fragments.filter((fragment) => fragment.narratives);
+  const activeStory =
+    storyFragments.find((fragment) => fragment.id === activeFragmentId) || storyFragments[0];
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => onOpenChange(true)}
+        className={`fixed right-0 top-1/2 z-[850] flex -translate-y-1/2 items-center gap-2 rounded-l-md border border-r-0 border-ink/12 bg-ink px-2 py-3 text-xs font-medium text-white shadow-xl transition hover:bg-ink/90 ${
+          open ? "translate-x-full opacity-0" : "translate-x-0 opacity-100"
+        }`}
+        aria-label={zh ? "打开保存的故事" : "Open saved stories"}
+      >
+        <ChevronLeft className="h-4 w-4" />
+        <span className="[writing-mode:vertical-rl]">{zh ? "故事" : "Stories"}</span>
+        <span className="rounded bg-white/16 px-1.5 py-0.5 text-[10px]">{storyFragments.length}</span>
+      </button>
+
+      <aside
+        className={`fixed bottom-3 right-3 top-20 z-[860] flex w-[min(25rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-md border border-ink/12 bg-paper shadow-2xl transition duration-300 sm:bottom-5 sm:right-5 sm:top-24 ${
+          open ? "translate-x-0 opacity-100" : "translate-x-[calc(100%+1.5rem)] opacity-0"
+        }`}
+        aria-hidden={!open}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-ink/10 px-4 py-4">
+          <div>
+            <p className="fine-label">{zh ? "已保存" : "Saved"}</p>
+            <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "街景故事" : "Street Stories"}</h2>
+            <p className="mt-1 text-xs leading-5 text-ink/58">
+              {zh ? `${storyFragments.length} 个片段有故事记录` : `${storyFragments.length} fragments with story notes`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="rounded-md p-2 text-ink/58 transition hover:bg-field hover:text-ink"
+            aria-label={zh ? "关闭" : "Close"}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-auto p-4">
+          {storyFragments.length === 0 ? (
+            <div className="flex h-full items-center justify-center rounded-md border border-dashed border-ink/18 bg-field/55 px-5 text-center text-sm leading-6 text-ink/56">
+              {zh ? "框选一个片段并完成故事后，会自动保存在这里。" : "After a selected fragment has a story, it will be saved here."}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                {storyFragments.map((fragment, index) => {
+                  const active = activeStory?.id === fragment.id;
+                  return (
+                    <button
+                      type="button"
+                      key={fragment.id}
+                      onClick={() => onSelect(fragment)}
+                      className={`rounded-md border p-3 text-left transition ${
+                        active
+                          ? "border-signal bg-[#eef7f4]"
+                          : "border-ink/10 bg-white hover:border-brass/40 hover:bg-[#fbf7ed]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-semibold text-ink">
+                          {zh ? `片段 ${index + 1}` : `Fragment ${index + 1}`}
+                        </span>
+                        {active ? <span className="rounded bg-signal px-2 py-0.5 text-[10px] text-white">{zh ? "当前" : "Active"}</span> : null}
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/62">
+                        {fragment.visionDescription?.mainFeature || (zh ? "街景片段" : "Street fragment")}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {activeStory?.narratives ? (
+                <div className="space-y-3 border-t border-ink/10 pt-4">
+                  {storyKeys.map((key, index) => (
+                    <article key={key} className="rounded-md border border-ink/10 bg-white p-4">
+                      <h3 className="text-xs font-semibold text-brass">
+                        {zh ? storyLabels.zh[index] : storyLabels.en[index]}
+                      </h3>
+                      <p className="mt-2 text-sm leading-6 text-ink/74">{activeStory.narratives![key].text}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }
 
