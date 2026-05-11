@@ -35,11 +35,14 @@ export default function TtsDemoPage() {
 
   async function play() {
     stop();
-    setStatus("Generating audio...");
+    setStatus("Preparing audio...");
 
     try {
       const config = readConfig();
-      const provider = config.ttsProvider === "local-open-source" ? "local-open-source" : "elevenlabs";
+      const provider =
+        config.ttsProvider === "local-open-source" || config.ttsProvider === "minimax" || config.ttsProvider === "elevenlabs"
+          ? config.ttsProvider
+          : "elevenlabs";
       const res = await fetch("/api/tts/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...runtimeConfigToHeaders(config) },
@@ -53,17 +56,17 @@ export default function TtsDemoPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.audioUrl) {
-        throw new Error(data.error || "TTS returned no audio URL.");
+        throw new Error("Voice preview is temporarily unavailable.");
       }
 
       const audio = new Audio(data.audioUrl);
       audioRef.current = audio;
       audio.onended = () => setStatus("Finished");
       audio.onerror = () => setStatus("Audio playback failed.");
-      setStatus(`Playing ${provider}; speech adapted with ${data.speechAdaptation || "none"}`);
+      setStatus("Playing");
       await audio.play();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "TTS failed.");
+      setStatus(error instanceof Error ? error.message : "Voice preview failed.");
     }
   }
 
@@ -76,20 +79,20 @@ export default function TtsDemoPage() {
   return (
     <main className="flex h-screen items-center justify-center p-5 text-ink">
       <section className="surface-panel w-full max-w-2xl rounded-md p-7">
-        <p className="fine-label">ElevenLabs / Local Open Source</p>
-        <h1 className="mt-2 text-2xl font-semibold">HK Spatial Story TTS Demo</h1>
+        <p className="fine-label">Voice Preview</p>
+        <h1 className="mt-2 text-2xl font-semibold">HK Spatial Story Voice Preview</h1>
         <p className="mt-3 text-xs leading-5 text-ink/58">
-          Uses the saved TTS provider from API settings. Only ElevenLabs and local open-source sidecar are supported.
+          Uses the saved voice settings for a short playback check.
         </p>
         <p className="mt-4 text-sm leading-7 text-ink/72">{demoText}</p>
         <div className="mt-6 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={play}
-            disabled={status === "Generating audio..."}
+            disabled={status === "Preparing audio..."}
             className="inline-flex h-10 items-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white transition hover:bg-ink/90"
           >
-            {status === "Generating audio..." ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
+            {status === "Preparing audio..." ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
             Play voice
           </button>
           <button

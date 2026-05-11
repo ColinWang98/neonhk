@@ -130,7 +130,7 @@ export default function CosyVoicePage() {
   async function generate() {
     stop();
     setIsGenerating(true);
-    setStatus("Generating with local CosyVoice sidecar...");
+    setStatus("Preparing voice preview...");
 
     try {
       const res = await fetch("/api/cosyvoice/generate", {
@@ -148,15 +148,15 @@ export default function CosyVoicePage() {
       });
       const data = await res.json();
       if (!res.ok || !data.audioUrl) {
-        throw new Error(data.error || "CosyVoice returned no audio URL.");
+        throw new Error("Voice preview is temporarily unavailable.");
       }
 
       setAudio(data);
-      setStatus(`Generated ${formatDuration(data.durationMs)}${data.referencePoolSize ? ` from ${data.referencePoolSize} reference candidates` : ""}.`);
+      setStatus(`Ready: ${formatDuration(data.durationMs)}.`);
       await play(data.audioUrl);
       refreshHealth();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Generation failed.");
+      setStatus(error instanceof Error ? error.message : "Voice preview failed.");
     } finally {
       setIsGenerating(false);
     }
@@ -187,12 +187,12 @@ export default function CosyVoicePage() {
       <header className="border-b border-ink/10 bg-paper/80 px-5 py-4 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="fine-label">Local Open Source TTS</p>
-            <h1 className="mt-1 text-2xl font-semibold">CosyVoice Studio</h1>
+            <p className="fine-label">Local Voice</p>
+            <h1 className="mt-1 text-2xl font-semibold">Voice Studio</h1>
           </div>
           <div className="flex items-center gap-2 rounded-md border border-ink/12 bg-white px-3 py-2 text-xs text-ink/65">
             <span className={`h-2 w-2 rounded-full ${health?.reachable ? "bg-emerald-500" : "bg-red-500"}`} />
-            {health?.reachable ? "Sidecar online" : "Sidecar offline"}
+            {health?.reachable ? "Local service online" : "Local service offline"}
           </div>
         </div>
       </header>
@@ -350,8 +350,8 @@ export default function CosyVoicePage() {
               </button>
             </div>
             <dl className="mt-4 space-y-2 text-xs text-ink/62">
-              <RuntimeRow label="Model" value={health?.modelDir} />
-              <RuntimeRow label="Repo" value={health?.cosyvoiceRepo} />
+              <RuntimeRow label="Runtime" value={health?.modelDir} />
+              <RuntimeRow label="Path" value={health?.cosyvoiceRepo} />
               <RuntimeRow label="Loaded" value={health?.modelLoaded ? "Yes" : "No"} />
               {health?.error ? <RuntimeRow label="Error" value={health.error} /> : null}
             </dl>
@@ -365,7 +365,7 @@ export default function CosyVoicePage() {
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-55"
             >
               {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              Generate and play
+              Prepare and play
             </button>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
@@ -391,7 +391,7 @@ export default function CosyVoicePage() {
               <div className="mt-3 rounded-md border border-ink/10 bg-white p-3 text-xs leading-5 text-ink/62">
                 <a href={audio.audioUrl} target="_blank" className="inline-flex items-center gap-2 font-medium text-signal hover:underline">
                   <CheckCircle2 className="h-4 w-4" />
-                  Open generated WAV
+                  Open WAV
                 </a>
                 <p className="mt-2 truncate" title={audio.referenceAudio}>
                   Reference: {audio.referenceAudio?.split("/").slice(-3).join("/") || "auto"}

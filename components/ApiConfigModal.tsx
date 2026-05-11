@@ -21,9 +21,9 @@ type Field = {
 
 const overrideFields: Field[] = [
   { key: "googleMapsApiKey", label: "Google Maps API Key Override", secret: true },
-  { key: "aiApiKey", label: "DeepSeek API Key Override", secret: true },
-  { key: "qwenApiKey", label: "Qwen Vision API Key Override", secret: true },
-  { key: "glmApiKey", label: "GLM Vision API Key Override", secret: true }
+  { key: "aiApiKey", label: "Story Service Key Override", secret: true },
+  { key: "qwenApiKey", label: "Scene Reading Key Override", secret: true },
+  { key: "glmApiKey", label: "Backup Scene Reading Key Override", secret: true }
 ];
 
 const optionalFields: Field[] = [
@@ -34,26 +34,26 @@ const optionalFields: Field[] = [
 
 const advancedFields: Field[] = [
   { key: "mapillaryAccessToken", label: "Mapillary Access Token", secret: true },
-  { key: "aiBaseUrl", label: "DeepSeek Base URL", placeholder: "https://api.deepseek.com" },
-  { key: "qwenBaseUrl", label: "Qwen Base URL", placeholder: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
-  { key: "glmBaseUrl", label: "GLM Base URL", placeholder: "https://open.bigmodel.cn/api/paas/v4" },
-  { key: "llmModel", label: "DeepSeek Text Model", placeholder: "deepseek-chat" },
-  { key: "visionProvider", label: "Vision Provider", placeholder: "qwen or glm" },
-  { key: "visionModel", label: "Fragment Vision Model", placeholder: "qwen3-vl-plus" },
-  { key: "sceneVisionModel", label: "Scene Vision Model", placeholder: "qwen3-vl-flash" },
+  { key: "aiBaseUrl", label: "Story Service URL", placeholder: "server configured" },
+  { key: "qwenBaseUrl", label: "Scene Reading Service URL", placeholder: "server configured" },
+  { key: "glmBaseUrl", label: "Backup Scene Reading URL", placeholder: "server configured" },
+  { key: "llmModel", label: "Story Engine Name", placeholder: "server configured" },
+  { key: "visionProvider", label: "Scene Reading Mode", placeholder: "primary or backup" },
+  { key: "visionModel", label: "Fragment Reading Engine", placeholder: "server configured" },
+  { key: "sceneVisionModel", label: "Scene Reading Engine", placeholder: "server configured" },
   { key: "appUrl", label: "App URL", placeholder: "http://localhost:3000" },
-  { key: "ttsProvider", label: "TTS Mode", placeholder: "elevenlabs or local-open-source" },
-  { key: "localTtsEndpoint", label: "Local TTS Endpoint", placeholder: "http://127.0.0.1:7860/tts" },
-  { key: "elevenLabsApiKey", label: "ElevenLabs API Key", secret: true },
-  { key: "elevenLabsModel", label: "ElevenLabs Model", placeholder: "eleven_multilingual_v2" },
-  { key: "elevenLabsVoiceId", label: "ElevenLabs Voice ID" },
-  { key: "minimaxApiKey", label: "MiniMax API Key", secret: true },
-  { key: "minimaxGroupId", label: "MiniMax Group ID" },
-  { key: "minimaxEndpoint", label: "MiniMax TTS Endpoint", placeholder: "https://api.minimaxi.com/v1/t2a_v2" },
-  { key: "minimaxModel", label: "MiniMax TTS Model", placeholder: "speech-2.8-hd" },
-  { key: "minimaxVoiceId", label: "MiniMax Voice ID A", placeholder: "male-qn-qingse" },
-  { key: "minimaxVoiceIdAlt", label: "MiniMax Voice ID B" },
-  { key: "minimaxVoiceIdFemale", label: "MiniMax Female Voice ID", placeholder: "female-shaonv" },
+  { key: "ttsProvider", label: "Narration Mode", placeholder: "cloud or local" },
+  { key: "localTtsEndpoint", label: "Local Narration Endpoint", placeholder: "http://127.0.0.1:7860/tts" },
+  { key: "elevenLabsApiKey", label: "Narration Service Key A", secret: true },
+  { key: "elevenLabsModel", label: "Narration Engine A", placeholder: "server configured" },
+  { key: "elevenLabsVoiceId", label: "Voice ID A" },
+  { key: "minimaxApiKey", label: "Narration Service Key B", secret: true },
+  { key: "minimaxGroupId", label: "Narration Group ID" },
+  { key: "minimaxEndpoint", label: "Narration Service URL B", placeholder: "server configured" },
+  { key: "minimaxModel", label: "Narration Engine B", placeholder: "server configured" },
+  { key: "minimaxVoiceId", label: "Voice ID B1", placeholder: "server configured" },
+  { key: "minimaxVoiceIdAlt", label: "Voice ID B2" },
+  { key: "minimaxVoiceIdFemale", label: "Female Voice ID", placeholder: "server configured" },
   { key: "voiceAccentPreset", label: "Voice / Accent Preset", placeholder: "Hong Kong bilingual" }
 ];
 
@@ -69,9 +69,9 @@ export function ApiConfigButton({ config, onSave }: Props) {
         className="inline-flex h-10 items-center gap-2 rounded-md border border-ink/15 bg-paper px-3 text-sm font-medium text-ink transition hover:bg-field"
       >
         <Settings className="h-4 w-4" />
-        API
+        Settings
         <span className="rounded bg-field px-1.5 py-0.5 text-[11px] text-ink/65">
-          {hasStreetProvider ? "cloud" : "setup"}
+          {hasStreetProvider ? "ready" : "setup"}
         </span>
       </button>
       {open ? (
@@ -106,10 +106,10 @@ function ApiConfigModal({
       <div className="surface-panel flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-md">
         <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
           <div>
-            <p className="fine-label">Cloud Settings</p>
-            <h2 className="mt-1 text-base font-semibold text-ink">API Configuration</h2>
+            <p className="fine-label">Project Settings</p>
+            <h2 className="mt-1 text-base font-semibold text-ink">Connection Settings</h2>
             <p className="mt-1 text-xs text-ink/60">
-              Public visitors use the server keys you set in Vercel. This panel is only for local overrides.
+              Public visitors use the server configuration. This panel is only for local overrides.
             </p>
           </div>
           <button
@@ -124,7 +124,7 @@ function ApiConfigModal({
 
         <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
           <div className="mb-4 rounded-md border border-brass/25 bg-[#fbf7ed] px-3 py-2 text-xs leading-5 text-ink/72">
-            For deployment, configure Vercel once with NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, AI_API_KEY, and GLM_API_KEY. Other users do not need to enter tokens.
+            For deployment, configure the project once in Vercel. Other visitors do not need to enter tokens.
           </div>
 
           <section>
@@ -175,9 +175,9 @@ function ApiConfigModal({
                       label={field.label}
                       value={draft.ttsProvider || "elevenlabs"}
                       options={[
-                        { value: "elevenlabs", label: "ElevenLabs" },
-                        { value: "minimax", label: "MiniMax" },
-                        { value: "local-open-source", label: "Local Open Source" }
+                        { value: "elevenlabs", label: "Cloud Voice A" },
+                        { value: "minimax", label: "Cloud Voice B" },
+                        { value: "local-open-source", label: "Local Voice" }
                       ]}
                       onChange={(value) => setDraft((current) => ({ ...current, ttsProvider: value }))}
                     />

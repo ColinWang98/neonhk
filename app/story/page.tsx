@@ -111,7 +111,7 @@ export default function StoryPage() {
     })
       .then(async (res) => {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Persona generation failed.");
+        if (!res.ok) throw new Error("Narrators could not be prepared. Please try another scene.");
         return data.personas as GeneratedPersona[];
       })
       .then((nextPersonas) => {
@@ -122,7 +122,7 @@ export default function StoryPage() {
       .catch((err) => {
         if (personaRequestIdRef.current !== requestId) return;
         setPersonaStatus("error");
-        setError(err instanceof Error ? err.message : "Persona generation failed.");
+        setError(err instanceof Error ? err.message : "Narrators could not be prepared. Please try another scene.");
       });
   }, [apiConfig, personaStatus, personas.length, runtimeHeaders, selectedImage, setPersonas, storageHydrated]);
 
@@ -191,7 +191,7 @@ export default function StoryPage() {
     })
       .then(async (res) => {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Narrative generation failed.");
+        if (!res.ok) throw new Error("Story could not be prepared. Please try again.");
         return data as SchemaNarratives;
       })
       .then((narratives) => {
@@ -205,7 +205,7 @@ export default function StoryPage() {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Narrative generation failed.");
+        setError(err instanceof Error ? err.message : "Story could not be prepared. Please try again.");
       });
 
     return () => {
@@ -272,7 +272,7 @@ export default function StoryPage() {
         })
       });
       const cropData = await cropRes.json();
-      if (!cropRes.ok) throw new Error(cropData.error || "Cropping failed.");
+      if (!cropRes.ok) throw new Error("Fragment could not be saved. Please try again.");
 
       updateFragment(tempId, {
         id: cropData.fragmentId,
@@ -293,7 +293,7 @@ export default function StoryPage() {
         })
       });
       const analyzeData = await analyzeRes.json();
-      if (!analyzeRes.ok) throw new Error(analyzeData.error || "Analysis failed.");
+      if (!analyzeRes.ok) throw new Error("Fragment could not be read. Please try another area.");
 
       const { blocked, ...visionDescription } = analyzeData as VisionDescription & { blocked?: boolean };
       if (blocked) {
@@ -316,7 +316,7 @@ export default function StoryPage() {
         })
       });
       const narratives = (await narrativeRes.json()) as SchemaNarratives & { error?: string };
-      if (!narrativeRes.ok) throw new Error(narratives.error || "Narrative generation failed.");
+      if (!narrativeRes.ok) throw new Error("Story could not be prepared. Please try again.");
 
       updateFragment(cropData.fragmentId, {
         narratives,
@@ -338,7 +338,7 @@ export default function StoryPage() {
       }
     } catch (err) {
       updateFragment(activeFragmentId, { status: "error" });
-      setError(err instanceof Error ? err.message : "Fragment processing failed.");
+      setError(err instanceof Error ? err.message : "Fragment could not be completed. Please try again.");
     } finally {
       setProcessing(false);
     }
@@ -371,10 +371,10 @@ export default function StoryPage() {
           <h1 className="text-[1.75rem] font-semibold tracking-normal sm:text-[2rem] md:text-[2.4rem]">HK Spatial Story</h1>
           <p className="mt-2 text-sm leading-6 text-ink/62">
             {currentStage === "persona"
-              ? "Step 2: choose a generated spatial persona."
+              ? "Step 2: choose a narrator."
               : currentStage === "panorama"
                 ? "Step 3: rotate the panorama and select a place fragment."
-                : "Step 4: read and listen to the schema story."}
+                : "Step 4: read and listen to the spatial story."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -407,12 +407,12 @@ export default function StoryPage() {
           <SceneSummary image={selectedImage} />
           <div className="surface-panel min-h-0 overflow-auto rounded-md p-4 sm:p-5">
             <p className="fine-label">Step 2</p>
-            <h2 className="mt-1 text-lg font-semibold">Scene Personas</h2>
+            <h2 className="mt-1 text-lg font-semibold">Scene Narrators</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-ink/62">
-              Generated from cautious visual interpretation of the selected street scene.
+              Pick a point of view for reading this street scene.
             </p>
             {personaStatus === "loading" ? (
-              <div className="mt-6 flex items-center gap-2 text-sm text-ink/65" aria-label="Generating personas">
+              <div className="mt-6 flex items-center gap-2 text-sm text-ink/65" aria-label="Preparing narrators">
                 <Loader2 className="h-4 w-4 animate-spin" />
               </div>
             ) : (
@@ -592,7 +592,7 @@ function LiveCaption({
               : "Press Play; the story will appear here one subtitle line at a time."
             : zh
               ? "生成故事后，字幕会显示在这里。"
-              : "After a story is generated, captions will appear here.")}
+              : "Once the story is ready, captions will appear here.")}
       </p>
     </div>
   );

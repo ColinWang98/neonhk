@@ -283,7 +283,7 @@ export function StreetImageViewer({
               </>
             ) : (
               <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/70">
-                {zh ? "请在 API 面板加入 Google Maps API Key 来使用交互式街景。" : "Add a Google Maps API Key in the API panel to use interactive Street View."}
+                {zh ? "请在设置面板加入 Google Maps API Key 来使用交互式街景。" : "Add a Google Maps API Key in the Settings panel to use interactive Street View."}
               </div>
             )}
           </div>

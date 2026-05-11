@@ -105,13 +105,9 @@ export function TtsControls({
       const data = await res.json();
       if (requestId !== requestIdRef.current) return;
       if (!res.ok || !data.audioUrl) {
-        throw new Error(data.error || "TTS returned no audio URL.");
+        throw new Error("Narration is temporarily unavailable.");
       }
-      setMessage(
-        data.speechAdaptation
-          ? `Speech adapted with ${data.speechAdaptation}${data.referenceAudio ? `; reference: ${data.referenceAudio.split("/").pop()}` : ""}${data.referencePoolSize ? ` from ${data.referencePoolSize} candidates` : ""}.`
-          : null
-      );
+      setMessage(null);
       onAudioGenerated?.({
         cacheKey: data.cacheKey,
         provider: data.provider,
@@ -133,18 +129,17 @@ export function TtsControls({
         setProgress,
         setDurationLabel
       );
-    } catch (error) {
+    } catch {
       if (requestId !== requestIdRef.current) return;
       setStatus("error");
-      const message = error instanceof Error ? error.message : "TTS failed.";
       setMessage(
-        message.includes("Audio narration is optional")
-          ? "Audio narration is optional on this deployment. The story text remains available."
-          : message
+        zh
+          ? "旁白暂时不可用，故事文字仍可阅读。"
+          : "Narration is temporarily unavailable. The story remains readable."
       );
       onCaptionChange?.(null);
     }
-  }, [cachedAudio, config, fragmentId, onAudioGenerated, onCaptionChange, persona, stop, storyText]);
+  }, [cachedAudio, config, fragmentId, onAudioGenerated, onCaptionChange, persona, stop, storyText, zh]);
 
   useEffect(() => {
     stop();
@@ -158,13 +153,7 @@ export function TtsControls({
           <p className="fine-label">{zh ? "音频" : "Audio"}</p>
           <h3 className="mt-1 text-sm font-semibold text-ink">{zh ? "故事旁白" : "Story Voice"}</h3>
           <p className="mt-1 text-xs text-ink/60">
-            {config.ttsProvider === "local-open-source"
-              ? "Local open-source TTS sidecar."
-              : config.ttsProvider === "minimax"
-                ? "MiniMax cloud TTS."
-                : config.ttsProvider === "elevenlabs"
-                  ? "ElevenLabs cloud TTS."
-                  : "Server-configured cloud TTS."}
+            {zh ? "播放当前讲述人的旁白。" : "Listen to the current narrator."}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
@@ -193,7 +182,7 @@ export function TtsControls({
             {status === "playing"
               ? zh ? "播放中" : "Playing"
               : status === "loading"
-                ? zh ? "生成中" : "Generating"
+                ? zh ? "准备中" : "Preparing"
                 : zh ? "就绪" : "Ready"}
           </span>
           <span>{durationLabel}</span>
@@ -202,7 +191,7 @@ export function TtsControls({
           <div className="h-full rounded-full bg-signal transition-[width]" style={{ width: `${progress * 100}%` }} />
         </div>
         <p className="mt-3 line-clamp-3 text-xs leading-5 text-ink/70">
-          {captionSegments[0] || (zh ? "生成故事后可播放旁白。" : "Generate a story to enable narration.")}
+          {captionSegments[0] || (zh ? "故事准备好后可播放旁白。" : "Once the story is ready, narration can be played.")}
         </p>
       </div>
       {message ? <p className="mt-3 text-xs leading-5 text-amber-800">{message}</p> : null}
