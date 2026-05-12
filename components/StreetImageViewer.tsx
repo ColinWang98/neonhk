@@ -408,9 +408,36 @@ function FragmentBoxOverlay({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[35]">
+      <svg
+        className="pointer-events-none absolute inset-0 h-full w-full overflow-hidden"
+        width={viewportSize.width}
+        height={viewportSize.height}
+        viewBox={`0 0 ${viewportSize.width} ${viewportSize.height}`}
+        aria-hidden="true"
+      >
+        {fragments.map((fragment) => {
+          const shape = projectFragmentShape(fragment, viewportSize, pov);
+          if (!shape) return null;
+          const active = fragment.id === activeFragmentId;
+
+          return (
+            <polygon
+              key={fragment.id}
+              points={shape.points.map((point) => `${point.x},${point.y}`).join(" ")}
+              onClick={() => onFragmentClick?.(fragment)}
+              className="pointer-events-auto cursor-pointer transition"
+              fill={active ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.12)"}
+              stroke="rgba(255,255,255,0.96)"
+              strokeWidth={active ? 3 : 2}
+              strokeDasharray="7 5"
+              vectorEffect="non-scaling-stroke"
+            />
+          );
+        })}
+      </svg>
       {fragments.map((fragment, index) => {
-        const box = projectFragmentBox(fragment, viewportSize, pov);
-        if (!box || box.width < 8 || box.height < 8) return null;
+        const shape = projectFragmentShape(fragment, viewportSize, pov);
+        if (!shape) return null;
         const active = fragment.id === activeFragmentId;
         const ready = fragment.status === "ready";
         const hasAudio = Object.keys(fragment.audioGenerations || {}).length > 0;
@@ -421,21 +448,20 @@ function FragmentBoxOverlay({
             type="button"
             aria-label={`Select fragment ${index + 1}`}
             onClick={() => onFragmentClick?.(fragment)}
-            className={`pointer-events-auto absolute rounded-[2px] border-2 border-dashed border-white text-left shadow-[0_0_0_1px_rgba(0,0,0,0.55),0_8px_20px_rgba(0,0,0,0.25)] transition hover:bg-white/15 ${
-              active ? "bg-white/20 ring-2 ring-signal" : "bg-black/10"
-            }`}
+            className="pointer-events-auto absolute text-left"
             style={{
-              left: box.x,
-              top: box.y,
-              width: box.width,
-              height: box.height
+              left: shape.label.x,
+              top: shape.label.y,
+              transform: "translate(-50%, -50%)"
             }}
           >
-            <span className="absolute -left-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full border border-white/90 bg-ink px-1 text-[11px] font-semibold text-white shadow">
+            <span className={`flex h-6 min-w-6 items-center justify-center rounded-full border border-white/90 px-1 text-[11px] font-semibold text-white shadow ${
+              active ? "bg-signal text-ink ring-2 ring-white/90" : "bg-ink"
+            }`}>
               {index + 1}
             </span>
-            {ready && box.width >= 96 ? (
-              <span className="absolute -bottom-7 left-0 whitespace-nowrap rounded-sm border border-white/70 bg-white px-2 py-1 text-[11px] font-semibold text-ink shadow">
+            {ready && shape.bounds.width >= 96 ? (
+              <span className="absolute left-1/2 top-8 -translate-x-1/2 whitespace-nowrap rounded-sm border border-white/70 bg-white px-2 py-1 text-[11px] font-semibold text-ink shadow">
                 {active ? (hasAudio ? "Active audio" : "Active") : hasAudio ? "Play saved audio" : "Select this"}
               </span>
             ) : null}
@@ -446,7 +472,7 @@ function FragmentBoxOverlay({
   );
 }
 
-function projectFragmentBox(
+function projectFragmentShape(
   fragment: SelectedFragment,
   viewportSize: { width: number; height: number },
   pov: GooglePov
@@ -468,7 +494,7 @@ function projectFragmentBox(
     !Number.isFinite(sourceHeading) ||
     !Number.isFinite(sourcePitch)
   ) {
-    return scaleScreenBox(fragment, viewportSize);
+    return undefined;
   }
 
   const sourceFov = fragment.panoramaPov?.fov || 90;
@@ -534,8 +560,12 @@ function projectPanoramaCorners(
   if (projected.every((point) => !point.visible)) return undefined;
   if (projected.some((point) => !point.inFront)) return undefined;
 
-  const xs = projected.map((point) => point.x);
-  const ys = projected.map((point) => point.y);
+  const points = projected.map((point) => ({
+    x: clamp(point.x, 0, viewportSize.width),
+    y: clamp(point.y, 0, viewportSize.height)
+  }));
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
   const left = Math.min(...xs);
   const right = Math.max(...xs);
   const top = Math.min(...ys);
@@ -544,25 +574,17 @@ function projectPanoramaCorners(
   if (right < 0 || bottom < 0 || left > viewportSize.width || top > viewportSize.height) return undefined;
 
   return {
-    x: clamp(left, 0, viewportSize.width),
-    y: clamp(top, 0, viewportSize.height),
-    width: clamp(right - left, 0, viewportSize.width),
-    height: clamp(bottom - top, 0, viewportSize.height)
-  };
-}
-
-function scaleScreenBox(fragment: SelectedFragment, viewportSize: { width: number; height: number }) {
-  const sourceWidth = fragment.panoramaPov?.viewportWidth || viewportSize.width;
-  const sourceHeight = fragment.panoramaPov?.viewportHeight || viewportSize.height;
-  if (sourceWidth <= 0 || sourceHeight <= 0) return undefined;
-
-  const scaleX = viewportSize.width / sourceWidth;
-  const scaleY = viewportSize.height / sourceHeight;
-  return {
-    x: clamp(fragment.screenBox.x * scaleX, 0, viewportSize.width),
-    y: clamp(fragment.screenBox.y * scaleY, 0, viewportSize.height),
-    width: clamp(fragment.screenBox.width * scaleX, 0, viewportSize.width),
-    height: clamp(fragment.screenBox.height * scaleY, 0, viewportSize.height)
+    points,
+    bounds: {
+      x: left,
+      y: top,
+      width: right - left,
+      height: bottom - top
+    },
+    label: {
+      x: clamp(points.reduce((sum, point) => sum + point.x, 0) / points.length, 14, viewportSize.width - 14),
+      y: clamp(points.reduce((sum, point) => sum + point.y, 0) / points.length, 14, viewportSize.height - 14)
+    }
   };
 }
 
