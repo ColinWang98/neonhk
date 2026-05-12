@@ -92,6 +92,7 @@ export type StorySession = {
   lat: number;
   lng: number;
   selectedPersona?: GeneratedPersona;
+  personas?: GeneratedPersona[];
   fragmentIds: string[];
   createdAt: string;
 };

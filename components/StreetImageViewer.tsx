@@ -85,6 +85,7 @@ export function StreetImageViewer({
   const panoRef = useRef<HTMLDivElement | null>(null);
   const panoramaRef = useRef<GoogleStreetViewPanorama | null>(null);
   const targetPovRef = useRef<PanoramaPov | undefined>(targetPov);
+  const povRef = useRef<GooglePov>({ heading: 0, pitch: 0, zoom: 1 });
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [pov, setPov] = useState<GooglePov>({ heading: 0, pitch: 0, zoom: 1 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
@@ -117,6 +118,7 @@ export function StreetImageViewer({
 
     let panorama: GoogleStreetViewPanorama | undefined;
     let cancelled = false;
+    let frameId = 0;
     setGoogleStatus("loading");
 
     loadGoogleMaps(googleMapsApiKey)
@@ -139,37 +141,42 @@ export function StreetImageViewer({
         });
         const currentPanorama = panorama;
         panoramaRef.current = currentPanorama;
+        const syncPov = () => {
+          const nextPov = readPanoramaPov(currentPanorama);
+          const previous = povRef.current;
+          if (
+            Math.abs((previous.heading || 0) - (nextPov.heading || 0)) > 0.02 ||
+            Math.abs((previous.pitch || 0) - (nextPov.pitch || 0)) > 0.02 ||
+            Math.abs((previous.zoom || 1) - (nextPov.zoom || 1)) > 0.02
+          ) {
+            povRef.current = nextPov;
+            setPov(nextPov);
+          }
+        };
+        const pollPov = () => {
+          if (cancelled) return;
+          syncPov();
+          frameId = window.requestAnimationFrame(pollPov);
+        };
         if (targetPovRef.current) {
           currentPanorama.setPov?.({
             heading: targetPovRef.current.heading || 0,
             pitch: targetPovRef.current.pitch || 0
           });
         }
+        syncPov();
+        frameId = window.requestAnimationFrame(pollPov);
 
-        currentPanorama.addListener("pov_changed", () => {
-          const nextPov = currentPanorama.getPov();
-          setPov({
-            heading: nextPov.heading || 0,
-            pitch: nextPov.pitch || 0,
-            zoom: currentPanorama.getZoom?.() || 1
-          });
-        });
+        currentPanorama.addListener("pov_changed", syncPov);
 
         currentPanorama.addListener("pano_changed", () => {
           const panoId = currentPanorama.getPano?.();
           if (panoId) {
-            setPov((current) => ({ ...current }));
+            syncPov();
           }
         });
 
-        currentPanorama.addListener("zoom_changed", () => {
-          const nextPov = currentPanorama.getPov();
-          setPov({
-            heading: nextPov.heading || 0,
-            pitch: nextPov.pitch || 0,
-            zoom: currentPanorama.getZoom?.() || 1
-          });
-        });
+        currentPanorama.addListener("zoom_changed", syncPov);
 
         setGoogleStatus("ready");
       })
@@ -177,6 +184,9 @@ export function StreetImageViewer({
 
     return () => {
       cancelled = true;
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
       if (panorama) {
         panorama.setVisible(false);
       }
@@ -192,6 +202,11 @@ export function StreetImageViewer({
       heading: targetPov.heading || 0,
       pitch: targetPov.pitch || 0
     });
+    if (panoramaRef.current) {
+      const nextPov = readPanoramaPov(panoramaRef.current);
+      povRef.current = nextPov;
+      setPov(nextPov);
+    }
   }, [image?.provider, targetPov]);
 
   return (
@@ -245,6 +260,9 @@ export function StreetImageViewer({
                     onSelect={(screenBox) => {
                       if (!panoRef.current || !image) return;
                       const rect = panoRef.current.getBoundingClientRect();
+                      const latestPov = panoramaRef.current ? readPanoramaPov(panoramaRef.current) : povRef.current;
+                      povRef.current = latestPov;
+                      setPov(latestPov);
                       const sourceSize = fitStaticSize(rect.width, rect.height);
                       const cropBox = {
                         x: (screenBox.x / rect.width) * sourceSize.width,
@@ -252,14 +270,14 @@ export function StreetImageViewer({
                         width: (screenBox.width / rect.width) * sourceSize.width,
                         height: (screenBox.height / rect.height) * sourceSize.height
                       };
-                      const snapshotFov = currentHorizontalFov(pov.zoom);
+                      const snapshotFov = currentHorizontalFov(latestPov.zoom);
                       const snapshotVerticalFov = verticalFov(snapshotFov, rect.width, rect.height);
                       const boxCorners = screenBoxCorners(screenBox).map((corner) =>
                         screenPointToPanoramaPoint(corner, {
                           width: rect.width,
                           height: rect.height,
-                          heading: pov.heading,
-                          pitch: pov.pitch,
+                          heading: latestPov.heading,
+                          pitch: latestPov.pitch,
                           horizontalFov: snapshotFov,
                           verticalFov: snapshotVerticalFov
                         })
@@ -269,14 +287,14 @@ export function StreetImageViewer({
                         panoId: image.panoId || image.id,
                         width: sourceSize.width,
                         height: sourceSize.height,
-                        heading: pov.heading,
-                        pitch: pov.pitch,
+                        heading: latestPov.heading,
+                        pitch: latestPov.pitch,
                         fov: snapshotFov
                       });
                       setGoogleSelecting(false);
                       onFragmentSelected(screenBox, cropBox, sourceImageUrl, {
-                        heading: pov.heading,
-                        pitch: pov.pitch,
+                        heading: latestPov.heading,
+                        pitch: latestPov.pitch,
                         fov: snapshotFov,
                         boxCorners,
                         viewportWidth: rect.width,
@@ -360,6 +378,15 @@ export function StreetImageViewer({
       </div>
     </div>
   );
+}
+
+function readPanoramaPov(panorama: GoogleStreetViewPanorama): GooglePov {
+  const nextPov = panorama.getPov();
+  return {
+    heading: nextPov.heading || 0,
+    pitch: nextPov.pitch || 0,
+    zoom: panorama.getZoom?.() ?? 1
+  };
 }
 
 function FragmentBoxOverlay({
@@ -589,7 +616,7 @@ function panoramaPointToScreenPoint(
 }
 
 function currentHorizontalFov(zoom?: number) {
-  const safeZoom = Number.isFinite(zoom) ? zoom || 1 : 1;
+  const safeZoom = Number.isFinite(zoom) ? zoom! : 1;
   return clamp(180 / Math.pow(2, safeZoom), 20, 120);
 }
 

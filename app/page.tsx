@@ -135,6 +135,7 @@ export default function Home() {
       panoId: selectedImage.panoId,
       lat: selectedImage.lat,
       lng: selectedImage.lng,
+      personas: [],
       fragmentIds: [],
       createdAt: new Date().toISOString()
     };
@@ -158,7 +159,7 @@ export default function Home() {
 
     setSelectedImage(image);
     setStorySession(session);
-    setPersonas([]);
+    setPersonas(session.personas || (session.selectedPersona ? [session.selectedPersona] : []));
     setSelectedPersona(session.selectedPersona);
     resetFragments();
     sessionStorage.setItem(selectedImageStorageKey, JSON.stringify(image));

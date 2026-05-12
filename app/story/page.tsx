@@ -98,6 +98,15 @@ export default function StoryPage() {
   useEffect(() => {
     if (!storageHydrated || !selectedImage || personas.length > 0 || personaStatus === "loading") return;
 
+    if (storySession?.personas?.length) {
+      setPersonas(storySession.personas);
+      setPersonaStatus("ready");
+      if (!selectedPersona && storySession.selectedPersona) {
+        setSelectedPersona(storySession.selectedPersona);
+      }
+      return;
+    }
+
     const requestId = personaRequestIdRef.current + 1;
     personaRequestIdRef.current = requestId;
     setPersonaStatus("loading");
@@ -119,13 +128,31 @@ export default function StoryPage() {
         if (personaRequestIdRef.current !== requestId) return;
         setPersonas(nextPersonas);
         setPersonaStatus("ready");
+        if (storySessionIdRef.current && storySession) {
+          const nextSession = { ...storySession, personas: nextPersonas };
+          setStorySession(nextSession);
+          sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
+          void saveStorySession(nextSession, runtimeHeaders);
+        }
       })
       .catch((err) => {
         if (personaRequestIdRef.current !== requestId) return;
         setPersonaStatus("error");
         setError(err instanceof Error ? err.message : "Narrators could not be prepared. Please try another scene.");
       });
-  }, [apiConfig, personaStatus, personas.length, runtimeHeaders, selectedImage, setPersonas, storageHydrated]);
+  }, [
+    apiConfig,
+    personaStatus,
+    personas.length,
+    runtimeHeaders,
+    selectedImage,
+    selectedPersona,
+    setPersonas,
+    setSelectedPersona,
+    setStorySession,
+    storageHydrated,
+    storySession
+  ]);
 
   useEffect(() => {
     if (!storageHydrated || !storySession?.id) return;
@@ -162,7 +189,7 @@ export default function StoryPage() {
     setSelectedPersona(persona);
     setCaption(null);
     if (storySession) {
-      const nextSession = { ...storySession, selectedPersona: persona };
+      const nextSession = { ...storySession, personas, selectedPersona: persona };
       setStorySession(nextSession);
       sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
       void saveStorySession(nextSession, runtimeHeaders);
@@ -330,6 +357,7 @@ export default function StoryPage() {
         const nextFragmentIds = Array.from(new Set([cropData.fragmentId, ...storySession.fragmentIds]));
         const nextSession = {
           ...storySession,
+          personas,
           selectedPersona,
           fragmentIds: nextFragmentIds
         };
