@@ -62,7 +62,7 @@ export default function StoryPage() {
   const runtimeHeaders = useMemo(() => runtimeConfigToHeaders(apiConfig), [apiConfig]);
   const activeFragment = useMemo(() => fragments[0], [fragments]);
   const readyFragment = activeFragment?.status === "ready" ? activeFragment : undefined;
-  const currentStage = !selectedPersona ? "persona" : readyFragment ? "story" : "panorama";
+  const currentStage = readyFragment?.narratives ? "story" : activeFragment ? "narrator" : "panorama";
 
   useEffect(() => {
     storySessionIdRef.current = storySession?.id;
@@ -198,7 +198,7 @@ export default function StoryPage() {
 
   useEffect(() => {
     if (!readyFragment?.visionDescription || !selectedPersona) return;
-    if (readyFragment.narrativePersonaId === selectedPersona.id) return;
+    if (readyFragment.narrativePersonaId === selectedPersona.id && readyFragment.narratives) return;
 
     let cancelled = false;
     const fragmentId = readyFragment.id;
@@ -242,6 +242,7 @@ export default function StoryPage() {
   }, [
     readyFragment?.id,
     readyFragment?.narrativePersonaId,
+    readyFragment?.narratives,
     readyFragment?.placeContext,
     readyFragment?.visionDescription,
     runtimeHeaders,
@@ -261,6 +262,8 @@ export default function StoryPage() {
 
     setProcessing(true);
     setError(null);
+    setSelectedPersona(undefined);
+    setCaption(null);
     const tempId = `pending-${Date.now()}`;
     const baseFragment: SelectedFragment = {
       id: tempId,
@@ -280,7 +283,6 @@ export default function StoryPage() {
         {
           imageId: selectedImage.id,
           sessionId: storySession?.id,
-          personaId: selectedPersona?.id,
           screenBox,
           cropBox
         },
@@ -332,23 +334,7 @@ export default function StoryPage() {
       updateFragment(cropData.fragmentId, { visionDescription, status: "generating" });
       const placeContext = await fetchPlaceContext(selectedImage, selectionMeta, runtimeHeaders);
 
-      const narrativeRes = await fetch("/api/narrative/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...runtimeHeaders },
-        body: JSON.stringify({
-          fragmentId: cropData.fragmentId,
-          sessionId: storySession?.id,
-          visionDescription,
-          persona: selectedPersona,
-          placeContext
-        })
-      });
-      const narratives = (await narrativeRes.json()) as SchemaNarratives & { error?: string };
-      if (!narrativeRes.ok) throw new Error("Story could not be prepared. Please try again.");
-
       updateFragment(cropData.fragmentId, {
-        narratives,
-        narrativePersonaId: selectedPersona?.id,
         placeContext,
         panoramaPov: selectionMeta,
         status: "ready"
@@ -358,7 +344,6 @@ export default function StoryPage() {
         const nextSession = {
           ...storySession,
           personas,
-          selectedPersona,
           fragmentIds: nextFragmentIds
         };
         setStorySession(nextSession);
@@ -399,11 +384,11 @@ export default function StoryPage() {
           <p className="fine-label mb-2">Guided panorama reading</p>
           <h1 className="text-[1.75rem] font-semibold tracking-normal sm:text-[2rem] md:text-[2.4rem]">HK Spatial Story</h1>
           <p className="mt-2 text-sm leading-6 text-ink/62">
-            {currentStage === "persona"
-              ? "Step 2: choose a narrator."
-              : currentStage === "panorama"
-                ? "Step 3: rotate the panorama and select a place fragment."
-                : "Step 4: read and listen to the spatial story."}
+            {currentStage === "panorama"
+              ? "Step 2: rotate the panorama and select a place fragment."
+              : currentStage === "narrator"
+                ? "Step 3: choose a narrator for this selected fragment."
+                : "Step 3: switch narrator, read, and listen."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -431,139 +416,97 @@ export default function StoryPage() {
         </div>
       ) : null}
 
-      {currentStage === "persona" ? (
-        <section className="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[360px_1fr] lg:gap-5">
-          <SceneSummary image={selectedImage} />
-          <div className="surface-panel min-h-0 overflow-auto rounded-md p-4 sm:p-5">
-            <p className="fine-label">Step 2</p>
-            <h2 className="mt-1 text-lg font-semibold">Scene Narrators</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-ink/62">
-              Pick a point of view for reading this street scene.
-            </p>
-            {personaStatus === "loading" ? (
-              <div className="mt-6 flex items-center gap-2 text-sm text-ink/65" aria-label="Preparing narrators">
-                <Loader2 className="h-4 w-4 animate-spin" />
-              </div>
-            ) : (
-              <div className="mt-5 grid gap-3 md:grid-cols-3 md:gap-4">
-                {personas.map((persona) => (
-                  <button
-                    type="button"
-                    key={persona.id}
-                    onClick={() => choosePersona(persona)}
-                    className="rounded-md border border-ink/10 bg-paper p-5 text-left shadow-sm transition hover:border-brass/55 hover:bg-[#fbf7ed]"
-                  >
-                    <h3 className="text-sm font-semibold text-ink">{persona.name}</h3>
-                    <p className="mt-2 text-sm leading-6 text-ink/72">{persona.role}</p>
-                    {persona.background ? (
-                      <p className="mt-3 text-xs leading-5 text-ink/66">{persona.background}</p>
-                    ) : null}
-                    <p className="mt-3 text-xs leading-5 text-ink/58">{persona.interpretiveLens}</p>
-                    <p className="mt-4 rounded bg-field px-2 py-1 text-[11px] text-ink/60">
-                      {persona.voiceHint}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      ) : (
-        <section className="grid flex-1 gap-4 lg:min-h-0 lg:grid-rows-[minmax(660px,1fr)_minmax(220px,0.26fr)] lg:gap-5">
-          <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(720px,1fr)_340px] lg:gap-5">
-            <div className="grid min-h-[56vh] grid-rows-[minmax(420px,1fr)_auto] gap-3 sm:min-h-[62vh] sm:grid-rows-[minmax(500px,1fr)_auto] lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto]">
-              <StreetImageViewer
-                image={selectedImage}
-                busy={processing}
-                googleMapsApiKey={apiConfig.googleMapsApiKey}
-                language={uiLanguage}
-                targetPov={activeFragment?.panoramaPov}
-                fragments={fragments.filter((fragment) => fragment.imageId === selectedImage.id)}
-                activeFragmentId={activeFragment?.id}
-                onFragmentClick={(fragment) => {
-                  selectFragment(fragment.id);
-                  setCaption(null);
-                }}
-                onFragmentSelected={handleFragmentSelected}
-              />
-              <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(readyFragment?.narratives)} />
-            </div>
-            <div className="grid gap-4 lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto] lg:gap-5">
-              <PersonaSwitcher
-                personas={personas}
-                selectedPersona={selectedPersona}
-                language={uiLanguage}
-                onSelect={choosePersona}
-              />
-              <TtsControls
-                narratives={readyFragment?.narratives}
-                persona={selectedPersona}
-                config={apiConfig}
-                language={uiLanguage}
-                fragmentId={readyFragment?.id}
-                cachedAudio={findCachedAudio(readyFragment, selectedPersona, apiConfig)}
-                onCaptionChange={setCaption}
-                onAudioGenerated={(entry) => {
-                  if (!readyFragment) return;
-                  updateFragment(readyFragment.id, {
-                    audioGenerations: {
-                      ...(readyFragment.audioGenerations || {}),
-                      [entry.cacheKey]: entry
-                    }
-                  });
-                }}
-              />
-            </div>
-          </div>
-          <div className="min-h-[260px] lg:min-h-0">
-            <SelectedFragmentList
-              fragments={fragments}
+      <section className="grid flex-1 gap-4 lg:min-h-0 lg:grid-rows-[minmax(660px,1fr)_minmax(220px,0.26fr)] lg:gap-5">
+        <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(720px,1fr)_340px] lg:gap-5">
+          <div className="grid min-h-[56vh] grid-rows-[minmax(420px,1fr)_auto] gap-3 sm:min-h-[62vh] sm:grid-rows-[minmax(500px,1fr)_auto] lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto]">
+            <StreetImageViewer
+              image={selectedImage}
+              busy={processing}
+              googleMapsApiKey={apiConfig.googleMapsApiKey}
               language={uiLanguage}
+              targetPov={activeFragment?.panoramaPov}
+              fragments={fragments.filter((fragment) => fragment.imageId === selectedImage.id)}
               activeFragmentId={activeFragment?.id}
-              onSelect={(fragment) => {
+              onFragmentClick={(fragment) => {
                 selectFragment(fragment.id);
                 setCaption(null);
               }}
+              onFragmentSelected={handleFragmentSelected}
+            />
+            <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(readyFragment?.narratives)} />
+          </div>
+          <div className="grid gap-4 lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto] lg:gap-5">
+            {activeFragment ? (
+              <PersonaSwitcher
+                personas={personas}
+                selectedPersona={selectedPersona}
+                personaStatus={personaStatus}
+                fragment={activeFragment}
+                language={uiLanguage}
+                onSelect={choosePersona}
+              />
+            ) : (
+              <FragmentFirstPanel language={uiLanguage} />
+            )}
+            <TtsControls
+              narratives={readyFragment?.narratives}
+              persona={selectedPersona}
+              config={apiConfig}
+              language={uiLanguage}
+              fragmentId={readyFragment?.id}
+              cachedAudio={findCachedAudio(readyFragment, selectedPersona, apiConfig)}
+              onCaptionChange={setCaption}
+              onAudioGenerated={(entry) => {
+                if (!readyFragment) return;
+                updateFragment(readyFragment.id, {
+                  audioGenerations: {
+                    ...(readyFragment.audioGenerations || {}),
+                    [entry.cacheKey]: entry
+                  }
+                });
+              }}
             />
           </div>
-          <StoryArchiveDrawer
-            open={storyDrawerOpen}
+        </div>
+        <div className="min-h-[260px] lg:min-h-0">
+          <SelectedFragmentList
             fragments={fragments}
-            activeFragmentId={activeFragment?.id}
             language={uiLanguage}
-            onOpenChange={setStoryDrawerOpen}
+            activeFragmentId={activeFragment?.id}
             onSelect={(fragment) => {
               selectFragment(fragment.id);
               setCaption(null);
             }}
           />
-        </section>
-      )}
+        </div>
+        <StoryArchiveDrawer
+          open={storyDrawerOpen}
+          fragments={fragments}
+          activeFragmentId={activeFragment?.id}
+          language={uiLanguage}
+          onOpenChange={setStoryDrawerOpen}
+          onSelect={(fragment) => {
+            selectFragment(fragment.id);
+            setCaption(null);
+          }}
+        />
+      </section>
     </main>
-  );
-}
-
-function SceneSummary({ image }: { image: StreetImage }) {
-  return (
-    <aside className="surface-panel rounded-md p-5">
-      <div className="overflow-hidden rounded-md border border-ink/10 bg-field">
-        <img src={image.thumbUrl} alt="Selected scene" className="aspect-[16/10] w-full object-cover lg:aspect-square" />
-      </div>
-      <p className="fine-label mt-5">Selected Scene</p>
-      <h2 className="mt-1 text-sm font-semibold text-ink">{image.provider === "google" ? "Google Street View" : "Mapillary"}</h2>
-      <p className="mt-2 text-sm text-ink/65">{image.lat.toFixed(5)}, {image.lng.toFixed(5)}</p>
-    </aside>
   );
 }
 
 function PersonaSwitcher({
   personas,
   selectedPersona,
+  personaStatus,
+  fragment,
   language,
   onSelect
 }: {
   personas: GeneratedPersona[];
   selectedPersona?: GeneratedPersona;
+  personaStatus: "idle" | "loading" | "ready" | "error";
+  fragment: SelectedFragment;
   language: "en" | "zh";
   onSelect: (persona: GeneratedPersona) => void;
 }) {
@@ -572,12 +515,21 @@ function PersonaSwitcher({
     <div className="surface-panel min-h-0 overflow-hidden rounded-md p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="fine-label">{zh ? "讲述人" : "Narrator"}</p>
+          <p className="fine-label">{zh ? "第三步" : "Step 3"}</p>
           <h2 className="mt-1 text-sm font-semibold text-ink">
-            {selectedPersona?.name || (zh ? "选择讲述人" : "Choose a narrator")}
+            {zh ? "选择讲述人" : "Choose narrator"}
           </h2>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/58">
+            {fragment.visionDescription?.mainFeature || (zh ? "已选中的街景片段" : "Selected street fragment")}
+          </p>
         </div>
       </div>
+      {personaStatus === "loading" && personas.length === 0 ? (
+        <div className="mt-5 flex items-center gap-2 text-sm text-ink/62">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{zh ? "正在准备讲述人" : "Preparing narrators"}</span>
+        </div>
+      ) : null}
       <div className="mt-3 grid max-h-[42vh] gap-2 overflow-auto pr-1 lg:max-h-[36vh]">
         {personas.map((persona) => {
           const selected = selectedPersona?.id === persona.id;
@@ -596,16 +548,41 @@ function PersonaSwitcher({
                 <h3 className="text-sm font-semibold text-ink">{persona.name}</h3>
                 {selected ? <span className="rounded bg-signal px-2 py-0.5 text-[11px] text-white">{zh ? "当前" : "Active"}</span> : null}
               </div>
-              <p className="mt-1 text-xs leading-5 text-ink/68">{persona.role}</p>
-              {persona.background ? (
-                <p className="mt-2 line-clamp-3 text-xs leading-5 text-ink/58">{persona.background}</p>
-              ) : null}
+              <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/68">{shortPersonaIntro(persona)}</p>
             </button>
           );
         })}
       </div>
     </div>
   );
+}
+
+function FragmentFirstPanel({ language }: { language: "en" | "zh" }) {
+  const zh = language === "zh";
+  return (
+    <div className="surface-panel rounded-md p-4">
+      <p className="fine-label">{zh ? "第二步" : "Step 2"}</p>
+      <h2 className="mt-1 text-sm font-semibold text-ink">
+        {zh ? "先框选一个片段" : "Select a fragment first"}
+      </h2>
+      <p className="mt-3 text-sm leading-6 text-ink/62">
+        {zh
+          ? "旋转全景图，点“开始框选”，在你想听故事的位置拖出一个框。讲述人会在下一步出现。"
+          : "Rotate the panorama, press Select fragment, and drag a box over the detail you want to hear about. Narrators appear after that."}
+      </p>
+    </div>
+  );
+}
+
+function shortPersonaIntro(persona: GeneratedPersona) {
+  const source = persona.background || persona.role || persona.interpretiveLens;
+  return source
+    .replace(/^Fictional guide:\s*/i, "")
+    .replace(/\s+/g, " ")
+    .split(".")
+    .slice(0, 2)
+    .join(".")
+    .trim();
 }
 
 function LiveCaption({
