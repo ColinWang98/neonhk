@@ -14,6 +14,7 @@ export type GeneratedPersona = {
   id: string;
   name: string;
   role: string;
+  userIntro?: string;
   background?: string;
   interpretiveLens: string;
   voiceHint: string;

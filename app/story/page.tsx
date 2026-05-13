@@ -548,7 +548,7 @@ function PersonaSwitcher({
                 <h3 className="text-sm font-semibold text-ink">{persona.name}</h3>
                 {selected ? <span className="rounded bg-signal px-2 py-0.5 text-[11px] text-white">{zh ? "当前" : "Active"}</span> : null}
               </div>
-              <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/68">{shortPersonaIntro(persona)}</p>
+              <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/68">{persona.userIntro || fallbackPersonaIntro(persona)}</p>
             </button>
           );
         })}
@@ -574,15 +574,15 @@ function FragmentFirstPanel({ language }: { language: "en" | "zh" }) {
   );
 }
 
-function shortPersonaIntro(persona: GeneratedPersona) {
-  const source = persona.background || persona.role || persona.interpretiveLens;
-  return source
-    .replace(/^Fictional guide:\s*/i, "")
-    .replace(/\s+/g, " ")
-    .split(".")
-    .slice(0, 2)
-    .join(".")
-    .trim();
+function fallbackPersonaIntro(persona: GeneratedPersona) {
+  const gender = persona.voiceProfile?.gender || "person";
+  const age = persona.voiceProfile?.age === "older" ? "older" : "middle-aged";
+  const relation = persona.role.toLowerCase().includes("visitor")
+    ? "visitor to this Hong Kong scene"
+    : persona.role.toLowerCase().includes("worker") || persona.role.toLowerCase().includes("assistant")
+      ? "nearby worker reading this street scene"
+      : "local observer of this Hong Kong street scene";
+  return `${age} ${gender}, ${relation}.`;
 }
 
 function LiveCaption({

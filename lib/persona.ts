@@ -16,6 +16,12 @@ Age and residency constraints:
 
 The persona background should feel like a vivid but clearly fictional guide character, not a factual claim about the photographed place. Give each persona a grounded life texture: age, relationship to Hong Kong, occupation or past occupation, daily habits, food preferences, leisure interests, and a way of speaking. Keep cultural interpretation internalized through everyday details rather than literary, symbolic, or grand language. Use a natural mix of genders when appropriate. Do not say the person actually lives at, owns, represents, or historically belongs to the selected street.
 
+For each persona, also generate userIntro. This is the only short biography shown to the user. It must be 12-20 words, plain and non-literary, and mainly state:
+- approximate age
+- gender
+- relationship to this place or this Hong Kong street scene, such as local resident, visitor, temporary resident, return visitor, nearby worker
+Do not include long personality details, food preferences, hobbies, abstract interpretation, or cultural analysis in userIntro.
+
 Return strict JSON:
 {
   "personas": [
@@ -23,6 +29,7 @@ Return strict JSON:
       "id": string,
       "name": string,
       "role": string,
+      "userIntro": string,
       "background": string,
       "interpretiveLens": string,
       "voiceHint": string,
@@ -63,7 +70,7 @@ export async function generatePersonas(params: {
           image: params.image,
           sceneVisualDescription: params.sceneVisualDescription,
           languageStyle:
-            "Persona names and roles should be concise English. All personas must be 40 or older. Backgrounds should be warm, specific, and human, with light Hong Kong bilingual phrasing where natural. Vary their relationship to Hong Kong: local resident, tourist/visitor, temporary resident, recent arrival, or return visitor. They can have cultural perspective, but express it through ordinary jobs, routines, food, transport, shopping, weather, family habits, and street manners."
+            "Persona names and roles should be concise English. userIntro should be a short user-facing line about age, gender, and relationship to this Hong Kong street scene. All personas must be 40 or older. Backgrounds should be warm, specific, and human, with light Hong Kong bilingual phrasing where natural. Vary their relationship to Hong Kong: local resident, tourist/visitor, temporary resident, recent arrival, or return visitor. They can have cultural perspective, but express it through ordinary jobs, routines, food, transport, shopping, weather, family habits, and street manners."
         })
       }
     ]
@@ -99,6 +106,7 @@ export function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
       id: "threshold-reader",
       name: "Mr. Lau Wai-kin",
       role: "A retired primary-school teacher who notices entrances, edges, and small rules of movement.",
+      userIntro: "56-year-old man, local Hong Kong resident, reads nearby streets through entrances and movement.",
       background:
         "Fictional guide: 56, born and raised in Hong Kong, taught primary school for three decades, likes morning tea, pork chop rice, and watching horse racing with old colleagues. He speaks carefully, with a teacher's habit of pointing out what people may miss.",
       interpretiveLens: `Reads this ${source} through access, boundaries, and how people may understand where to enter, pause, or pass.`,
@@ -119,6 +127,7 @@ export function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
       id: "routine-listener",
       name: "Auntie Mei",
       role: "A former wet-market stall assistant who reads streets through routine, waiting, and repeated movement.",
+      userIntro: "64-year-old woman, longtime local worker, notices routines around shopfronts and waiting spaces.",
       background:
         "Fictional guide: 64, spent much of her working life around shopfronts, kerbs, queues, and early-morning deliveries. She enjoys hot milk tea, egg tarts, and slow walks after dinner. Her comments are practical, observant, and slightly nostalgic.",
       interpretiveLens: `Reads this ${source} through daily routes, repeated use, waiting, wear, and ordinary maintenance.`,
@@ -139,6 +148,7 @@ export function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
       id: "return-visitor",
       name: "Martin Chow",
       role: "A return visitor in his late forties who reads streets through comparison, wayfinding, and small habits picked up while travelling.",
+      userIntro: "48-year-old man, return visitor to Hong Kong, reads the scene through wayfinding and familiarity.",
       background:
         "Fictional guide: 48, grew up partly overseas and visits Hong Kong every few years to see relatives, buy old camera parts, eat wonton noodles, and walk without a strict plan. He notices what feels familiar, what confuses him, and how quickly a visitor learns the manners of a street.",
       interpretiveLens: `Reads this ${source} through public order, shared norms, navigation, and small cues that organize collective use.`,
@@ -166,6 +176,10 @@ function normalizePersonas(personas: GeneratedPersona[] | undefined, image: Stre
     id: persona.id || fallback[index]?.id || `persona-${index + 1}`,
     name: persona.name || fallback[index]?.name || `Persona ${index + 1}`,
     role: persona.role || fallback[index]?.role || "A cautious spatial observer.",
+    userIntro:
+      cleanUserIntro(persona.userIntro) ||
+      fallback[index]?.userIntro ||
+      fallbackUserIntro(persona, fallback[index]),
     background:
       persona.background ||
       fallback[index]?.background ||
@@ -181,6 +195,24 @@ function normalizePersonas(personas: GeneratedPersona[] | undefined, image: Stre
       fallback[index]?.promptInstruction ||
       "Use only observable cues and cautious interpretation."
   }));
+}
+
+function cleanUserIntro(intro?: string) {
+  if (!intro) return undefined;
+  return intro.replace(/\s+/g, " ").trim().split(" ").slice(0, 24).join(" ");
+}
+
+function fallbackUserIntro(persona?: GeneratedPersona, fallback?: GeneratedPersona) {
+  const profile = persona?.voiceProfile || fallback?.voiceProfile;
+  const age = profile?.age === "older" ? "older" : "middle-aged";
+  const gender = profile?.gender || "person";
+  const role = persona?.role || fallback?.role || "street-scene observer";
+  const relation = role.toLowerCase().includes("visitor")
+    ? "visitor to this Hong Kong street scene"
+    : role.toLowerCase().includes("worker") || role.toLowerCase().includes("assistant")
+      ? "nearby worker reading this Hong Kong street scene"
+      : "local Hong Kong observer of this street scene";
+  return `${age} ${gender}, ${relation}.`;
 }
 
 function normalizeVoiceProfile(profile: GeneratedPersona["voiceProfile"]) {
