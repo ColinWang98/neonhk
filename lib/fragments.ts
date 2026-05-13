@@ -17,6 +17,10 @@ type FragmentRecord = {
   narrativePersonaId?: string;
   placeContext?: unknown;
   panoramaPov?: unknown;
+  evidencePacket?: unknown;
+  personaFragmentPlans?: unknown;
+  narrativeBlocks?: unknown;
+  narrativeValidation?: unknown;
   audioGenerations?: unknown;
   status?: string;
 };
@@ -33,6 +37,10 @@ type FragmentRow = {
   narrative_persona_id?: string | null;
   place_context?: SelectedFragment["placeContext"] | null;
   panorama_pov?: SelectedFragment["panoramaPov"] | null;
+  evidence_packet?: SelectedFragment["evidencePacket"] | null;
+  persona_fragment_plans?: SelectedFragment["personaFragmentPlans"] | null;
+  narrative_blocks?: SelectedFragment["narrativeBlocks"] | null;
+  narrative_validation?: SelectedFragment["narrativeValidation"] | null;
   audio_generations?: SelectedFragment["audioGenerations"] | null;
   status: SelectedFragment["status"] | null;
 };
@@ -52,6 +60,10 @@ export async function persistFragment(record: FragmentRecord, config: RuntimeApi
       ...(record.narrativePersonaId ? { narrative_persona_id: record.narrativePersonaId } : {}),
       ...(record.placeContext ? { place_context: record.placeContext } : {}),
       ...(record.panoramaPov ? { panorama_pov: record.panoramaPov } : {}),
+      ...(record.evidencePacket ? { evidence_packet: record.evidencePacket } : {}),
+      ...(record.personaFragmentPlans ? { persona_fragment_plans: record.personaFragmentPlans } : {}),
+      ...(record.narrativeBlocks ? { narrative_blocks: record.narrativeBlocks } : {}),
+      ...(record.narrativeValidation ? { narrative_validation: record.narrativeValidation } : {}),
       ...(record.audioGenerations ? { audio_generations: record.audioGenerations } : {}),
       ...(record.status ? { status: record.status } : {})
     };
@@ -113,6 +125,10 @@ function hasOptionalColumnFailure(message: string) {
     message.includes("narrative_persona_id") ||
     message.includes("place_context") ||
     message.includes("panorama_pov") ||
+    message.includes("evidence_packet") ||
+    message.includes("persona_fragment_plans") ||
+    message.includes("narrative_blocks") ||
+    message.includes("narrative_validation") ||
     message.includes("audio_generations") ||
     message.includes("schema cache")
   );
@@ -123,6 +139,10 @@ function stripHistoryColumns(payload: Record<string, unknown>) {
   delete compatiblePayload.narrative_persona_id;
   delete compatiblePayload.place_context;
   delete compatiblePayload.panorama_pov;
+  delete compatiblePayload.evidence_packet;
+  delete compatiblePayload.persona_fragment_plans;
+  delete compatiblePayload.narrative_blocks;
+  delete compatiblePayload.narrative_validation;
   delete compatiblePayload.audio_generations;
   return compatiblePayload;
 }
@@ -143,6 +163,10 @@ export async function listFragmentsBySession(sessionId: string, config: RuntimeA
     "narrative_persona_id",
     "place_context",
     "panorama_pov",
+    "evidence_packet",
+    "persona_fragment_plans",
+    "narrative_blocks",
+    "narrative_validation",
     "audio_generations",
     "status"
   ].join(", ");
@@ -189,6 +213,10 @@ function rowToFragment(row: FragmentRow): SelectedFragment | null {
     narrativePersonaId: row.narrative_persona_id || undefined,
     placeContext: row.place_context || undefined,
     panoramaPov: row.panorama_pov || undefined,
+    evidencePacket: row.evidence_packet || undefined,
+    personaFragmentPlans: row.persona_fragment_plans || undefined,
+    narrativeBlocks: row.narrative_blocks || undefined,
+    narrativeValidation: row.narrative_validation || undefined,
     audioGenerations: row.audio_generations || undefined,
     status: row.status || "ready"
   };

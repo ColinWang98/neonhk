@@ -1,6 +1,13 @@
 import { createAiClient } from "@/lib/aiProvider";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
-import type { GeneratedPersona, PlaceContext, SchemaNarratives, VisionDescription } from "@/types";
+import type {
+  EvidencePacket,
+  GeneratedPersona,
+  PersonaFragmentPlan,
+  PlaceContext,
+  SchemaNarratives,
+  VisionDescription
+} from "@/types";
 
 const narrativePrompt = `You are generating spoken place stories for a user-selected street-level image fragment.
 
@@ -51,6 +58,16 @@ Use cautious language such as:
 - "reminds me of"
 - "I would read this as"
 - "I cannot know its history, but..."
+
+Evidence boundary:
+- The model input includes an Evidence Packet and a Persona Fragment Plan.
+- Treat the Evidence Packet as the only source of factual claims.
+- Every segment must be grounded in the plan's sourceClaimIds and activeSchemas.
+- If a claim allowedUse is background_only, do not describe it as visible in the selected fragment.
+- If a claim uncertaintyCueRequired is true, use cautious wording.
+- If the plan narrativeMode is brief_comment, make each segment shorter and more modest.
+- If the plan narrativeMode is question_or_observation, phrase the segment as a small observation or question.
+- If a schema is not listed in activeSchemas, keep that segment very brief and say there is not enough evidence for a fuller story.
 
 Generate four spoken story segments, each 55-85 words:
 
@@ -110,12 +127,14 @@ export async function generateNarratives(
   visionDescription: VisionDescription,
   config: RuntimeApiConfig = {},
   persona?: GeneratedPersona,
-  placeContext?: PlaceContext
+  placeContext?: PlaceContext,
+  evidencePacket?: EvidencePacket,
+  personaFragmentPlan?: PersonaFragmentPlan
 ): Promise<SchemaNarratives> {
   const ai = createAiClient(config, "text");
 
   if (!ai) {
-    return fallbackNarratives(visionDescription, persona, placeContext);
+    return fallbackNarratives(visionDescription, persona, placeContext, evidencePacket, personaFragmentPlan);
   }
 
   const response = await ai.client.chat.completions.create({
@@ -127,11 +146,13 @@ export async function generateNarratives(
       {
         role: "user",
         content: JSON.stringify({
-          visionDescription,
+          evidencePacket,
+          personaFragmentPlan,
+          visionDescription: evidencePacket ? undefined : visionDescription,
           persona,
-          placeContext,
+          placeContext: evidencePacket ? undefined : placeContext,
           languageStyle:
-            "Default to English. Write like natural spoken subtitles for TTS: first-person, conversational, concrete, and slightly personal. Keep the schema logic hidden. Do not use headings inside text. Use short sentences. Avoid em dashes, semicolons, and long complex sentences. Add only a few natural fillers such as 'you know', 'I mean', 'honestly', 'okay', 'right', 'maybe', or 'to be honest'. Avoid stiff phrases like 'visible cues indicate', 'this fragment shapes', 'social-cultural resonance', 'collective rhythm', or 'identity and belonging'. Cultural interpretation is welcome, but it must come through personal anecdotes, habits, taste, discomfort, memory, humour, or practical street judgement. Make it sound like a Hong Kong person casually guiding a friend on the street, not a cultural essay. Keep factual claims cautious and grounded in observable details. If sourceNotes are relevant, paraphrase them briefly and make the relationship explicit as nearby context."
+            "Default to English. Write like natural spoken subtitles for TTS: first-person, conversational, concrete, and slightly personal. Keep the schema logic hidden. Use only Evidence Packet claim ids and Persona Fragment Plan boundaries for factual grounding. Do not use headings inside text. Use short sentences. Avoid em dashes, semicolons, and long complex sentences. Add only a few natural fillers such as 'you know', 'I mean', 'honestly', 'okay', 'right', 'maybe', or 'to be honest'. Avoid stiff phrases like 'visible cues indicate', 'this fragment shapes', 'social-cultural resonance', 'collective rhythm', or 'identity and belonging'. Cultural interpretation is welcome, but it must come through personal anecdotes, habits, taste, discomfort, memory, humour, or practical street judgement. Make it sound like a person casually guiding a friend on the street, not a cultural essay. Keep factual claims cautious and grounded in evidence claims. If area context is relevant, make the relationship explicit as nearby context."
         })
       }
     ]
@@ -142,10 +163,16 @@ export async function generateNarratives(
     throw new Error("Narrative model returned no content.");
   }
 
-  return JSON.parse(content) as SchemaNarratives;
+  return normalizeNarratives(JSON.parse(content) as Partial<SchemaNarratives>, visionDescription, persona);
 }
 
-function fallbackNarratives(vision: VisionDescription, persona?: GeneratedPersona, placeContext?: PlaceContext): SchemaNarratives {
+function fallbackNarratives(
+  vision: VisionDescription,
+  persona?: GeneratedPersona,
+  placeContext?: PlaceContext,
+  evidencePacket?: EvidencePacket,
+  personaFragmentPlan?: PersonaFragmentPlan
+): SchemaNarratives {
   const cues = vision.visibleCues.slice(0, 3).join(", ") || "visible material cues";
   const name = persona?.name || "the guide";
   const subjective = persona?.voiceProfile?.gender === "female" ? "she" : "he";
@@ -161,10 +188,18 @@ function fallbackNarratives(vision: VisionDescription, persona?: GeneratedPerson
   const sourceContext = placeContext?.sourceNotes?.[0]
     ? ` A nearby Wikipedia note mentions ${placeContext.sourceNotes[0].title}, but I would only use that as wider context, not as proof about this exact fragment.`
     : "";
+  const mode = personaFragmentPlan?.narrativeMode;
+  const planBoundary =
+    mode === "brief_comment" || mode === "question_or_observation"
+      ? " I would keep this modest, because this fragment only gives part of the picture."
+      : "";
+  const evidenceBoundary = evidencePacket
+    ? ` I am mostly relying on ${evidencePacket.claims.filter((claim) => claim.allowedUse === "direct_fact").length} direct visual claims here.`
+    : "";
   return {
     functionalUse: {
       title: "Functional-Use",
-      text: `Okay, I would notice ${vision.mainFeature} first. Small things like this tell you what to do. With ${cues}, I would think, pass this side, wait there, do not block people.${memory}${localContext}${sourceContext} ${name} might notice it while going for lunch or carrying shopping. I cannot know the real history from one crop. But honestly, I can see how it guides everyday movement.`
+      text: `Okay, I would notice ${vision.mainFeature} first. Small things like this tell you what to do. With ${cues}, I would think, pass this side, wait there, do not block people.${memory}${localContext}${sourceContext}${planBoundary}${evidenceBoundary} I cannot know the real history from one crop. But honestly, I can see how it guides everyday movement.`
     },
     identityBelonging: {
       title: "Identity-Belonging",
@@ -177,6 +212,32 @@ function fallbackNarratives(vision: VisionDescription, persona?: GeneratedPerson
     socialCulturalResonance: {
       title: "Social-Cultural Resonance",
       text: `For ${name}, the interesting part is quiet. This helps people get along on a tight street. No one needs to announce it. You know where to queue. You know where to give way. You know where not to stand too long. ${subjectiveCap} might connect it to everyday Hong Kong habits, carefully. Not proven history. Just small street common sense.`
+    }
+  };
+}
+
+function normalizeNarratives(
+  value: Partial<SchemaNarratives>,
+  vision: VisionDescription,
+  persona?: GeneratedPersona
+): SchemaNarratives {
+  const fallback = fallbackNarratives(vision, persona);
+  return {
+    functionalUse: {
+      title: "Functional-Use",
+      text: value.functionalUse?.text || fallback.functionalUse.text
+    },
+    identityBelonging: {
+      title: "Identity-Belonging",
+      text: value.identityBelonging?.text || fallback.identityBelonging.text
+    },
+    memoryTemporality: {
+      title: "Memory-Temporality",
+      text: value.memoryTemporality?.text || fallback.memoryTemporality.text
+    },
+    socialCulturalResonance: {
+      title: "Social-Cultural Resonance",
+      text: value.socialCulturalResonance?.text || fallback.socialCulturalResonance.text
     }
   };
 }

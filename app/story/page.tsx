@@ -20,6 +20,10 @@ import type {
   GeneratedPersona,
   ImageCropBox,
   PlaceContext,
+  EvidencePacket,
+  NarrativeBlock,
+  NarrativeValidation,
+  PersonaFragmentPlan,
   SchemaNarratives,
   ScreenBox,
   SelectedFragment,
@@ -209,24 +213,41 @@ export default function StoryPage() {
     fetch("/api/narrative/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...runtimeHeaders },
-      body: JSON.stringify({
-        fragmentId,
-        sessionId: storySession?.id,
-        visionDescription,
-        persona: selectedPersona,
-        placeContext
+        body: JSON.stringify({
+          fragmentId,
+          sessionId: storySession?.id,
+          visionDescription,
+          persona: selectedPersona,
+          placeContext,
+          image: selectedImage,
+          cropImageUrl: readyFragment.cropImageUrl,
+          panoramaPov: readyFragment.panoramaPov
+        })
       })
-    })
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error("Story could not be prepared. Please try again.");
-        return data as SchemaNarratives;
+        return data as SchemaNarratives & {
+          evidencePacket?: EvidencePacket;
+          personaFragmentPlan?: PersonaFragmentPlan;
+          narrativeBlocks?: NarrativeBlock[];
+          narrativeValidation?: NarrativeValidation;
+        };
       })
       .then((narratives) => {
         if (cancelled) return;
         updateFragment(fragmentId, {
           narratives,
           narrativePersonaId: selectedPersona.id,
+          evidencePacket: narratives.evidencePacket,
+          personaFragmentPlans: narratives.personaFragmentPlan
+            ? {
+                ...(readyFragment.personaFragmentPlans || {}),
+                [selectedPersona.id]: narratives.personaFragmentPlan
+              }
+            : readyFragment.personaFragmentPlans,
+          narrativeBlocks: narratives.narrativeBlocks,
+          narrativeValidation: narratives.narrativeValidation,
           audioGenerations: {},
           status: "ready"
         });
@@ -241,11 +262,15 @@ export default function StoryPage() {
     };
   }, [
     readyFragment?.id,
+    readyFragment?.cropImageUrl,
     readyFragment?.narrativePersonaId,
     readyFragment?.narratives,
+    readyFragment?.panoramaPov,
+    readyFragment?.personaFragmentPlans,
     readyFragment?.placeContext,
     readyFragment?.visionDescription,
     runtimeHeaders,
+    selectedImage,
     selectedPersona,
     setCaption,
     storySession?.id,

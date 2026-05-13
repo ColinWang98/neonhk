@@ -148,6 +148,132 @@ export type SchemaNarratives = {
   };
 };
 
+export type SchemaName =
+  | "Functional-Use"
+  | "Identity-Belonging"
+  | "Memory-Temporality"
+  | "Social-Cultural Resonance";
+
+export type EvidenceClaimType =
+  | "visual_observation"
+  | "pano_metadata"
+  | "nearby_candidate"
+  | "retrieved_area_context"
+  | "model_inference"
+  | "blocked_sensitive";
+
+export type AllowedNarrativeUse =
+  | "direct_fact"
+  | "cautious_possible"
+  | "background_only"
+  | "interpretation_only"
+  | "do_not_use";
+
+export type VisibilityStatus =
+  | "visible_confirmed"
+  | "possibly_visible"
+  | "nearby_not_confirmed_visible"
+  | "area_level_only"
+  | "unknown";
+
+export type EvidenceClaim = {
+  id: string;
+  text: string;
+  source: "vision_model" | "google_streetview" | "google_places" | "wikidata" | "wikipedia" | "osm" | "system";
+  claimType: EvidenceClaimType;
+  confidence: number;
+  visibilityStatus: VisibilityStatus;
+  allowedUse: AllowedNarrativeUse;
+  uncertaintyCueRequired: boolean;
+  privacySensitive: boolean;
+  relatedSchemas: SchemaName[];
+};
+
+export type EvidencePacket = {
+  packetId: string;
+  fragmentId: string;
+  sessionId?: string;
+  pano: {
+    panoId?: string;
+    lat?: number;
+    lng?: number;
+    heading?: number;
+    pitch?: number;
+    fov?: number;
+    captureDate?: string | null;
+    provider: StreetImage["provider"] | "unknown";
+  };
+  fragment: {
+    cropImageUrl?: string;
+    mainFeature: string;
+    fragmentCategory: string;
+    spatialContext: string;
+    privacyRisk: PrivacyRisk["riskLevel"];
+    uncertainty: "low" | "medium" | "high";
+  };
+  claims: EvidenceClaim[];
+  globalRules: string[];
+  storyAffordances: {
+    supportsFunctionalUse: boolean;
+    supportsIdentityBelonging: boolean;
+    supportsMemoryTemporality: boolean;
+    supportsSocialCulturalResonance: boolean;
+    reason: string;
+  };
+  blockedTopics: string[];
+};
+
+export type FragmentAffordance =
+  | "commercial"
+  | "residential"
+  | "mobility"
+  | "wayfinding"
+  | "public_facility"
+  | "civic"
+  | "cultural"
+  | "heritage"
+  | "green_space"
+  | "social_gathering"
+  | "infrastructure"
+  | "safety_risk"
+  | "private_sensitive";
+
+export type PersonaFragmentPlan = {
+  planId: string;
+  fragmentId: string;
+  personaId?: string;
+  fitScore: number;
+  fitLevel: "high" | "medium" | "low" | "not_applicable";
+  narrativeMode: "full_interpretation" | "brief_comment" | "question_or_observation" | "disabled";
+  activeSchemas: SchemaName[];
+  personaCanSpeakAbout: string[];
+  personaMustAvoid: string[];
+  recommendedStance:
+    | "confident_observation"
+    | "cautious_interpretation"
+    | "outsider_questioning"
+    | "practical_commentary"
+    | "public_context_explanation";
+  sourceClaimIds: string[];
+  affordances: FragmentAffordance[];
+  reason: string;
+};
+
+export type NarrativeBlock = {
+  schema: SchemaName;
+  text: string;
+  claimType: "direct_observation" | "cautious_interpretation" | "persona_interpretation" | "background_context";
+  groundedIn: string[];
+  confidence: "low" | "medium" | "high";
+  uncertaintyCue?: string;
+};
+
+export type NarrativeValidation = {
+  status: "passed" | "warning" | "failed";
+  warnings: string[];
+  requiresRegeneration: boolean;
+};
+
 export type FragmentStatus =
   | "cropping"
   | "analyzing"
@@ -191,6 +317,10 @@ export type SelectedFragment = {
   narrativePersonaId?: string;
   placeContext?: PlaceContext;
   panoramaPov?: PanoramaPov;
+  evidencePacket?: EvidencePacket;
+  personaFragmentPlans?: Record<string, PersonaFragmentPlan>;
+  narrativeBlocks?: NarrativeBlock[];
+  narrativeValidation?: NarrativeValidation;
   audioGenerations?: Record<string, TtsAudioGeneration>;
   status: FragmentStatus;
 };
