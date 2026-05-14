@@ -85,7 +85,7 @@ export function TtsControls({
     return storyText;
   }, [includeIntro, introText, storyText]);
 
-  const previewText = includeIntro && introText ? introText : storyText;
+  const previewText = storyText || introText || "";
 
   const stop = useCallback(() => {
     requestIdRef.current += 1;
@@ -229,7 +229,7 @@ export function TtsControls({
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-field">
           <div className="h-full rounded-full bg-signal transition-[width]" style={{ width: `${progress * 100}%` }} />
         </div>
-        <p className="mt-3 line-clamp-3 text-xs leading-5 text-ink/70">
+        <p className="mt-3 line-clamp-2 text-xs leading-5 text-ink/70">
           {previewText || (zh ? "故事准备好后可播放旁白。" : "Once the story is ready, narration can be played.")}
         </p>
       </div>

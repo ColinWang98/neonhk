@@ -870,7 +870,7 @@ export default function StoryPage() {
             />
             <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(activeStoryReady || activeOpening)} />
           </div>
-          <div className="grid gap-4 lg:min-h-0 lg:auto-rows-min lg:content-start lg:gap-5">
+          <div className="grid gap-3 lg:max-h-[calc(100dvh-170px)] lg:min-h-0 lg:auto-rows-min lg:content-start lg:overflow-y-auto lg:pr-1">
             <PersonaSwitcher
               personas={personas}
               selectedPersona={selectedPersona}
@@ -881,15 +881,18 @@ export default function StoryPage() {
               language={uiLanguage}
               onSelect={choosePersona}
             />
-            <SceneOpeningPanel
-              opening={activeOpening}
-              status={openingStatus}
-              persona={selectedPersona}
-              language={uiLanguage}
-              willPlayWithStory={includeOpeningInStoryAudio}
-              openingPlayed={Boolean(activeOpeningKey && playedOpeningKeys[activeOpeningKey])}
-              hasStory={activeStoryReady}
-            />
+            {!activeStoryReady ? (
+              <SceneOpeningPanel
+                opening={activeOpening}
+                status={openingStatus}
+                persona={selectedPersona}
+                language={uiLanguage}
+                willPlayWithStory={includeOpeningInStoryAudio}
+                openingPlayed={Boolean(activeOpeningKey && playedOpeningKeys[activeOpeningKey])}
+                hasStory={activeStoryReady}
+                compact
+              />
+            ) : null}
             {activeOpening && !activeStoryReady ? (
               <TtsControls
                 introText={activeOpeningText}
@@ -1083,7 +1086,8 @@ function SceneOpeningPanel({
   language,
   willPlayWithStory,
   openingPlayed,
-  hasStory
+  hasStory,
+  compact = false
 }: {
   opening?: SceneOpeningGeneration;
   status: "idle" | "loading" | "ready" | "error";
@@ -1092,6 +1096,7 @@ function SceneOpeningPanel({
   willPlayWithStory: boolean;
   openingPlayed: boolean;
   hasStory: boolean;
+  compact?: boolean;
 }) {
   const zh = language === "zh";
   const blocks = useMemo(
@@ -1104,7 +1109,7 @@ function SceneOpeningPanel({
   );
 
   return (
-    <div className="surface-panel rounded-md p-4">
+    <div className="surface-panel rounded-md p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="fine-label">{zh ? "第二步" : "Step 2"}</p>
@@ -1126,9 +1131,9 @@ function SceneOpeningPanel({
 
       {persona && opening ? (
         <>
-          <div className="mt-3 space-y-2 rounded-md border border-ink/10 bg-paper p-3">
-            {(blocks.length ? blocks : splitOpeningText(openingText)).slice(0, 4).map((line, index) => (
-              <p key={`${index}-${line}`} className="text-sm leading-6 text-ink/74">
+          <div className="mt-2 space-y-2 rounded-md border border-ink/10 bg-paper p-3">
+            {(blocks.length ? blocks : splitOpeningText(openingText)).slice(0, compact ? 1 : 3).map((line, index) => (
+              <p key={`${index}-${line}`} className={`${compact ? "line-clamp-2" : ""} text-sm leading-6 text-ink/74`}>
                 {line}
               </p>
             ))}
@@ -1183,7 +1188,7 @@ function GroundingSummaryCard({
         <CheckCircle2 className="h-4 w-4 text-signal" />
       </div>
       <div className="mt-3 grid gap-2">
-        {hints.slice(0, compact ? 3 : 5).map((hint) => (
+        {hints.slice(0, compact ? 2 : 3).map((hint) => (
           <div key={`${hint.kind}-${hint.label}`} className="rounded-md border border-ink/10 bg-white px-3 py-2">
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-semibold text-ink">{zh ? hint.zhKind : hint.kind}</span>
