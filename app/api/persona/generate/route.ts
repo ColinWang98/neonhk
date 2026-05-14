@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAiProviderDiagnostics } from "@/lib/aiProvider";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
-import { fallbackPersonas, generatePersonas } from "@/lib/persona";
+import { persistFragment } from "@/lib/fragments";
+import { generatePersonas } from "@/lib/persona";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
-import { analyzeSceneSnapshot, fallbackSceneDescription } from "@/lib/vision";
-import type { GeneratedPersona, SceneVisualDescription, StreetImage } from "@/types";
+import { analyzeSceneSnapshot } from "@/lib/vision";
+import type { GeneratedPersona, PlaceContext, SceneVisualDescription, StreetImage, VisionDescription } from "@/types";
 
 type PersonaRequest = {
   image: StreetImage;
   sessionId?: string;
+  fragmentId?: string;
   snapshotUrl?: string;
+  visionDescription?: VisionDescription;
+  placeContext?: PlaceContext;
 };
 
 const SCENE_ANALYSIS_TIMEOUT_MS = 30000;
@@ -58,71 +62,77 @@ export async function POST(request: NextRequest) {
     });
 
     const warnings: string[] = [];
-    let sceneSource: "model" | "fallback" = "fallback";
-    let personaSource: "model" | "fallback" = "model";
-    let sceneVisualDescription: SceneVisualDescription = fallbackSceneDescription(body.image);
+    const sceneSource = "model" as const;
+    const personaSource = "model" as const;
+    let sceneVisualDescription: SceneVisualDescription;
     let personas: GeneratedPersona[] = [];
 
-    try {
-      const sceneStartedAt = performance.now();
-      sceneVisualDescription = await withTimeout(
-        analyzeSceneSnapshot({
-          image: body.image,
-          snapshotUrl: body.snapshotUrl,
-          config
-        }),
-        SCENE_ANALYSIS_TIMEOUT_MS,
-        "Scene analysis"
-      );
-      sceneSource = sceneVisualDescription.uncertainty.toLowerCase().includes("fallback")
-        ? "fallback"
-        : "model";
-      console.info("[persona.generate] scene_analysis_complete", {
+    if (body.visionDescription) {
+      sceneVisualDescription = sceneDescriptionFromFragment(body.visionDescription, body.placeContext);
+      console.info("[persona.generate] fragment_context_ready", {
         requestId,
-        sceneSource,
-        durationMs: elapsedMs(sceneStartedAt)
+        fragmentId: body.fragmentId,
+        imageId: body.image.id
       });
-      await logAiGeneration(
-        {
-          sessionId: body.sessionId,
-          stage: "scene_analysis",
-          provider: aiDiagnostics.vision.provider,
-          model: aiDiagnostics.vision.model,
-          status: sceneSource === "model" ? "success" : "fallback",
-          inputSummary: {
-            imageId: body.image.id,
-            provider: body.image.provider,
-            hasSnapshotUrl: Boolean(body.snapshotUrl)
-          },
-          output: sceneVisualDescription,
+    } else {
+      try {
+        const sceneStartedAt = performance.now();
+        sceneVisualDescription = await withTimeout(
+          analyzeSceneSnapshot({
+            image: body.image,
+            snapshotUrl: body.snapshotUrl,
+            config
+          }),
+          SCENE_ANALYSIS_TIMEOUT_MS,
+          "Scene analysis"
+        );
+        console.info("[persona.generate] scene_analysis_complete", {
+          requestId,
+          sceneSource,
           durationMs: elapsedMs(sceneStartedAt)
-        },
-        config
-      );
-    } catch (error) {
-      const warning = toWarning(error);
-      warnings.push(warning);
-      console.warn("[persona.generate] scene_analysis_fallback", {
-        requestId,
-        warning
-      });
-      await logAiGeneration(
-        {
-          sessionId: body.sessionId,
-          stage: "scene_analysis",
-          provider: aiDiagnostics.vision.provider,
-          model: aiDiagnostics.vision.model,
-          status: "fallback",
-          inputSummary: {
-            imageId: body.image.id,
-            provider: body.image.provider,
-            hasSnapshotUrl: Boolean(body.snapshotUrl)
+        });
+        await logAiGeneration(
+          {
+            sessionId: body.sessionId,
+            stage: "scene_analysis",
+            provider: aiDiagnostics.vision.provider,
+            model: aiDiagnostics.vision.model,
+            status: "success",
+            inputSummary: {
+              imageId: body.image.id,
+              provider: body.image.provider,
+              hasSnapshotUrl: Boolean(body.snapshotUrl)
+            },
+            output: sceneVisualDescription,
+            durationMs: elapsedMs(sceneStartedAt)
           },
-          output: sceneVisualDescription,
-          errorMessage: warning
-        },
-        config
-      );
+          config
+        );
+      } catch (error) {
+        const warning = toWarning(error);
+        warnings.push(warning);
+        console.warn("[persona.generate] scene_analysis_failed", {
+          requestId,
+          warning
+        });
+        await logAiGeneration(
+          {
+            sessionId: body.sessionId,
+            stage: "scene_analysis",
+            provider: aiDiagnostics.vision.provider,
+            model: aiDiagnostics.vision.model,
+            status: "error",
+            inputSummary: {
+              imageId: body.image.id,
+              provider: body.image.provider,
+              hasSnapshotUrl: Boolean(body.snapshotUrl)
+            },
+            errorMessage: warning
+          },
+          config
+        );
+        throw new Error(`Scene analysis failed: ${warning}`);
+      }
     }
 
     try {
@@ -157,12 +167,20 @@ export async function POST(request: NextRequest) {
         },
         config
       );
+      if (body.fragmentId) {
+        await persistFragment(
+          {
+            id: body.fragmentId,
+            personas,
+            status: "ready"
+          },
+          config
+        );
+      }
     } catch (error) {
       const warning = toWarning(error);
       warnings.push(warning);
-      personas = fallbackPersonas(body.image);
-      personaSource = "fallback";
-      console.warn("[persona.generate] persona_generation_fallback", {
+      console.warn("[persona.generate] persona_generation_failed", {
         requestId,
         warning
       });
@@ -172,16 +190,16 @@ export async function POST(request: NextRequest) {
           stage: "persona_generation",
           provider: aiDiagnostics.text.provider,
           model: aiDiagnostics.text.model,
-          status: "fallback",
+          status: "error",
           inputSummary: {
             imageId: body.image.id,
             sceneSource
           },
-          output: { personas },
           errorMessage: warning
         },
         config
       );
+      throw new Error(`Persona generation failed: ${warning}`);
     }
 
     console.info("[persona.generate] completed", {
@@ -204,4 +222,22 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function sceneDescriptionFromFragment(
+  visionDescription: VisionDescription,
+  placeContext?: PlaceContext
+): SceneVisualDescription {
+  const contextLine = placeContext?.address ? `Nearby address context: ${placeContext.address}.` : "";
+  return {
+    sceneType: visionDescription.fragmentCategory || "selected street fragment",
+    spatialLayout: [visionDescription.spatialContext, contextLine].filter(Boolean).join(" "),
+    mainVisibleElements: [
+      visionDescription.mainFeature,
+      ...visionDescription.visibleCues
+    ].filter(Boolean),
+    movementAndAccessCues: visionDescription.possibleEverydayUses,
+    materialAndAtmosphereCues: visionDescription.visibleCues,
+    uncertainty: visionDescription.uncertainty
+  };
 }

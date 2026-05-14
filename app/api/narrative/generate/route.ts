@@ -5,10 +5,18 @@ import { buildEvidencePacket } from "@/lib/evidence";
 import { persistFragment } from "@/lib/fragments";
 import { logEvent } from "@/lib/logger";
 import { generateNarratives } from "@/lib/narrative";
-import { buildNarrativeBlocks, validateNarrative } from "@/lib/narrativeValidation";
+import { buildNarrativeBlocks, reinforceConcreteFacts, validateNarrative } from "@/lib/narrativeValidation";
 import { buildPersonaFragmentPlan } from "@/lib/personaFragment";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
-import type { GeneratedPersona, PanoramaPov, PlaceContext, StreetImage, VisionDescription } from "@/types";
+import type {
+  GeneratedPersona,
+  NarrativeGeneration,
+  PanoramaPov,
+  PersonaFragmentPlan,
+  PlaceContext,
+  StreetImage,
+  VisionDescription
+} from "@/types";
 
 type NarrativeRequest = {
   fragmentId: string;
@@ -19,6 +27,8 @@ type NarrativeRequest = {
   image?: StreetImage;
   cropImageUrl?: string;
   panoramaPov?: PanoramaPov;
+  existingNarrativeGenerations?: Record<string, NarrativeGeneration>;
+  existingPersonaFragmentPlans?: Record<string, PersonaFragmentPlan>;
 };
 
 export async function POST(request: NextRequest) {
@@ -47,7 +57,7 @@ export async function POST(request: NextRequest) {
       visionDescription: body.visionDescription,
       evidencePacket
     });
-    const narratives = await generateNarratives(
+    const generatedNarratives = await generateNarratives(
       body.visionDescription,
       config,
       body.persona,
@@ -55,6 +65,7 @@ export async function POST(request: NextRequest) {
       evidencePacket,
       personaFragmentPlan
     );
+    const narratives = reinforceConcreteFacts(generatedNarratives, evidencePacket);
     const narrativeBlocks = buildNarrativeBlocks(narratives, evidencePacket, personaFragmentPlan);
     const narrativeValidation = validateNarrative({
       narratives,
@@ -62,6 +73,30 @@ export async function POST(request: NextRequest) {
       evidencePacket,
       plan: personaFragmentPlan
     });
+    if (narrativeValidation.requiresRegeneration) {
+      return NextResponse.json(
+        {
+          error: "Story validation failed.",
+          validation: narrativeValidation
+        },
+        { status: 422 }
+      );
+    }
+    const personaId = body.persona?.id || "default";
+    const narrativeGeneration: NarrativeGeneration = {
+      personaId,
+      version: 3,
+      narratives,
+      evidencePacket,
+      personaFragmentPlan,
+      narrativeBlocks,
+      narrativeValidation,
+      createdAt: new Date().toISOString()
+    };
+    const narrativeGenerations = {
+      ...(body.existingNarrativeGenerations || {}),
+      [personaId]: narrativeGeneration
+    };
     await logAiGeneration(
       {
         sessionId: body.sessionId,
@@ -89,8 +124,10 @@ export async function POST(request: NextRequest) {
       placeContext: body.placeContext,
       evidencePacket,
       personaFragmentPlans: {
-        [body.persona?.id || "default"]: personaFragmentPlan
+        ...(body.existingPersonaFragmentPlans || {}),
+        [personaId]: personaFragmentPlan
       },
+      narrativeGenerations,
       narrativeBlocks,
       narrativeValidation,
       status: "ready"
@@ -112,6 +149,8 @@ export async function POST(request: NextRequest) {
       narrativeBlocks,
       evidencePacket,
       personaFragmentPlan,
+      narrativeGeneration,
+      narrativeGenerations,
       narrativeValidation
     });
   } catch (error) {

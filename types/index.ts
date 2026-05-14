@@ -42,6 +42,7 @@ export type SceneVisualDescription = {
 };
 
 export type NearbyPlace = {
+  id?: string;
   name: string;
   type?: string;
   address?: string;
@@ -49,7 +50,100 @@ export type NearbyPlace = {
   lng?: number;
   distanceMeters?: number;
   bearingFromScene?: number;
+  headingDelta?: number;
+  viewAlignment?: "inside_fragment_view" | "near_fragment_view" | "outside_fragment_view" | "unknown";
+  spatialMatch?: "footprint_intersection" | "view_cone" | "centroid" | "nearby";
   relativeDirection?: "ahead" | "left" | "right" | "behind" | "nearby";
+  source?: "google_places" | "osm" | "hk_landsd";
+};
+
+export type PublicDataCandidate = {
+  id: string;
+  label: string;
+  category?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  distanceMeters?: number;
+  bearingFromScene?: number;
+  headingDelta?: number;
+  viewAlignment?: "inside_fragment_view" | "near_fragment_view" | "outside_fragment_view" | "unknown";
+  spatialMatch?: "footprint_intersection" | "view_cone" | "centroid" | "nearby";
+  relativeDirection?: "ahead" | "left" | "right" | "behind" | "nearby";
+  source: "osm" | "hk_landsd";
+  relation: "nearby" | "visible-candidate";
+};
+
+export type SourceTier = "official" | "public_database" | "major_news" | "local_media" | "social" | "model";
+
+export type SpatialMatch = "exact_address" | "nearby_address" | "area_only" | "unknown";
+
+export type TemporalRelevance = "current" | "recent" | "historical" | "unknown";
+
+export type LocalConcernLevel = "high" | "medium" | "low";
+
+export type ContextCandidate = {
+  id: string;
+  label: string;
+  category?: string;
+  distanceMeters?: number;
+  relativeDirection?: "ahead" | "left" | "right" | "behind" | "nearby";
+  publishedAt?: string;
+  url?: string;
+  source:
+    | "google_places"
+    | "osm"
+    | "hk_landsd"
+    | "wikidata"
+    | "wikipedia"
+    | "gov_press_release"
+    | "rthk"
+    | "gdelt"
+    | "social";
+  visibilityConfidence: "visible_likely" | "possible" | "nearby_only" | "area_background" | "reject";
+  allowedUse: AllowedNarrativeUse;
+};
+
+export type PublicNewsItem = {
+  id: string;
+  title: string;
+  description?: string;
+  url?: string;
+  publishedAt?: string;
+  source: "gov_press_release" | "rthk" | "gdelt";
+  sourceTitle?: string;
+  sourceTier: SourceTier;
+  spatialMatch: SpatialMatch;
+  temporalRelevance: TemporalRelevance;
+  localConcernLevel: LocalConcernLevel;
+  matchedTerms: string[];
+};
+
+export type NearbyContinuationRecommendation = {
+  placeId: string;
+  name: string;
+  lat: number;
+  lng: number;
+  distanceMeters?: number;
+  category?: string;
+  recommendedSchema?: SchemaName;
+  evidenceSources: Array<"wikipedia" | "wikidata" | "google_places" | "osm" | "hk_landsd" | "street_view" | "news">;
+  evidenceScore: number;
+  thematicRelevance: number;
+  streetViewAvailable: boolean;
+  reason: string;
+  uncertainty: "low" | "medium" | "high";
+};
+
+export type ExplorationJourneyStep = {
+  sessionId: string;
+  imageId: string;
+  lat: number;
+  lng: number;
+  fragmentId?: string;
+  recommendationPlaceId?: string;
+  name?: string;
+  createdAt: string;
 };
 
 export type LocalEntity = {
@@ -78,6 +172,8 @@ export type PlaceContext = {
   address?: string;
   heading?: number;
   places: NearbyPlace[];
+  publicDataCandidates?: PublicDataCandidate[];
+  publicNewsContext?: PublicNewsItem[];
   wikidataEntities?: LocalEntity[];
   sourceNotes?: SourceNote[];
   uncertainty: string;
@@ -94,6 +190,10 @@ export type StorySession = {
   lng: number;
   selectedPersona?: GeneratedPersona;
   personas?: GeneratedPersona[];
+  sceneVisualDescription?: SceneVisualDescription;
+  placeContext?: PlaceContext;
+  sceneOpeningGenerations?: Record<string, SceneOpeningGeneration>;
+  journey?: ExplorationJourneyStep[];
   fragmentIds: string[];
   createdAt: string;
 };
@@ -123,6 +223,13 @@ export type VisionDescription = {
   mainFeature: string;
   fragmentCategory: string;
   spatialContext: string;
+  visibleText?: string[];
+  publicEntityCandidates?: Array<{
+    name: string;
+    entityType?: string;
+    evidence: string;
+    confidence: number;
+  }>;
   visibleCues: string[];
   possibleEverydayUses: string[];
   privacyRisk: PrivacyRisk;
@@ -159,6 +266,9 @@ export type EvidenceClaimType =
   | "pano_metadata"
   | "nearby_candidate"
   | "retrieved_area_context"
+  | "official_notice"
+  | "news_context"
+  | "social_context"
   | "model_inference"
   | "blocked_sensitive";
 
@@ -179,7 +289,19 @@ export type VisibilityStatus =
 export type EvidenceClaim = {
   id: string;
   text: string;
-  source: "vision_model" | "google_streetview" | "google_places" | "wikidata" | "wikipedia" | "osm" | "system";
+  source:
+    | "vision_model"
+    | "google_streetview"
+    | "google_places"
+    | "wikidata"
+    | "wikipedia"
+    | "osm"
+    | "hk_landsd"
+    | "gov_press_release"
+    | "rthk"
+    | "gdelt"
+    | "social"
+    | "system";
   claimType: EvidenceClaimType;
   confidence: number;
   visibilityStatus: VisibilityStatus;
@@ -187,6 +309,13 @@ export type EvidenceClaim = {
   uncertaintyCueRequired: boolean;
   privacySensitive: boolean;
   relatedSchemas: SchemaName[];
+  url?: string;
+  publishedAt?: string;
+  sourceTitle?: string;
+  sourceTier?: SourceTier;
+  spatialMatch?: SpatialMatch;
+  temporalRelevance?: TemporalRelevance;
+  localConcernLevel?: LocalConcernLevel;
 };
 
 export type EvidencePacket = {
@@ -256,6 +385,7 @@ export type PersonaFragmentPlan = {
     | "public_context_explanation";
   sourceClaimIds: string[];
   affordances: FragmentAffordance[];
+  localConcernLevel: LocalConcernLevel;
   reason: string;
 };
 
@@ -272,6 +402,37 @@ export type NarrativeValidation = {
   status: "passed" | "warning" | "failed";
   warnings: string[];
   requiresRegeneration: boolean;
+};
+
+export type NarrativeGeneration = {
+  personaId: string;
+  version?: number;
+  narratives: SchemaNarratives;
+  evidencePacket?: EvidencePacket;
+  personaFragmentPlan?: PersonaFragmentPlan;
+  narrativeBlocks?: NarrativeBlock[];
+  narrativeValidation?: NarrativeValidation;
+  createdAt: string;
+};
+
+export type SceneOpeningBlock = {
+  text: string;
+  groundedIn: Array<"visual_scene" | "pano_location" | "nearby_context" | "persona_background">;
+};
+
+export type SceneOpeningValidation = {
+  status: "passed" | "warning";
+  warnings: string[];
+};
+
+export type SceneOpeningGeneration = {
+  personaId: string;
+  openingText: string;
+  openingBlocks: SceneOpeningBlock[];
+  groundingSummary: string;
+  openingValidation: SceneOpeningValidation;
+  audioGeneration?: TtsAudioGeneration;
+  createdAt: string;
 };
 
 export type FragmentStatus =
@@ -300,6 +461,7 @@ export type TtsAudioGeneration = {
   audioUrl: string;
   durationMs?: number;
   speechText?: string;
+  sourceText?: string;
   personaId?: string;
   voiceId?: string;
   createdAt: string;
@@ -313,12 +475,14 @@ export type SelectedFragment = {
   cropBox: ImageCropBox;
   cropImageUrl?: string;
   visionDescription?: VisionDescription;
+  personas?: GeneratedPersona[];
   narratives?: SchemaNarratives;
   narrativePersonaId?: string;
   placeContext?: PlaceContext;
   panoramaPov?: PanoramaPov;
   evidencePacket?: EvidencePacket;
   personaFragmentPlans?: Record<string, PersonaFragmentPlan>;
+  narrativeGenerations?: Record<string, NarrativeGeneration>;
   narrativeBlocks?: NarrativeBlock[];
   narrativeValidation?: NarrativeValidation;
   audioGenerations?: Record<string, TtsAudioGeneration>;

@@ -13,12 +13,14 @@ type FragmentRecord = {
   cropBox?: unknown;
   cropImageUrl?: string;
   visionDescription?: unknown;
+  personas?: unknown;
   narratives?: unknown;
   narrativePersonaId?: string;
   placeContext?: unknown;
   panoramaPov?: unknown;
   evidencePacket?: unknown;
   personaFragmentPlans?: unknown;
+  narrativeGenerations?: unknown;
   narrativeBlocks?: unknown;
   narrativeValidation?: unknown;
   audioGenerations?: unknown;
@@ -33,12 +35,14 @@ type FragmentRow = {
   crop_box: SelectedFragment["cropBox"] | null;
   crop_image_url: string | null;
   vision_description: SelectedFragment["visionDescription"] | null;
+  personas?: SelectedFragment["personas"] | null;
   narratives: SelectedFragment["narratives"] | null;
   narrative_persona_id?: string | null;
   place_context?: SelectedFragment["placeContext"] | null;
   panorama_pov?: SelectedFragment["panoramaPov"] | null;
   evidence_packet?: SelectedFragment["evidencePacket"] | null;
   persona_fragment_plans?: SelectedFragment["personaFragmentPlans"] | null;
+  narrative_generations?: SelectedFragment["narrativeGenerations"] | null;
   narrative_blocks?: SelectedFragment["narrativeBlocks"] | null;
   narrative_validation?: SelectedFragment["narrativeValidation"] | null;
   audio_generations?: SelectedFragment["audioGenerations"] | null;
@@ -56,12 +60,14 @@ export async function persistFragment(record: FragmentRecord, config: RuntimeApi
       ...(record.cropBox ? { crop_box: record.cropBox } : {}),
       ...(record.cropImageUrl ? { crop_image_url: record.cropImageUrl } : {}),
       ...(record.visionDescription ? { vision_description: record.visionDescription } : {}),
+      ...(record.personas ? { personas: record.personas } : {}),
       ...(record.narratives ? { narratives: record.narratives } : {}),
       ...(record.narrativePersonaId ? { narrative_persona_id: record.narrativePersonaId } : {}),
       ...(record.placeContext ? { place_context: record.placeContext } : {}),
       ...(record.panoramaPov ? { panorama_pov: record.panoramaPov } : {}),
       ...(record.evidencePacket ? { evidence_packet: record.evidencePacket } : {}),
       ...(record.personaFragmentPlans ? { persona_fragment_plans: record.personaFragmentPlans } : {}),
+      ...(record.narrativeGenerations ? { narrative_generations: record.narrativeGenerations } : {}),
       ...(record.narrativeBlocks ? { narrative_blocks: record.narrativeBlocks } : {}),
       ...(record.narrativeValidation ? { narrative_validation: record.narrativeValidation } : {}),
       ...(record.audioGenerations ? { audio_generations: record.audioGenerations } : {}),
@@ -125,8 +131,10 @@ function hasOptionalColumnFailure(message: string) {
     message.includes("narrative_persona_id") ||
     message.includes("place_context") ||
     message.includes("panorama_pov") ||
+    message.includes("personas") ||
     message.includes("evidence_packet") ||
     message.includes("persona_fragment_plans") ||
+    message.includes("narrative_generations") ||
     message.includes("narrative_blocks") ||
     message.includes("narrative_validation") ||
     message.includes("audio_generations") ||
@@ -139,8 +147,10 @@ function stripHistoryColumns(payload: Record<string, unknown>) {
   delete compatiblePayload.narrative_persona_id;
   delete compatiblePayload.place_context;
   delete compatiblePayload.panorama_pov;
+  delete compatiblePayload.personas;
   delete compatiblePayload.evidence_packet;
   delete compatiblePayload.persona_fragment_plans;
+  delete compatiblePayload.narrative_generations;
   delete compatiblePayload.narrative_blocks;
   delete compatiblePayload.narrative_validation;
   delete compatiblePayload.audio_generations;
@@ -159,12 +169,14 @@ export async function listFragmentsBySession(sessionId: string, config: RuntimeA
     "crop_box",
     "crop_image_url",
     "vision_description",
+    "personas",
     "narratives",
     "narrative_persona_id",
     "place_context",
     "panorama_pov",
     "evidence_packet",
     "persona_fragment_plans",
+    "narrative_generations",
     "narrative_blocks",
     "narrative_validation",
     "audio_generations",
@@ -209,12 +221,14 @@ function rowToFragment(row: FragmentRow): SelectedFragment | null {
     cropBox: row.crop_box,
     cropImageUrl: row.crop_image_url || undefined,
     visionDescription: row.vision_description || undefined,
+    personas: row.personas || undefined,
     narratives: row.narratives || undefined,
     narrativePersonaId: row.narrative_persona_id || undefined,
     placeContext: row.place_context || undefined,
     panoramaPov: row.panorama_pov || undefined,
     evidencePacket: row.evidence_packet || undefined,
     personaFragmentPlans: row.persona_fragment_plans || undefined,
+    narrativeGenerations: row.narrative_generations || undefined,
     narrativeBlocks: row.narrative_blocks || undefined,
     narrativeValidation: row.narrative_validation || undefined,
     audioGenerations: row.audio_generations || undefined,

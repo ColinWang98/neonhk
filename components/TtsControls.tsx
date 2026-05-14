@@ -3,7 +3,7 @@
 import { Loader2, Play, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { runtimeConfigToHeaders, type RuntimeApiConfig } from "@/lib/runtimeConfig";
-import type { GeneratedPersona, SchemaNarratives, TtsAudioGeneration } from "@/types";
+import type { GeneratedPersona, NarrativeBlock, SchemaNarratives, TtsAudioGeneration } from "@/types";
 
 export type CaptionState = {
   text: string;
@@ -14,24 +14,40 @@ export type CaptionState = {
 
 type Props = {
   narratives?: SchemaNarratives;
+  narrativeBlocks?: NarrativeBlock[];
+  introText?: string;
+  introSegments?: string[];
+  includeIntro?: boolean;
   persona?: GeneratedPersona;
   config: RuntimeApiConfig;
   language?: "en" | "zh";
   fragmentId?: string;
   cachedAudio?: TtsAudioGeneration;
+  fineLabel?: string;
+  title?: string;
+  description?: string;
   onCaptionChange?: (caption: CaptionState | null) => void;
   onAudioGenerated?: (entry: TtsAudioGeneration) => void;
+  onIntroPlayed?: () => void;
 };
 
 export function TtsControls({
   narratives,
+  narrativeBlocks,
+  introText,
+  introSegments,
+  includeIntro = false,
   persona,
   config,
   language = "en",
   fragmentId,
   cachedAudio,
+  fineLabel,
+  title,
+  description,
   onCaptionChange,
-  onAudioGenerated
+  onAudioGenerated,
+  onIntroPlayed
 }: Props) {
   const zh = language === "zh";
   const [status, setStatus] = useState<"idle" | "loading" | "playing" | "error">("idle");
@@ -41,6 +57,9 @@ export function TtsControls({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const requestIdRef = useRef(0);
   const storyText = useMemo(() => {
+    if (narrativeBlocks?.length) {
+      return narrativeBlocks.map((block) => block.text.trim()).filter(Boolean).join("\n\n");
+    }
     if (!narratives) return "";
     return [
       narratives.functionalUse.text,
@@ -48,8 +67,25 @@ export function TtsControls({
       narratives.memoryTemporality.text,
       narratives.socialCulturalResonance.text
     ].join("\n\n");
-  }, [narratives]);
-  const captionSegments = useMemo(() => splitCaptionSegments(storyText), [storyText]);
+  }, [narrativeBlocks, narratives]);
+  const captionSegments = useMemo(() => {
+    const storySegments = narrativeBlocks?.length
+      ? narrativeBlocks.map((block) => block.text.trim()).filter(Boolean)
+      : splitCaptionSegments(storyText);
+    if (includeIntro && introText) {
+      const intro = introSegments?.length ? introSegments : splitCaptionSegments(introText);
+      return [...intro, ...storySegments];
+    }
+    return storySegments;
+  }, [includeIntro, introSegments, introText, narrativeBlocks, storyText]);
+  const speechText = useMemo(() => {
+    if (includeIntro && introText) {
+      return `${introText.trim()}\n\n${storyText}`.trim();
+    }
+    return storyText;
+  }, [includeIntro, introText, storyText]);
+
+  const previewText = includeIntro && introText ? introText : storyText;
 
   const stop = useCallback(() => {
     requestIdRef.current += 1;
@@ -61,7 +97,7 @@ export function TtsControls({
   }, [onCaptionChange]);
 
   const play = useCallback(async () => {
-    if (!storyText) return;
+    if (!speechText) return;
     stop();
     const requestId = requestIdRef.current;
     setMessage(null);
@@ -72,7 +108,7 @@ export function TtsControls({
       if (cachedAudio?.audioUrl) {
         await playAudioUrl(
           cachedAudio.audioUrl,
-          splitCaptionSegments(cachedAudio.speechText || storyText),
+          captionSegments,
           requestId,
           requestIdRef,
           audioRef,
@@ -81,6 +117,7 @@ export function TtsControls({
           setProgress,
           setDurationLabel
         );
+        if (includeIntro) onIntroPlayed?.();
         return;
       }
 
@@ -94,7 +131,7 @@ export function TtsControls({
         method: "POST",
         headers: { "Content-Type": "application/json", ...runtimeConfigToHeaders(config) },
         body: JSON.stringify({
-          text: storyText,
+          text: speechText,
           persona,
           fragmentId,
           language: "zh-HK-en-mixed",
@@ -114,13 +151,14 @@ export function TtsControls({
         audioUrl: data.audioUrl,
         durationMs: data.durationMs,
         speechText: data.speechText,
+        sourceText: data.sourceText || speechText,
         personaId: data.personaId || persona?.id,
         voiceId: data.voiceId,
         createdAt: data.createdAt || new Date().toISOString()
       });
       await playAudioUrl(
         data.audioUrl,
-        splitCaptionSegments(data.speechText || storyText),
+        captionSegments,
         requestId,
         requestIdRef,
         audioRef,
@@ -129,6 +167,7 @@ export function TtsControls({
         setProgress,
         setDurationLabel
       );
+      if (includeIntro) onIntroPlayed?.();
     } catch {
       if (requestId !== requestIdRef.current) return;
       setStatus("error");
@@ -139,27 +178,27 @@ export function TtsControls({
       );
       onCaptionChange?.(null);
     }
-  }, [cachedAudio, config, fragmentId, onAudioGenerated, onCaptionChange, persona, stop, storyText, zh]);
+  }, [cachedAudio, captionSegments, config, fragmentId, includeIntro, onAudioGenerated, onCaptionChange, onIntroPlayed, persona, speechText, stop, zh]);
 
   useEffect(() => {
     stop();
     return stop;
-  }, [persona?.id, stop, storyText]);
+  }, [persona?.id, stop, speechText]);
 
   return (
     <div className="surface-panel rounded-md p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="fine-label">{zh ? "音频" : "Audio"}</p>
-          <h3 className="mt-1 text-sm font-semibold text-ink">{zh ? "故事旁白" : "Story Voice"}</h3>
+          <p className="fine-label">{fineLabel || (zh ? "音频" : "Audio")}</p>
+          <h3 className="mt-1 text-sm font-semibold text-ink">{title || (zh ? "故事旁白" : "Story Voice")}</h3>
           <p className="mt-1 text-xs text-ink/60">
-            {zh ? "播放当前讲述人的旁白。" : "Listen to the current narrator."}
+            {description || (zh ? "播放当前讲述人的旁白。" : "Listen to the current narrator.")}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
           <button
             type="button"
-            disabled={!storyText || status === "loading"}
+            disabled={!speechText || status === "loading"}
             onClick={() => play()}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -191,7 +230,7 @@ export function TtsControls({
           <div className="h-full rounded-full bg-signal transition-[width]" style={{ width: `${progress * 100}%` }} />
         </div>
         <p className="mt-3 line-clamp-3 text-xs leading-5 text-ink/70">
-          {captionSegments[0] || (zh ? "故事准备好后可播放旁白。" : "Once the story is ready, narration can be played.")}
+          {previewText || (zh ? "故事准备好后可播放旁白。" : "Once the story is ready, narration can be played.")}
         </p>
       </div>
       {message ? <p className="mt-3 text-xs leading-5 text-amber-800">{message}</p> : null}

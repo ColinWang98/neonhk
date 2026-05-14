@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ChevronLeft, Loader2, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronLeft, Loader2, MapPin, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiConfigButton } from "@/components/ApiConfigModal";
 import { ErrorMessage } from "@/components/ErrorMessage";
@@ -23,7 +23,10 @@ import type {
   EvidencePacket,
   NarrativeBlock,
   NarrativeValidation,
+  NearbyContinuationRecommendation,
   PersonaFragmentPlan,
+  SceneOpeningGeneration,
+  SchemaName,
   SchemaNarratives,
   ScreenBox,
   SelectedFragment,
@@ -60,13 +63,64 @@ export default function StoryPage() {
   const [uiLanguage, setUiLanguage] = useState<"en" | "zh">("en");
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [storyDrawerOpen, setStoryDrawerOpen] = useState(false);
+  const [sceneStatus, setSceneStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [openingStatus, setOpeningStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [storyStatus, setStoryStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [nearbyStatus, setNearbyStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [nearbyRecommendations, setNearbyRecommendations] = useState<NearbyContinuationRecommendation[]>([]);
+  const [nearbyError, setNearbyError] = useState<string | null>(null);
+  const [playedOpeningKeys, setPlayedOpeningKeys] = useState<Record<string, true>>({});
   const personaRequestIdRef = useRef(0);
+  const openingRequestIdRef = useRef(0);
+  const openingPersonaIdRef = useRef<string | undefined>(undefined);
   const storySessionIdRef = useRef<string | undefined>(storySession?.id);
 
   const runtimeHeaders = useMemo(() => runtimeConfigToHeaders(apiConfig), [apiConfig]);
   const activeFragment = useMemo(() => fragments[0], [fragments]);
   const readyFragment = activeFragment?.status === "ready" ? activeFragment : undefined;
-  const currentStage = readyFragment?.narratives ? "story" : activeFragment ? "narrator" : "panorama";
+  const activeOpening = selectedPersona ? storySession?.sceneOpeningGenerations?.[selectedPersona.id] : undefined;
+  const activeOpeningKey = storySession?.id && selectedPersona?.id
+    ? `${storySession.id}:${selectedPersona.id}`
+    : undefined;
+  const activeOpeningText = activeOpening?.openingText || "";
+  const activeOpeningSegments = useMemo(
+    () => activeOpening?.openingBlocks?.map((block) => block.text).filter(Boolean) || [],
+    [activeOpening?.openingBlocks]
+  );
+  const activeStoryReady = Boolean(
+    readyFragment?.narratives &&
+    selectedPersona?.id &&
+    readyFragment.narrativePersonaId === selectedPersona.id
+  );
+  const activeNarratives = activeStoryReady ? readyFragment?.narratives : undefined;
+  const activeNarrativeBlocks = activeStoryReady ? readyFragment?.narrativeBlocks : undefined;
+  const includeOpeningInStoryAudio = Boolean(
+      activeStoryReady &&
+      selectedPersona?.id &&
+      activeOpeningKey &&
+      activeOpeningText &&
+      !playedOpeningKeys[activeOpeningKey]
+  );
+  const currentStage = activeStoryReady
+    ? "listen"
+    : activeFragment
+      ? "select"
+      : activeOpening
+        ? "opening"
+        : "narrator";
+  const currentStoryText = useMemo(
+    () =>
+      storyTextForAudio(
+        activeNarrativeBlocks,
+        activeNarratives,
+        includeOpeningInStoryAudio ? activeOpeningText : undefined
+      ),
+    [activeNarrativeBlocks, activeNarratives, activeOpeningText, includeOpeningInStoryAudio]
+  );
+  const activeSchemasForRecommendation = useMemo(
+    () => getActiveSchemasForRecommendation(readyFragment, selectedPersona),
+    [readyFragment, selectedPersona]
+  );
 
   useEffect(() => {
     storySessionIdRef.current = storySession?.id;
@@ -100,62 +154,116 @@ export default function StoryPage() {
   }, [selectedImage, setSelectedImage, setStorySession, storySession]);
 
   useEffect(() => {
-    if (!storageHydrated || !selectedImage || personas.length > 0 || personaStatus === "loading") return;
+    setCaption(null);
+    setStoryStatus(
+      activeFragment?.narratives &&
+        selectedPersona?.id &&
+        activeFragment.narrativePersonaId === selectedPersona.id
+        ? "ready"
+        : "idle"
+    );
+  }, [
+    activeFragment?.id,
+    activeFragment?.narrativePersonaId,
+    activeFragment?.narratives,
+    selectedPersona?.id
+  ]);
 
-    if (storySession?.personas?.length) {
+  useEffect(() => {
+    if (
+      !storageHydrated ||
+      !selectedImage ||
+      !storySession?.id ||
+      sceneStatus === "loading" ||
+      sceneStatus === "error" ||
+      personaStatus === "loading" ||
+      personaStatus === "error"
+    ) {
+      return;
+    }
+
+    if (storySession.personas?.length && storySession.sceneVisualDescription && storySession.placeContext) {
       setPersonas(storySession.personas);
       setPersonaStatus("ready");
-      if (!selectedPersona && storySession.selectedPersona) {
-        setSelectedPersona(storySession.selectedPersona);
+      setSceneStatus("ready");
+      if (storySession.selectedPersona) {
+        const selected =
+          storySession.personas.find((persona) => persona.id === storySession.selectedPersona?.id) ||
+          storySession.selectedPersona;
+        setSelectedPersona(selected);
+      } else if (selectedPersona) {
+        setSelectedPersona(undefined);
       }
       return;
     }
 
     const requestId = personaRequestIdRef.current + 1;
     personaRequestIdRef.current = requestId;
+    setSceneStatus("loading");
     setPersonaStatus("loading");
     setError(null);
 
     const snapshotUrl = getSceneSnapshotUrl(selectedImage, apiConfig);
-    const sessionId = storySessionIdRef.current;
-    fetch("/api/persona/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...runtimeHeaders },
-      body: JSON.stringify({ image: selectedImage, sessionId, snapshotUrl })
-    })
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error("Narrators could not be prepared. Please try another scene.");
-        return data.personas as GeneratedPersona[];
+    Promise.all([
+      fetchPlaceContext(selectedImage, undefined, runtimeHeaders),
+      fetch("/api/persona/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...runtimeHeaders },
+        body: JSON.stringify({
+          image: selectedImage,
+          sessionId: storySession.id,
+          snapshotUrl
+        })
       })
-      .then((nextPersonas) => {
+    ])
+      .then(async ([placeContext, personaRes]) => {
+        const personaData = await personaRes.json();
+        if (!personaRes.ok) throw new Error("Narrators could not be prepared. Please try another scene.");
+        return {
+          placeContext,
+          personas: personaData.personas as GeneratedPersona[],
+          sceneVisualDescription: personaData.sceneVisualDescription
+        };
+      })
+      .then(({ placeContext, personas: nextPersonas, sceneVisualDescription }) => {
         if (personaRequestIdRef.current !== requestId) return;
+        const selected = storySession.selectedPersona
+          ? nextPersonas.find((persona) => persona.id === storySession.selectedPersona?.id) || storySession.selectedPersona
+          : undefined;
         setPersonas(nextPersonas);
+        if (selected) setSelectedPersona(selected);
+        else setSelectedPersona(undefined);
+        setSceneStatus("ready");
         setPersonaStatus("ready");
-        if (storySessionIdRef.current && storySession) {
-          const nextSession = { ...storySession, personas: nextPersonas };
-          setStorySession(nextSession);
-          sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
-          void saveStorySession(nextSession, runtimeHeaders);
-        }
+        const nextSession = {
+          ...storySession,
+          selectedPersona: selected || undefined,
+          personas: nextPersonas,
+          sceneVisualDescription,
+          placeContext
+        };
+        setStorySession(nextSession);
+        sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
+        void saveStorySession(nextSession, runtimeHeaders);
       })
       .catch((err) => {
         if (personaRequestIdRef.current !== requestId) return;
+        setSceneStatus("error");
         setPersonaStatus("error");
         setError(err instanceof Error ? err.message : "Narrators could not be prepared. Please try another scene.");
       });
   }, [
     apiConfig,
     personaStatus,
-    personas.length,
     runtimeHeaders,
+    sceneStatus,
     selectedImage,
-    selectedPersona,
     setPersonas,
     setSelectedPersona,
     setStorySession,
     storageHydrated,
-    storySession
+    storySession,
+    selectedPersona
   ]);
 
   useEffect(() => {
@@ -192,8 +300,11 @@ export default function StoryPage() {
   function choosePersona(persona: GeneratedPersona) {
     setSelectedPersona(persona);
     setCaption(null);
+    openingPersonaIdRef.current = undefined;
+    setOpeningStatus(storySession?.sceneOpeningGenerations?.[persona.id] ? "ready" : "loading");
+    setStoryStatus(activeFragment ? "loading" : "idle");
     if (storySession) {
-      const nextSession = { ...storySession, personas, selectedPersona: persona };
+      const nextSession = { ...storySession, selectedPersona: persona };
       setStorySession(nextSession);
       sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
       void saveStorySession(nextSession, runtimeHeaders);
@@ -201,14 +312,129 @@ export default function StoryPage() {
   }
 
   useEffect(() => {
+    if (!storageHydrated || !selectedImage || !storySession?.id || !selectedPersona) return;
+    const cachedOpening = storySession.sceneOpeningGenerations?.[selectedPersona.id];
+    if (cachedOpening) {
+      setOpeningStatus("ready");
+      setCaption(openingCaption(cachedOpening));
+      return;
+    }
+    if (!storySession.sceneVisualDescription && sceneStatus === "loading") return;
+    if (openingStatus === "loading" && openingPersonaIdRef.current === selectedPersona.id) return;
+    if (openingStatus === "error" && openingPersonaIdRef.current === selectedPersona.id) return;
+
+    const requestId = openingRequestIdRef.current + 1;
+    openingRequestIdRef.current = requestId;
+    openingPersonaIdRef.current = selectedPersona.id;
+    setOpeningStatus("loading");
+    setError(null);
+
+    fetch("/api/scene/opening", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...runtimeHeaders },
+      body: JSON.stringify({
+        sessionId: storySession.id,
+        image: selectedImage,
+        persona: selectedPersona,
+        sceneVisualDescription: storySession.sceneVisualDescription,
+        placeContext: storySession.placeContext,
+        existingOpenings: storySession.sceneOpeningGenerations,
+        storySession
+      })
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Opening could not be prepared. Please try another narrator.");
+        return data as SceneOpeningGeneration;
+      })
+      .then((opening) => {
+        if (openingRequestIdRef.current !== requestId) return;
+        const nextSession = {
+          ...storySession,
+          selectedPersona,
+          sceneOpeningGenerations: {
+            ...(storySession.sceneOpeningGenerations || {}),
+            [selectedPersona.id]: opening
+          }
+        };
+        setStorySession(nextSession);
+        sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
+        void saveStorySession(nextSession, runtimeHeaders);
+        setOpeningStatus("ready");
+        setCaption(openingCaption(opening));
+      })
+      .catch((err) => {
+        if (openingRequestIdRef.current !== requestId) return;
+        setOpeningStatus("error");
+        setError(err instanceof Error ? err.message : "Opening could not be prepared. Please try another narrator.");
+      });
+  }, [
+    openingStatus,
+    runtimeHeaders,
+    sceneStatus,
+    selectedImage,
+    selectedPersona,
+    setStorySession,
+    storageHydrated,
+    storySession
+  ]);
+
+  useEffect(() => {
     if (!readyFragment?.visionDescription || !selectedPersona) return;
-    if (readyFragment.narrativePersonaId === selectedPersona.id && readyFragment.narratives) return;
+    const cachedGeneration = readyFragment.narrativeGenerations?.[selectedPersona.id];
+    if (cachedGeneration?.version === narrativeCacheVersion) {
+      if (
+        readyFragment.narrativePersonaId !== selectedPersona.id ||
+        readyFragment.narratives !== cachedGeneration.narratives
+      ) {
+        updateFragment(readyFragment.id, {
+          narratives: cachedGeneration.narratives,
+          narrativePersonaId: selectedPersona.id,
+          evidencePacket: cachedGeneration.evidencePacket || readyFragment.evidencePacket,
+          personaFragmentPlans: cachedGeneration.personaFragmentPlan
+            ? {
+                ...(readyFragment.personaFragmentPlans || {}),
+                [selectedPersona.id]: cachedGeneration.personaFragmentPlan
+              }
+            : readyFragment.personaFragmentPlans,
+          narrativeBlocks: cachedGeneration.narrativeBlocks,
+          narrativeValidation: cachedGeneration.narrativeValidation,
+          status: "ready"
+        });
+      }
+      setStoryStatus("ready");
+      return;
+    }
+    if (
+      readyFragment.narrativePersonaId === selectedPersona.id &&
+      readyFragment.narratives &&
+      readyFragment.narrativeGenerations?.[selectedPersona.id]?.version === narrativeCacheVersion
+    ) {
+      updateFragment(readyFragment.id, {
+        narrativeGenerations: {
+          ...(readyFragment.narrativeGenerations || {}),
+          [selectedPersona.id]: {
+            personaId: selectedPersona.id,
+            version: narrativeCacheVersion,
+            narratives: readyFragment.narratives,
+            evidencePacket: readyFragment.evidencePacket,
+            personaFragmentPlan: readyFragment.personaFragmentPlans?.[selectedPersona.id],
+            narrativeBlocks: readyFragment.narrativeBlocks,
+            narrativeValidation: readyFragment.narrativeValidation,
+            createdAt: new Date().toISOString()
+          }
+        }
+      });
+      setStoryStatus("ready");
+      return;
+    }
 
     let cancelled = false;
     const fragmentId = readyFragment.id;
     const visionDescription = readyFragment.visionDescription;
     const placeContext = readyFragment.placeContext;
     setCaption(null);
+    setStoryStatus("loading");
 
     fetch("/api/narrative/generate", {
       method: "POST",
@@ -221,23 +447,39 @@ export default function StoryPage() {
           placeContext,
           image: selectedImage,
           cropImageUrl: readyFragment.cropImageUrl,
-          panoramaPov: readyFragment.panoramaPov
+          panoramaPov: readyFragment.panoramaPov,
+          existingPersonaFragmentPlans: readyFragment.personaFragmentPlans,
+          existingNarrativeGenerations: readyFragment.narrativeGenerations
         })
       })
       .then(async (res) => {
         const data = await res.json();
-        if (!res.ok) throw new Error("Story could not be prepared. Please try again.");
+        if (!res.ok) throw new Error(data.error || "Story could not be prepared. Please try again.");
         return data as SchemaNarratives & {
           evidencePacket?: EvidencePacket;
           personaFragmentPlan?: PersonaFragmentPlan;
           narrativeBlocks?: NarrativeBlock[];
           narrativeValidation?: NarrativeValidation;
+          narrativeGeneration?: NonNullable<SelectedFragment["narrativeGenerations"]>[string];
+          narrativeGenerations?: SelectedFragment["narrativeGenerations"];
         };
       })
       .then((narratives) => {
         if (cancelled) return;
+        const schemaNarratives = pickSchemaNarratives(narratives);
+        const narrativeGeneration =
+          narratives.narrativeGeneration || {
+            personaId: selectedPersona.id,
+            version: narrativeCacheVersion,
+            narratives: schemaNarratives,
+            evidencePacket: narratives.evidencePacket,
+            personaFragmentPlan: narratives.personaFragmentPlan,
+            narrativeBlocks: narratives.narrativeBlocks,
+            narrativeValidation: narratives.narrativeValidation,
+            createdAt: new Date().toISOString()
+          };
         updateFragment(fragmentId, {
-          narratives,
+          narratives: schemaNarratives,
           narrativePersonaId: selectedPersona.id,
           evidencePacket: narratives.evidencePacket,
           personaFragmentPlans: narratives.personaFragmentPlan
@@ -246,14 +488,19 @@ export default function StoryPage() {
                 [selectedPersona.id]: narratives.personaFragmentPlan
               }
             : readyFragment.personaFragmentPlans,
+          narrativeGenerations: narratives.narrativeGenerations || {
+            ...(readyFragment.narrativeGenerations || {}),
+            [selectedPersona.id]: narrativeGeneration
+          },
           narrativeBlocks: narratives.narrativeBlocks,
           narrativeValidation: narratives.narrativeValidation,
-          audioGenerations: {},
           status: "ready"
         });
+        setStoryStatus("ready");
       })
       .catch((err) => {
         if (cancelled) return;
+        setStoryStatus("error");
         setError(err instanceof Error ? err.message : "Story could not be prepared. Please try again.");
       });
 
@@ -263,7 +510,11 @@ export default function StoryPage() {
   }, [
     readyFragment?.id,
     readyFragment?.cropImageUrl,
+    readyFragment?.evidencePacket,
     readyFragment?.narrativePersonaId,
+    readyFragment?.narrativeGenerations,
+    readyFragment?.narrativeBlocks,
+    readyFragment?.narrativeValidation,
     readyFragment?.narratives,
     readyFragment?.panoramaPov,
     readyFragment?.personaFragmentPlans,
@@ -277,6 +528,163 @@ export default function StoryPage() {
     updateFragment
   ]);
 
+  useEffect(() => {
+    setNearbyRecommendations([]);
+    setNearbyError(null);
+    setNearbyStatus("idle");
+  }, [readyFragment?.id, selectedPersona?.id]);
+
+  useEffect(() => {
+    if (!activeStoryReady || !selectedImage || !selectedPersona || !storySession?.id) return;
+    const fragment = readyFragment;
+    if (!fragment) return;
+    if (nearbyStatus === "loading" || nearbyStatus === "ready") return;
+
+    let cancelled = false;
+    setNearbyStatus("loading");
+    setNearbyError(null);
+
+    fetch("/api/recommend/nearby", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...runtimeHeaders },
+      body: JSON.stringify({
+        sessionId: storySession.id,
+        fragmentId: fragment.id,
+        lat: selectedImage.lat,
+        lng: selectedImage.lng,
+        personaId: selectedPersona.id,
+        activeSchemas: activeSchemasForRecommendation,
+        radiusMeters: 800,
+        placeContext: fragment.placeContext,
+        evidencePacket: fragment.evidencePacket
+      })
+    })
+      .then(async (res) => {
+        const data = (await res.json()) as {
+          recommendations?: NearbyContinuationRecommendation[];
+          error?: string;
+        };
+        if (!res.ok) throw new Error(data.error || "Nearby places could not be prepared.");
+        return data.recommendations || [];
+      })
+      .then((recommendations) => {
+        if (cancelled) return;
+        setNearbyRecommendations(recommendations);
+        setNearbyStatus("ready");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setNearbyStatus("error");
+        setNearbyError(err instanceof Error ? err.message : "Nearby places could not be prepared.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeSchemasForRecommendation,
+    nearbyStatus,
+    readyFragment?.id,
+    readyFragment,
+    activeStoryReady,
+    readyFragment?.placeContext,
+    readyFragment?.evidencePacket,
+    runtimeHeaders,
+    selectedImage,
+    selectedPersona,
+    storySession?.id
+  ]);
+
+  async function openNearbyRecommendation(recommendation: NearbyContinuationRecommendation) {
+    if (!selectedImage || !storySession) return;
+
+    setNearbyStatus("loading");
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        lat: String(recommendation.lat),
+        lng: String(recommendation.lng),
+        radius: "140"
+      });
+      const res = await fetch(`/api/google/streetview/search?${params.toString()}`, {
+        headers: runtimeHeaders
+      });
+      const data = (await res.json()) as { images?: StreetImage[]; error?: string };
+      if (!res.ok || !data.images?.[0]) {
+        throw new Error(data.error || "Street View is not available for this place.");
+      }
+
+      const image = data.images[0];
+      const now = new Date().toISOString();
+      const nextSessionId = crypto.randomUUID();
+      const baseJourney =
+        storySession.journey?.length
+          ? storySession.journey
+          : [
+              {
+                sessionId: storySession.id,
+                imageId: selectedImage.id,
+                lat: selectedImage.lat,
+                lng: selectedImage.lng,
+                fragmentId: readyFragment?.id,
+                createdAt: storySession.createdAt
+              }
+            ];
+      const nextSession: StorySession = {
+        id: nextSessionId,
+        provider: image.provider,
+        imageId: image.id,
+        panoId: image.panoId,
+        lat: image.lat,
+        lng: image.lng,
+        fragmentIds: [],
+        journey: [
+          ...baseJourney,
+          {
+            sessionId: nextSessionId,
+            imageId: image.id,
+            lat: image.lat,
+            lng: image.lng,
+            recommendationPlaceId: recommendation.placeId,
+            name: recommendation.name,
+            createdAt: now
+          }
+        ],
+        createdAt: now
+      };
+
+      setSelectedImage(image);
+      setStorySession(nextSession);
+      setPersonas([]);
+      setSelectedPersona(undefined);
+      setFragments([]);
+      setCaption(null);
+      setSceneStatus("idle");
+      setPersonaStatus("idle");
+      setOpeningStatus("idle");
+      setStoryStatus("idle");
+      setNearbyRecommendations([]);
+      setNearbyError(null);
+      setNearbyStatus("idle");
+      sessionStorage.setItem(selectedImageStorageKey, JSON.stringify(image));
+      sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
+      void saveStorySession(nextSession, runtimeHeaders);
+      void logClientEvent(
+        "nearby_continuation_opened",
+        {
+          fromSessionId: storySession.id,
+          fromFragmentId: readyFragment?.id,
+          toSessionId: nextSessionId,
+          recommendation
+        },
+        runtimeHeaders
+      );
+    } catch (err) {
+      setNearbyStatus("error");
+      setNearbyError(err instanceof Error ? err.message : "Street View is not available for this place.");
+    }
+  }
+
   async function handleFragmentSelected(
     screenBox: ScreenBox,
     cropBox: ImageCropBox,
@@ -287,7 +695,7 @@ export default function StoryPage() {
 
     setProcessing(true);
     setError(null);
-    setSelectedPersona(undefined);
+    setStoryStatus("idle");
     setCaption(null);
     const tempId = `pending-${Date.now()}`;
     const baseFragment: SelectedFragment = {
@@ -357,7 +765,7 @@ export default function StoryPage() {
       }
 
       updateFragment(cropData.fragmentId, { visionDescription, status: "generating" });
-      const placeContext = await fetchPlaceContext(selectedImage, selectionMeta, runtimeHeaders);
+      const placeContext = await fetchPlaceContext(selectedImage, selectionMeta, runtimeHeaders, visionDescription);
 
       updateFragment(cropData.fragmentId, {
         placeContext,
@@ -368,7 +776,6 @@ export default function StoryPage() {
         const nextFragmentIds = Array.from(new Set([cropData.fragmentId, ...storySession.fragmentIds]));
         const nextSession = {
           ...storySession,
-          personas,
           fragmentIds: nextFragmentIds
         };
         setStorySession(nextSession);
@@ -409,12 +816,15 @@ export default function StoryPage() {
           <p className="fine-label mb-2">Guided panorama reading</p>
           <h1 className="text-[1.75rem] font-semibold tracking-normal sm:text-[2rem] md:text-[2.4rem]">HK Spatial Story</h1>
           <p className="mt-2 text-sm leading-6 text-ink/62">
-            {currentStage === "panorama"
-              ? "Step 2: rotate the panorama and select a place fragment."
-              : currentStage === "narrator"
-                ? "Step 3: choose a narrator for this selected fragment."
-                : "Step 3: switch narrator, read, and listen."}
+            {currentStage === "narrator"
+              ? "Choose a narrator for this panorama."
+              : currentStage === "opening"
+                ? "Listen to a short opening, then select a place detail."
+                : currentStage === "select"
+                  ? "Select a place fragment for this narrator to read."
+                  : "Switch narrator, read, and listen."}
           </p>
+          <StoryProgress stage={currentStage} language={uiLanguage} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex h-10 overflow-hidden rounded-md border border-ink/15 bg-paper">
@@ -458,39 +868,112 @@ export default function StoryPage() {
               }}
               onFragmentSelected={handleFragmentSelected}
             />
-            <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(readyFragment?.narratives)} />
+            <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(activeStoryReady || activeOpening)} />
           </div>
-          <div className="grid gap-4 lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto] lg:gap-5">
-            {activeFragment ? (
-              <PersonaSwitcher
-                personas={personas}
-                selectedPersona={selectedPersona}
-                personaStatus={personaStatus}
-                fragment={activeFragment}
-                language={uiLanguage}
-                onSelect={choosePersona}
-              />
-            ) : (
-              <FragmentFirstPanel language={uiLanguage} />
-            )}
-            <TtsControls
-              narratives={readyFragment?.narratives}
-              persona={selectedPersona}
-              config={apiConfig}
+          <div className="grid gap-4 lg:min-h-0 lg:auto-rows-min lg:content-start lg:gap-5">
+            <PersonaSwitcher
+              personas={personas}
+              selectedPersona={selectedPersona}
+              personaStatus={personaStatus}
+              sceneStatus={sceneStatus}
+              storyStatus={storyStatus}
+              fragment={activeFragment}
               language={uiLanguage}
-              fragmentId={readyFragment?.id}
-              cachedAudio={findCachedAudio(readyFragment, selectedPersona, apiConfig)}
-              onCaptionChange={setCaption}
-              onAudioGenerated={(entry) => {
-                if (!readyFragment) return;
-                updateFragment(readyFragment.id, {
-                  audioGenerations: {
-                    ...(readyFragment.audioGenerations || {}),
-                    [entry.cacheKey]: entry
-                  }
-                });
-              }}
+              onSelect={choosePersona}
             />
+            <SceneOpeningPanel
+              opening={activeOpening}
+              status={openingStatus}
+              persona={selectedPersona}
+              language={uiLanguage}
+              willPlayWithStory={includeOpeningInStoryAudio}
+              openingPlayed={Boolean(activeOpeningKey && playedOpeningKeys[activeOpeningKey])}
+              hasStory={activeStoryReady}
+            />
+            {activeOpening && !activeStoryReady ? (
+              <TtsControls
+                introText={activeOpeningText}
+                introSegments={activeOpeningSegments}
+                includeIntro
+                persona={selectedPersona}
+                config={apiConfig}
+                language={uiLanguage}
+                cachedAudio={activeOpening.audioGeneration}
+                fineLabel={uiLanguage === "zh" ? "开场音频" : "Opening Audio"}
+                title={uiLanguage === "zh" ? "先听讲述人开场" : "Narrator Opening"}
+                description={uiLanguage === "zh" ? "先听这个讲述人怎么看这片环境，然后再框选细节。" : "Hear this narrator read the wider scene first, then select a detail."}
+                onCaptionChange={setCaption}
+                onIntroPlayed={() => {
+                  if (!activeOpeningKey) return;
+                  setPlayedOpeningKeys((current) => ({
+                    ...current,
+                    [activeOpeningKey]: true
+                  }));
+                }}
+                onAudioGenerated={(entry) => {
+                  if (!storySession || !selectedPersona) return;
+                  const currentOpening = storySession.sceneOpeningGenerations?.[selectedPersona.id] || activeOpening;
+                  const nextSession = {
+                    ...storySession,
+                    sceneOpeningGenerations: {
+                      ...(storySession.sceneOpeningGenerations || {}),
+                      [selectedPersona.id]: {
+                        ...currentOpening,
+                        audioGeneration: entry
+                      }
+                    }
+                  };
+                  setStorySession(nextSession);
+                  sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
+                  void saveStorySession(nextSession, runtimeHeaders);
+                }}
+              />
+            ) : null}
+            {readyFragment ? (
+              <GroundingSummaryCard fragment={readyFragment} language={uiLanguage} />
+            ) : null}
+            {!activeStoryReady || !readyFragment || !activeNarratives ? (
+                <FragmentFirstPanel language={uiLanguage} hasOpening={Boolean(activeOpening)} />
+            ) : (
+              <TtsControls
+                narratives={activeNarratives}
+                narrativeBlocks={activeNarrativeBlocks}
+                persona={selectedPersona}
+                config={apiConfig}
+                language={uiLanguage}
+                fragmentId={readyFragment.id}
+                introText={activeOpeningText}
+                introSegments={activeOpeningSegments}
+                includeIntro={includeOpeningInStoryAudio}
+                cachedAudio={findCachedAudio(readyFragment, selectedPersona, apiConfig, currentStoryText)}
+                onCaptionChange={setCaption}
+                onIntroPlayed={() => {
+                  if (!activeOpeningKey) return;
+                  setPlayedOpeningKeys((current) => ({
+                    ...current,
+                    [activeOpeningKey]: true
+                  }));
+                }}
+                onAudioGenerated={(entry) => {
+                  if (!readyFragment) return;
+                  updateFragment(readyFragment.id, {
+                    audioGenerations: {
+                      ...(readyFragment.audioGenerations || {}),
+                      [entry.cacheKey]: entry
+                    }
+                  });
+                }}
+              />
+            )}
+            {activeStoryReady ? (
+              <NearbyContinuationPanel
+                status={nearbyStatus}
+                recommendations={nearbyRecommendations}
+                error={nearbyError}
+                language={uiLanguage}
+                onOpen={openNearbyRecommendation}
+              />
+            ) : null}
           </div>
         </div>
         <div className="min-h-[260px] lg:min-h-0">
@@ -524,6 +1007,8 @@ function PersonaSwitcher({
   personas,
   selectedPersona,
   personaStatus,
+  sceneStatus,
+  storyStatus,
   fragment,
   language,
   onSelect
@@ -531,7 +1016,9 @@ function PersonaSwitcher({
   personas: GeneratedPersona[];
   selectedPersona?: GeneratedPersona;
   personaStatus: "idle" | "loading" | "ready" | "error";
-  fragment: SelectedFragment;
+  sceneStatus: "idle" | "loading" | "ready" | "error";
+  storyStatus: "idle" | "loading" | "ready" | "error";
+  fragment?: SelectedFragment;
   language: "en" | "zh";
   onSelect: (persona: GeneratedPersona) => void;
 }) {
@@ -540,19 +1027,26 @@ function PersonaSwitcher({
     <div className="surface-panel min-h-0 overflow-hidden rounded-md p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="fine-label">{zh ? "第三步" : "Step 3"}</p>
+          <p className="fine-label">{zh ? "第一步" : "Step 1"}</p>
           <h2 className="mt-1 text-sm font-semibold text-ink">
             {zh ? "选择讲述人" : "Choose narrator"}
           </h2>
           <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/58">
-            {fragment.visionDescription?.mainFeature || (zh ? "已选中的街景片段" : "Selected street fragment")}
+            {fragment?.visionDescription?.mainFeature ||
+              (zh ? "先从讲述人的角度进入这个街景。" : "Start with a narrator's view of this panorama.")}
           </p>
         </div>
       </div>
-      {personaStatus === "loading" && personas.length === 0 ? (
+      {(personaStatus === "loading" || sceneStatus === "loading") && personas.length === 0 ? (
         <div className="mt-5 flex items-center gap-2 text-sm text-ink/62">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{zh ? "正在准备讲述人" : "Preparing narrators"}</span>
+        </div>
+      ) : null}
+      {storyStatus === "loading" ? (
+        <div className="mt-4 flex items-center gap-2 rounded-md border border-ink/10 bg-field px-3 py-2 text-xs text-ink/62">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{zh ? "正在准备故事" : "Preparing story"}</span>
         </div>
       ) : null}
       <div className="mt-3 grid max-h-[42vh] gap-2 overflow-auto pr-1 lg:max-h-[36vh]">
@@ -573,7 +1067,7 @@ function PersonaSwitcher({
                 <h3 className="text-sm font-semibold text-ink">{persona.name}</h3>
                 {selected ? <span className="rounded bg-signal px-2 py-0.5 text-[11px] text-white">{zh ? "当前" : "Active"}</span> : null}
               </div>
-              <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/68">{persona.userIntro || fallbackPersonaIntro(persona)}</p>
+              <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/68">{persona.userIntro}</p>
             </button>
           );
         })}
@@ -582,32 +1076,315 @@ function PersonaSwitcher({
   );
 }
 
-function FragmentFirstPanel({ language }: { language: "en" | "zh" }) {
+function SceneOpeningPanel({
+  opening,
+  status,
+  persona,
+  language,
+  willPlayWithStory,
+  openingPlayed,
+  hasStory
+}: {
+  opening?: SceneOpeningGeneration;
+  status: "idle" | "loading" | "ready" | "error";
+  persona?: GeneratedPersona;
+  language: "en" | "zh";
+  willPlayWithStory: boolean;
+  openingPlayed: boolean;
+  hasStory: boolean;
+}) {
+  const zh = language === "zh";
+  const blocks = useMemo(
+    () => opening?.openingBlocks?.map((block) => block.text).filter(Boolean) || [],
+    [opening?.openingBlocks]
+  );
+  const openingText = useMemo(
+    () => opening?.openingText || blocks.join("\n\n"),
+    [blocks, opening?.openingText]
+  );
+
+  return (
+    <div className="surface-panel rounded-md p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="fine-label">{zh ? "第二步" : "Step 2"}</p>
+          <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "开场" : "Opening"}</h2>
+          <p className="mt-1 text-xs leading-5 text-ink/58">
+            {willPlayWithStory
+              ? zh ? "第一次播放故事时会先听到这段开场。" : "This opening will play once before the next story."
+              : openingPlayed
+                ? zh ? "这段开场已经播过，后续故事不会重复播放。" : "This opening has played once and will not repeat for this narrator."
+                : hasStory
+                  ? zh ? "这段开场已准备好，可以和故事一起播放。" : "This opening is ready to play with the story."
+                  : opening
+                    ? zh ? "先听这段整体环境开场，再框选一个细节。" : "Play this wider scene opening first, then select a detail."
+                    : zh ? "选择一位讲述人后，会出现一段整体环境开场。" : "Choose a narrator to prepare a wider scene opening."}
+          </p>
+        </div>
+        {status === "loading" ? <Loader2 className="mt-1 h-4 w-4 animate-spin text-ink/45" /> : null}
+      </div>
+
+      {persona && opening ? (
+        <>
+          <div className="mt-3 space-y-2 rounded-md border border-ink/10 bg-paper p-3">
+            {(blocks.length ? blocks : splitOpeningText(openingText)).slice(0, 4).map((line, index) => (
+              <p key={`${index}-${line}`} className="text-sm leading-6 text-ink/74">
+                {line}
+              </p>
+            ))}
+          </div>
+          {willPlayWithStory ? (
+            <p className="mt-3 rounded-md border border-signal/20 bg-[#eef7f4] px-3 py-2 text-xs leading-5 text-ink/65">
+              {zh ? "点击下方 Story Voice 的 Play，会先播放开场，再播放当前片段故事。" : "Press Play in Story Voice below to hear the opening followed by this fragment story."}
+            </p>
+          ) : !hasStory && !openingPlayed ? (
+            <p className="mt-3 rounded-md border border-signal/20 bg-[#eef7f4] px-3 py-2 text-xs leading-5 text-ink/65">
+              {zh ? "下面的开场音频可以现在播放，不需要先框选。" : "Use the opening audio below now. You do not need to select a fragment first."}
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <div className={`mt-3 rounded-md border px-3 py-4 text-sm leading-6 ${
+          status === "error"
+            ? "border-red-200 bg-red-50 text-red-800"
+            : "border-dashed border-ink/15 bg-field text-ink/58"
+        }`}>
+          {status === "error"
+            ? zh ? "开场没有生成。请查看上方错误信息。" : "Opening was not prepared. Check the error above."
+            : persona
+              ? zh ? "正在准备开场。" : "Preparing the opening."
+              : zh ? "选择一位讲述人后，会出现一段开场。" : "Choose a narrator to prepare a short opening."}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GroundingSummaryCard({
+  fragment,
+  language,
+  compact = false
+}: {
+  fragment: SelectedFragment;
+  language: "en" | "zh";
+  compact?: boolean;
+}) {
+  const zh = language === "zh";
+  const hints = groundingHints(fragment);
+  if (!hints.length) return null;
+
+  return (
+    <div className={`surface-panel rounded-md ${compact ? "p-3" : "p-4"}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="fine-label">{zh ? "依据" : "Grounding"}</p>
+          <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "地点线索" : "Place Clues"}</h2>
+        </div>
+        <CheckCircle2 className="h-4 w-4 text-signal" />
+      </div>
+      <div className="mt-3 grid gap-2">
+        {hints.slice(0, compact ? 3 : 5).map((hint) => (
+          <div key={`${hint.kind}-${hint.label}`} className="rounded-md border border-ink/10 bg-white px-3 py-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-semibold text-ink">{zh ? hint.zhKind : hint.kind}</span>
+              <span className={`rounded px-2 py-0.5 text-[10px] font-medium ${
+                hint.confidence === "high" ? "bg-[#eef7f4] text-signal" : "bg-field text-ink/58"
+              }`}>
+                {zh ? confidenceLabelZh(hint.confidence) : hint.confidence}
+              </span>
+            </div>
+            <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/68">{hint.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StoryProgress({
+  stage,
+  language
+}: {
+  stage: "narrator" | "opening" | "select" | "listen";
+  language: "en" | "zh";
+}) {
+  const zh = language === "zh";
+  const steps = zh
+    ? ["选择讲述人", "开场", "选择片段", "播放故事"]
+    : ["Choose narrator", "Opening", "Select place", "Listen"];
+  const activeIndex = stage === "narrator" ? 0 : stage === "opening" ? 1 : stage === "select" ? 2 : 3;
+
+  return (
+    <div className="mt-4 flex max-w-xl overflow-hidden rounded-md border border-ink/10 bg-paper text-xs text-ink/58">
+      {steps.map((step, index) => {
+        const active = index === activeIndex;
+        const done = index < activeIndex;
+        return (
+          <div
+            key={step}
+            className={`flex min-w-0 flex-1 items-center justify-center gap-2 px-2 py-2 sm:px-3 ${
+              active ? "bg-ink text-white" : done ? "bg-[#eef7f4] text-ink" : "bg-transparent"
+            }`}
+          >
+            <span
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] ${
+                active ? "bg-white text-ink" : done ? "bg-signal text-white" : "bg-field text-ink/55"
+              }`}
+            >
+              {index + 1}
+            </span>
+            <span className="truncate font-medium">{step}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function FragmentFirstPanel({ language, hasOpening }: { language: "en" | "zh"; hasOpening?: boolean }) {
   const zh = language === "zh";
   return (
     <div className="surface-panel rounded-md p-4">
-      <p className="fine-label">{zh ? "第二步" : "Step 2"}</p>
+      <p className="fine-label">{zh ? "第三步" : "Step 3"}</p>
       <h2 className="mt-1 text-sm font-semibold text-ink">
-        {zh ? "先框选一个片段" : "Select a fragment first"}
+        {zh ? "框选一个片段" : "Select a fragment"}
       </h2>
       <p className="mt-3 text-sm leading-6 text-ink/62">
-        {zh
-          ? "旋转全景图，点“开始框选”，在你想听故事的位置拖出一个框。讲述人会在下一步出现。"
-          : "Rotate the panorama, press Select fragment, and drag a box over the detail you want to hear about. Narrators appear after that."}
+        {hasOpening
+          ? zh
+            ? "听完开场后，旋转全景图，点“开始框选”，在你想继续听的位置拖出一个框。"
+            : "After the opening, rotate the panorama, press Select fragment, and drag over one detail."
+          : zh
+            ? "先选择讲述人。开场准备好后，再框选你想继续听的位置。"
+            : "Choose a narrator first. After the opening is ready, select one detail in the panorama."}
       </p>
     </div>
   );
 }
 
-function fallbackPersonaIntro(persona: GeneratedPersona) {
-  const gender = persona.voiceProfile?.gender || "person";
-  const age = persona.voiceProfile?.age === "older" ? "older" : "middle-aged";
-  const relation = persona.role.toLowerCase().includes("visitor")
-    ? "visitor to this Hong Kong scene"
-    : persona.role.toLowerCase().includes("worker") || persona.role.toLowerCase().includes("assistant")
-      ? "nearby worker reading this street scene"
-      : "local observer of this Hong Kong street scene";
-  return `${age} ${gender}, ${relation}.`;
+function NearbyContinuationPanel({
+  status,
+  recommendations,
+  error,
+  language,
+  onOpen
+}: {
+  status: "idle" | "loading" | "ready" | "error";
+  recommendations: NearbyContinuationRecommendation[];
+  error: string | null;
+  language: "en" | "zh";
+  onOpen: (recommendation: NearbyContinuationRecommendation) => void;
+}) {
+  const zh = language === "zh";
+  if (status === "ready" && recommendations.length === 0) return null;
+
+  return (
+    <div className="surface-panel rounded-md p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="fine-label">{zh ? "附近延展" : "Explore Nearby"}</p>
+          <h2 className="mt-1 text-sm font-semibold text-ink">
+            {zh ? "继续理解这一带" : "Continue nearby"}
+          </h2>
+          <p className="mt-1 text-xs leading-5 text-ink/58">
+            {zh
+              ? "基于当前片段的主题，推荐附近可继续进入街景的位置。"
+              : "Places nearby that can extend this reading with stronger public context."}
+          </p>
+        </div>
+        {status === "loading" ? <Loader2 className="mt-1 h-4 w-4 animate-spin text-ink/45" /> : null}
+      </div>
+
+      {status === "loading" ? (
+        <div className="mt-3 rounded-md border border-dashed border-ink/15 bg-field px-3 py-4 text-sm leading-6 text-ink/58">
+          {zh ? "正在查找附近可继续探索的位置。" : "Finding nearby places to continue the story."}
+        </div>
+      ) : null}
+
+      {status === "error" ? (
+        <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-3 text-xs leading-5 text-red-800">
+          {error || (zh ? "附近延展暂时不可用。" : "Nearby continuation is unavailable.")}
+        </div>
+      ) : null}
+
+      {recommendations.length > 0 ? (
+        <div className="mt-3 grid gap-2">
+          {recommendations.map((recommendation) => (
+            <article key={recommendation.placeId} className="rounded-md border border-ink/10 bg-paper p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="truncate text-sm font-semibold text-ink">{recommendation.name}</h3>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-ink/58">
+                    <MapPin className="h-3 w-3" />
+                    {formatDistance(recommendation.distanceMeters, zh)}
+                    {recommendation.category ? <span className="truncate">· {recommendation.category}</span> : null}
+                  </p>
+                </div>
+                <span className="rounded bg-[#eef7f4] px-2 py-1 text-[10px] font-medium text-signal">
+                  {recommendation.recommendedSchema || "Street"}
+                </span>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-ink/68">{recommendation.reason}</p>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {recommendation.evidenceSources.slice(0, 5).map((source) => (
+                  <span key={source} className="inline-flex items-center gap-1 rounded bg-field px-2 py-1 text-[10px] font-medium text-ink/62">
+                    <CheckCircle2 className="h-3 w-3 text-signal" />
+                    {evidenceSourceLabel(source)}
+                  </span>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => onOpen(recommendation)}
+                className="mt-3 inline-flex h-9 items-center justify-center rounded-md bg-ink px-3 text-xs font-semibold text-white transition hover:bg-ink/90"
+              >
+                {zh ? "打开街景" : "Open Street View"}
+              </button>
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function getActiveSchemasForRecommendation(
+  fragment: SelectedFragment | undefined,
+  persona: GeneratedPersona | undefined
+): SchemaName[] {
+  if (!fragment) return [];
+  const planSchemas = persona?.id ? fragment.personaFragmentPlans?.[persona.id]?.activeSchemas : undefined;
+  if (planSchemas?.length) return planSchemas;
+  const blockSchemas = fragment.narrativeBlocks?.map((block) => block.schema).filter(Boolean) || [];
+  return Array.from(new Set(blockSchemas));
+}
+
+function formatDistance(distance: number | undefined, zh: boolean) {
+  if (!Number.isFinite(distance)) return zh ? "附近" : "nearby";
+  if ((distance || 0) < 1000) return zh ? `${Math.round(distance || 0)}米` : `${Math.round(distance || 0)}m away`;
+  const km = ((distance || 0) / 1000).toFixed(1);
+  return zh ? `${km}公里` : `${km}km away`;
+}
+
+function evidenceSourceLabel(source: NearbyContinuationRecommendation["evidenceSources"][number]) {
+  switch (source) {
+    case "google_places":
+      return "Google Places";
+    case "hk_landsd":
+      return "Public records";
+    case "osm":
+      return "OSM";
+    case "wikidata":
+      return "Wikidata";
+    case "wikipedia":
+      return "Wikipedia";
+    case "street_view":
+      return "Street View";
+    case "news":
+      return "Nearby news";
+    default:
+      return source;
+  }
 }
 
 function LiveCaption({
@@ -651,6 +1428,7 @@ const storyLabels = {
   en: ["Everyday use", "Feeling of entry", "Time and routine", "Shared space"],
   zh: ["日常使用", "进入感", "时间与惯常", "共享空间"]
 } as const;
+const narrativeCacheVersion = 3;
 
 function StoryArchiveDrawer({
   open,
@@ -668,7 +1446,7 @@ function StoryArchiveDrawer({
   onSelect: (fragment: SelectedFragment) => void;
 }) {
   const zh = language === "zh";
-  const storyFragments = fragments.filter((fragment) => fragment.narratives);
+  const storyFragments = fragments.filter((fragment) => fragment.cropImageUrl || fragment.narratives);
   const activeStory =
     storyFragments.find((fragment) => fragment.id === activeFragmentId) || storyFragments[0];
 
@@ -688,7 +1466,7 @@ function StoryArchiveDrawer({
       </button>
 
       <aside
-        className={`fixed bottom-3 right-3 top-20 z-[860] flex w-[min(25rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-md border border-ink/12 bg-paper shadow-2xl transition duration-300 sm:bottom-5 sm:right-5 sm:top-24 ${
+        className={`fixed inset-x-3 bottom-3 top-auto z-[860] flex max-h-[76dvh] flex-col overflow-hidden rounded-md border border-ink/12 bg-paper shadow-2xl transition duration-300 sm:bottom-5 sm:left-auto sm:right-5 sm:top-24 sm:max-h-none sm:w-[min(25rem,calc(100vw-1.5rem))] ${
           open ? "translate-x-0 opacity-100" : "translate-x-[calc(100%+1.5rem)] opacity-0"
         }`}
         aria-hidden={!open}
@@ -698,7 +1476,7 @@ function StoryArchiveDrawer({
             <p className="fine-label">{zh ? "已保存" : "Saved"}</p>
             <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "街景故事" : "Street Stories"}</h2>
             <p className="mt-1 text-xs leading-5 text-ink/58">
-              {zh ? `${storyFragments.length} 个片段有故事记录` : `${storyFragments.length} fragments with story notes`}
+              {zh ? `${storyFragments.length} 个已保存片段` : `${storyFragments.length} saved fragments`}
             </p>
           </div>
           <button
@@ -714,13 +1492,17 @@ function StoryArchiveDrawer({
         <div className="min-h-0 flex-1 overflow-auto p-4">
           {storyFragments.length === 0 ? (
             <div className="flex h-full items-center justify-center rounded-md border border-dashed border-ink/18 bg-field/55 px-5 text-center text-sm leading-6 text-ink/56">
-              {zh ? "框选一个片段并完成故事后，会自动保存在这里。" : "After a selected fragment has a story, it will be saved here."}
+              {zh ? "框选一个片段后，会自动保存在这里。" : "After a selected fragment is saved, it will appear here."}
             </div>
           ) : (
             <div className="space-y-4">
               <div className="grid gap-2">
                 {storyFragments.map((fragment, index) => {
                   const active = activeStory?.id === fragment.id;
+                  const storyIds = new Set(Object.keys(fragment.narrativeGenerations || {}));
+                  if (fragment.narratives && fragment.narrativePersonaId) storyIds.add(fragment.narrativePersonaId);
+                  const storyCount = storyIds.size;
+                  const audioCount = Object.keys(fragment.audioGenerations || {}).length;
                   return (
                     <button
                       type="button"
@@ -741,6 +1523,11 @@ function StoryArchiveDrawer({
                       <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/62">
                         {fragment.visionDescription?.mainFeature || (zh ? "街景片段" : "Street fragment")}
                       </p>
+                      <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-medium text-ink/58">
+                        <span className="rounded bg-field px-2 py-1">{zh ? `${fragment.personas?.length || 0} 位讲述人` : `${fragment.personas?.length || 0} narrators`}</span>
+                        <span className="rounded bg-field px-2 py-1">{zh ? `${storyCount} 个故事` : `${storyCount} stories`}</span>
+                        <span className="rounded bg-field px-2 py-1">{zh ? `${audioCount} 段音频` : `${audioCount} audio`}</span>
+                      </div>
                     </button>
                   );
                 })}
@@ -748,6 +1535,7 @@ function StoryArchiveDrawer({
 
               {activeStory?.narratives ? (
                 <div className="space-y-3 border-t border-ink/10 pt-4">
+                  <GroundingSummaryCard fragment={activeStory} language={language} compact />
                   {storyKeys.map((key, index) => (
                     <article key={key} className="rounded-md border border-ink/10 bg-white p-4">
                       <h3 className="text-xs font-semibold text-brass">
@@ -766,33 +1554,29 @@ function StoryArchiveDrawer({
   );
 }
 
-function getSceneSnapshotUrl(image: StreetImage, config: RuntimeApiConfig) {
-  if (image.provider === "google" && config.googleMapsApiKey) {
-    return buildGoogleStreetViewStaticUrl({
-      key: config.googleMapsApiKey,
-      panoId: image.panoId || image.id,
-      width: 640,
-      height: 640
-    });
-  }
-
-  return image.fullUrl || image.thumbUrl;
-}
-
 async function fetchPlaceContext(
   image: StreetImage,
   selectionMeta: FragmentSelectionMeta | undefined,
-  runtimeHeaders: Record<string, string>
+  runtimeHeaders: Record<string, string>,
+  visionDescription?: VisionDescription
 ): Promise<PlaceContext | undefined> {
   if (image.provider !== "google") return undefined;
 
   const params = new URLSearchParams({
     lat: String(image.lat),
     lng: String(image.lng),
-    radius: "120"
+    radius: selectionMeta ? "190" : "150"
   });
-  if (Number.isFinite(selectionMeta?.heading)) {
-    params.set("heading", String(selectionMeta?.heading));
+  const fragmentHeading = fragmentCenterHeading(selectionMeta);
+  if (Number.isFinite(fragmentHeading)) {
+    params.set("heading", String(fragmentHeading));
+  }
+  const headingHalfAngle = fragmentHeadingHalfAngle(selectionMeta, fragmentHeading);
+  if (Number.isFinite(headingHalfAngle)) {
+    params.set("headingHalfAngle", String(headingHalfAngle));
+  }
+  for (const query of localContextQueriesFromVision(visionDescription)) {
+    params.append("q", query);
   }
 
   try {
@@ -807,10 +1591,69 @@ async function fetchPlaceContext(
   }
 }
 
+function localContextQueriesFromVision(visionDescription?: VisionDescription) {
+  const queries = new Set<string>();
+  for (const entity of visionDescription?.publicEntityCandidates || []) {
+    if (entity.name?.trim()) queries.add(entity.name.trim());
+  }
+  for (const text of visionDescription?.visibleText || []) {
+    const cleaned = text.replace(/\s+/g, " ").trim();
+    if (cleaned.length >= 4 && /university|polytechnic|school|college|station|hospital|museum|library|centre|center|building/i.test(cleaned)) {
+      queries.add(cleaned);
+    }
+  }
+  return Array.from(queries).slice(0, 4);
+}
+
+function fragmentCenterHeading(selectionMeta: FragmentSelectionMeta | undefined) {
+  const corners = selectionMeta?.boxCorners?.filter((corner) => Number.isFinite(corner.heading)) || [];
+  if (corners.length) {
+    const sum = corners.reduce(
+      (current, corner) => {
+        const radians = (corner.heading * Math.PI) / 180;
+        return {
+          x: current.x + Math.cos(radians),
+          y: current.y + Math.sin(radians)
+        };
+      },
+      { x: 0, y: 0 }
+    );
+    if (sum.x !== 0 || sum.y !== 0) {
+      return ((Math.atan2(sum.y, sum.x) * 180) / Math.PI + 360) % 360;
+    }
+  }
+  return Number.isFinite(selectionMeta?.heading) ? selectionMeta?.heading : undefined;
+}
+
+function fragmentHeadingHalfAngle(selectionMeta: FragmentSelectionMeta | undefined, centerHeading?: number) {
+  const corners = selectionMeta?.boxCorners?.filter((corner) => Number.isFinite(corner.heading)) || [];
+  if (!corners.length || !Number.isFinite(centerHeading)) return undefined;
+  const deltas = corners.map((corner) => Math.abs(shortestHeadingDelta(corner.heading, centerHeading || 0)));
+  return Math.min(Math.max(Math.max(...deltas, 6), 8), 60);
+}
+
+function shortestHeadingDelta(a: number, b: number) {
+  return ((((a - b) % 360) + 540) % 360) - 180;
+}
+
+function getSceneSnapshotUrl(image: StreetImage, config: RuntimeApiConfig) {
+  if (image.provider === "google" && config.googleMapsApiKey) {
+    return buildGoogleStreetViewStaticUrl({
+      key: config.googleMapsApiKey,
+      panoId: image.panoId || image.id,
+      width: 640,
+      height: 640
+    });
+  }
+
+  return image.fullUrl || image.thumbUrl;
+}
+
 function findCachedAudio(
   fragment: SelectedFragment | undefined,
   persona: GeneratedPersona | undefined,
-  config: RuntimeApiConfig
+  config: RuntimeApiConfig,
+  storyText: string
 ) {
   const generations = Object.values(fragment?.audioGenerations || {});
   if (generations.length === 0) return undefined;
@@ -819,7 +1662,120 @@ function findCachedAudio(
   return generations
     .filter((entry) => entry.provider === provider)
     .filter((entry) => !persona?.id || entry.personaId === persona.id)
+    .filter((entry) => entry.sourceText === storyText)
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+}
+
+function storyTextForAudio(
+  narrativeBlocks: NarrativeBlock[] | undefined,
+  narratives: SchemaNarratives | undefined,
+  introText?: string
+) {
+  const storyText = narrativeBlocks?.length
+    ? narrativeBlocks.map((block) => block.text.trim()).filter(Boolean).join("\n\n")
+    : narratives
+      ? [
+          narratives.functionalUse.text,
+          narratives.identityBelonging.text,
+          narratives.memoryTemporality.text,
+          narratives.socialCulturalResonance.text
+        ].join("\n\n")
+      : "";
+  if (!storyText) return "";
+  if (introText?.trim()) {
+    return `${introText.trim()}\n\n${storyText}`;
+  }
+  return storyText;
+}
+
+function groundingHints(fragment: SelectedFragment) {
+  const hints: Array<{
+    kind: string;
+    zhKind: string;
+    label: string;
+    confidence: "high" | "medium" | "low";
+  }> = [];
+
+  for (const entity of fragment.visionDescription?.publicEntityCandidates || []) {
+    hints.push({
+      kind: "Readable identity",
+      zhKind: "可读身份",
+      label: entity.name,
+      confidence: entity.confidence >= 0.82 ? "high" : "medium"
+    });
+  }
+  for (const text of fragment.visionDescription?.visibleText || []) {
+    hints.push({
+      kind: "Readable text",
+      zhKind: "可读文字",
+      label: text,
+      confidence: "medium"
+    });
+  }
+  for (const candidate of fragment.placeContext?.publicDataCandidates || []) {
+    if (candidate.spatialMatch === "footprint_intersection" || candidate.viewAlignment === "inside_fragment_view") {
+      hints.push({
+        kind: candidate.spatialMatch === "footprint_intersection" ? "Map footprint" : "Public records",
+        zhKind: candidate.spatialMatch === "footprint_intersection" ? "建筑轮廓" : "公共记录",
+        label: candidate.label,
+        confidence: candidate.spatialMatch === "footprint_intersection" ? "high" : "medium"
+      });
+    }
+  }
+  for (const place of fragment.placeContext?.places || []) {
+    if (place.viewAlignment === "inside_fragment_view" || place.viewAlignment === "near_fragment_view") {
+      hints.push({
+        kind: "Map context",
+        zhKind: "地图线索",
+        label: place.name,
+        confidence: place.viewAlignment === "inside_fragment_view" ? "medium" : "low"
+      });
+    }
+  }
+
+  const seen = new Set<string>();
+  return hints.filter((hint) => {
+    const key = `${hint.kind}:${hint.label.toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function confidenceLabelZh(confidence: "high" | "medium" | "low") {
+  if (confidence === "high") return "较高";
+  if (confidence === "medium") return "中等";
+  return "较低";
+}
+
+function pickSchemaNarratives(narratives: SchemaNarratives): SchemaNarratives {
+  return {
+    functionalUse: narratives.functionalUse,
+    identityBelonging: narratives.identityBelonging,
+    memoryTemporality: narratives.memoryTemporality,
+    socialCulturalResonance: narratives.socialCulturalResonance
+  };
+}
+
+function splitOpeningText(text: string) {
+  return text
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?。！？])\s+/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+function openingCaption(opening: SceneOpeningGeneration): CaptionState | null {
+  const segments = opening.openingBlocks?.map((block) => block.text.trim()).filter(Boolean);
+  const fallback = splitOpeningText(opening.openingText || "");
+  const lines = segments?.length ? segments : fallback;
+  if (!lines.length) return null;
+  return {
+    text: lines[0],
+    index: 0,
+    total: lines.length,
+    active: false
+  };
 }
 
 function normalizeTtsProvider(provider?: string): TtsProvider {

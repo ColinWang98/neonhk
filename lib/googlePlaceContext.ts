@@ -1,10 +1,13 @@
+import { viewAlignmentFromHeading } from "@/lib/geoMath";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { NearbyPlace, PlaceContext } from "@/types";
 
 type PlacesResponse = {
   places?: Array<{
+    id?: string;
     displayName?: { text?: string };
     primaryType?: string;
+    types?: string[];
     formattedAddress?: string;
     location?: { latitude?: number; longitude?: number };
   }>;
@@ -20,6 +23,7 @@ export async function getGooglePlaceContext(params: {
   lat: number;
   lng: number;
   heading?: number;
+  headingHalfAngle?: number;
   radius?: number;
   config?: RuntimeApiConfig;
 }): Promise<PlaceContext> {
@@ -39,11 +43,9 @@ export async function getGooglePlaceContext(params: {
   ]);
 
   const rankedPlaces = places
-    .map((place) => enrichPlace(place, params.lat, params.lng, params.heading))
+    .map((place) => enrichPlace(place, params.lat, params.lng, params.heading, params.headingHalfAngle))
     .sort((a, b) => {
-      const aDirectionScore = a.relativeDirection === "ahead" ? 0 : a.relativeDirection === "nearby" ? 1 : 2;
-      const bDirectionScore = b.relativeDirection === "ahead" ? 0 : b.relativeDirection === "nearby" ? 1 : 2;
-      return aDirectionScore - bDirectionScore || (a.distanceMeters || 9999) - (b.distanceMeters || 9999);
+      return placeScore(b) - placeScore(a);
     })
     .slice(0, 8);
 
@@ -57,21 +59,44 @@ export async function getGooglePlaceContext(params: {
 }
 
 async function nearbyPlaces(lat: number, lng: number, radius: number, key: string): Promise<NearbyPlace[]> {
-  const res = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
+  const res = await fetchNearbyPlaces(lat, lng, radius, key);
+  if (!res.ok) {
+    const fallback = await fetchNearbyPlaces(lat, lng, radius, key, [
+      "restaurant",
+      "cafe",
+      "store",
+      "shopping_mall",
+      "tourist_attraction"
+    ]);
+    if (!fallback.ok) {
+      throw new Error(`Google Places context failed: ${fallback.status}`);
+    }
+    const data = (await fallback.json()) as PlacesResponse;
+    return normalizePlacesResponse(data);
+  }
+
+  const data = (await res.json()) as PlacesResponse;
+  return normalizePlacesResponse(data);
+}
+
+async function fetchNearbyPlaces(lat: number, lng: number, radius: number, key: string, includedTypes?: string[]) {
+  return fetch("https://places.googleapis.com/v1/places:searchNearby", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": key,
       "X-Goog-FieldMask": [
+        "places.id",
         "places.displayName",
         "places.primaryType",
+        "places.types",
         "places.formattedAddress",
         "places.location"
       ].join(",")
     },
     body: JSON.stringify({
-      includedTypes: ["restaurant", "cafe", "store"],
-      maxResultCount: 10,
+      ...(includedTypes ? { includedTypes } : {}),
+      maxResultCount: 20,
       locationRestriction: {
         circle: {
           center: { latitude: lat, longitude: lng },
@@ -80,16 +105,14 @@ async function nearbyPlaces(lat: number, lng: number, radius: number, key: strin
       }
     })
   });
+}
 
-  if (!res.ok) {
-    throw new Error(`Google Places context failed: ${res.status}`);
-  }
-
-  const data = (await res.json()) as PlacesResponse;
+function normalizePlacesResponse(data: PlacesResponse): NearbyPlace[] {
   return (data.places || [])
     .map((place) => ({
+      id: place.id,
       name: place.displayName?.text || "",
-      type: place.primaryType,
+      type: place.primaryType || place.types?.[0],
       address: place.formattedAddress,
       lat: place.location?.latitude,
       lng: place.location?.longitude
@@ -112,16 +135,37 @@ async function reverseGeocode(lat: number, lng: number, key: string) {
   return data.results?.[0]?.formatted_address;
 }
 
-function enrichPlace(place: NearbyPlace, lat: number, lng: number, heading?: number): NearbyPlace {
+function enrichPlace(place: NearbyPlace, lat: number, lng: number, heading?: number, headingHalfAngle?: number): NearbyPlace {
   if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) return place;
 
   const bearing = bearingDegrees(lat, lng, place.lat || 0, place.lng || 0);
+  const viewAlignment = viewAlignmentFromHeading(bearing, heading, headingHalfAngle);
   return {
     ...place,
     distanceMeters: Math.round(distanceMeters(lat, lng, place.lat || 0, place.lng || 0)),
     bearingFromScene: Math.round(bearing),
+    headingDelta: Number.isFinite(heading) ? Math.round(Math.abs(shortestAngleDifference(bearing, heading || 0))) : undefined,
+    viewAlignment,
     relativeDirection: relativeDirection(bearing, heading)
   };
+}
+
+function placeScore(place: NearbyPlace) {
+  const alignmentScore =
+    place.viewAlignment === "inside_fragment_view"
+      ? 40
+      : place.viewAlignment === "near_fragment_view"
+        ? 22
+        : place.relativeDirection === "ahead"
+          ? 10
+          : 0;
+  const distanceScore = Math.max(0, 35 - Math.min(place.distanceMeters || 400, 400) / 10);
+  const publicScore = /university|school|campus|hospital|station|museum|library|government|polytechnic|tourist_attraction|point_of_interest/i.test(
+    `${place.name} ${place.type || ""}`
+  )
+    ? 14
+    : 0;
+  return alignmentScore + distanceScore + publicScore;
 }
 
 function relativeDirection(bearing: number, heading?: number): NearbyPlace["relativeDirection"] {

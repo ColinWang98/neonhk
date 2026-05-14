@@ -10,11 +10,16 @@ type StorySessionRow = {
   lng: number | null;
   selected_persona: StorySession["selectedPersona"] | null;
   personas?: GeneratedPersona[] | null;
+  scene_visual_description?: StorySession["sceneVisualDescription"] | null;
+  place_context?: StorySession["placeContext"] | null;
+  scene_opening_generations?: StorySession["sceneOpeningGenerations"] | null;
+  journey?: StorySession["journey"] | null;
   fragment_ids: string[] | null;
   created_at: string | null;
 };
 
-const fullStorySessionSelect = "id, provider, image_id, lat, lng, selected_persona, personas, fragment_ids, created_at";
+const fullStorySessionSelect =
+  "id, provider, image_id, lat, lng, selected_persona, personas, scene_visual_description, place_context, scene_opening_generations, journey, fragment_ids, created_at";
 const compatibleStorySessionSelect = "id, provider, image_id, lat, lng, selected_persona, fragment_ids, created_at";
 
 export async function listStorySessions(config: RuntimeApiConfig = {}) {
@@ -62,6 +67,10 @@ export async function upsertStorySession(session: StorySession, config: RuntimeA
     lng: session.lng,
     selected_persona: session.selectedPersona || null,
     personas: session.personas || [],
+    scene_visual_description: session.sceneVisualDescription || null,
+    place_context: session.placeContext || null,
+    scene_opening_generations: session.sceneOpeningGenerations || {},
+    journey: session.journey || [],
     fragment_ids: session.fragmentIds || [],
     created_at: session.createdAt
   };
@@ -107,14 +116,25 @@ function rowToSession(row: StorySessionRow): StorySession | null {
     lng: row.lng,
     selectedPersona: row.selected_persona || undefined,
     personas: row.personas || undefined,
+    sceneVisualDescription: row.scene_visual_description || undefined,
+    placeContext: row.place_context || undefined,
+    sceneOpeningGenerations: row.scene_opening_generations || undefined,
+    journey: row.journey || undefined,
     fragmentIds: row.fragment_ids || [],
     createdAt: row.created_at || new Date().toISOString()
   };
 }
 
 function isMissingPersonasColumn(message?: string) {
+  if (!message) return false;
   return Boolean(
-    message?.includes("personas") &&
-      (message.includes("column") || message.includes("schema cache") || message.includes("Could not find"))
+    (
+      message.includes("personas") ||
+      message.includes("scene_visual_description") ||
+      message.includes("place_context") ||
+      message.includes("scene_opening_generations") ||
+      message.includes("journey")
+    ) &&
+    (message.includes("column") || message.includes("schema cache") || message.includes("Could not find"))
   );
 }

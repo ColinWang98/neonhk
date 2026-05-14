@@ -8,7 +8,10 @@ export async function GET(request: NextRequest) {
   const lng = Number(searchParams.get("lng"));
   const headingParam = searchParams.get("heading");
   const heading = headingParam === null ? undefined : Number(headingParam);
+  const headingHalfAngleParam = searchParams.get("headingHalfAngle");
+  const headingHalfAngle = headingHalfAngleParam === null ? undefined : Number(headingHalfAngleParam);
   const radius = Number(searchParams.get("radius") || 150);
+  const queries = searchParams.getAll("q").map((query) => query.trim()).filter(Boolean);
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return NextResponse.json({ error: "lat and lng are required." }, { status: 400 });
@@ -19,7 +22,9 @@ export async function GET(request: NextRequest) {
       lat,
       lng,
       heading: Number.isFinite(heading) ? heading : undefined,
+      headingHalfAngle: Number.isFinite(headingHalfAngle) ? headingHalfAngle : undefined,
       radius,
+      queries,
       config: runtimeConfigFromHeaders(request.headers)
     });
     return NextResponse.json({ context });

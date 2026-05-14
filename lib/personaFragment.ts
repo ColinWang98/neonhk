@@ -37,9 +37,11 @@ export function buildPersonaFragmentPlan(params: {
   );
   const fitLevel = fitLevelForScore(fitScore);
   const narrativeMode = narrativeModeForFit(fitScore, affordances);
+  const localConcernLevel = localConcernLevelForPersona(params.persona, lens.stance);
   const activeSchemas = activeSchemasForPlan(params.evidencePacket, lens.preferredSchemas, narrativeMode);
   const sourceClaimIds = params.evidencePacket.claims
     .filter((claim) => claim.allowedUse !== "do_not_use")
+    .filter((claim) => localConcernLevel !== "low" || !isNewsClaim(claim))
     .filter((claim) => activeSchemas.some((schema) => claim.relatedSchemas.includes(schema)))
     .slice(0, 6)
     .map((claim) => claim.id);
@@ -57,19 +59,25 @@ export function buildPersonaFragmentPlan(params: {
     recommendedStance: lens.stance,
     sourceClaimIds,
     affordances,
+    localConcernLevel,
     reason: planReason(fitLevel, affordances, params.evidencePacket)
   };
 }
 
 function lensForPersona(persona?: GeneratedPersona) {
-  const text = [persona?.role, persona?.background, persona?.interpretiveLens, persona?.promptInstruction]
+  const identityText = [persona?.role, persona?.background, persona?.userIntro, persona?.voiceHint]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
-  const visitor = /visitor|tourist|return|first-time|travell?ing|overseas/.test(text);
-  const commercial = /shop|stall|market|commercial|worker|assistant|restaurant|cafe/.test(text);
-  const teacher = /teacher|school|student|wayfinding|entrance|threshold|access/.test(text);
-  const routine = /routine|waiting|maintenance|delivery|queue|daily|resident/.test(text);
+  const lensText = [identityText, persona?.interpretiveLens, persona?.promptInstruction]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const visitor = /visitor|tourist|first-time|travell?ing|overseas/.test(identityText);
+  const returning = /return|temporary|staying|regular|often|nearby/.test(identityText);
+  const commercial = /shop|stall|market|commercial|worker|assistant|restaurant|cafe/.test(identityText);
+  const teacher = /teacher|school|student|wayfinding|entrance|threshold|access/.test(lensText);
+  const routine = /routine|waiting|maintenance|delivery|queue|daily|resident|local/.test(identityText);
 
   if (visitor) {
     return {
@@ -77,6 +85,14 @@ function lensForPersona(persona?: GeneratedPersona) {
       weak: ["cultural", "heritage", "public_facility"] as FragmentAffordance[],
       preferredSchemas: ["Functional-Use", "Identity-Belonging"] as SchemaName[],
       stance: "outsider_questioning" as const
+    };
+  }
+  if (returning) {
+    return {
+      strong: ["wayfinding", "mobility", "commercial", "public_facility"] as FragmentAffordance[],
+      weak: ["heritage", "social_gathering"] as FragmentAffordance[],
+      preferredSchemas: ["Functional-Use", "Identity-Belonging"] as SchemaName[],
+      stance: "cautious_interpretation" as const
     };
   }
   if (commercial) {
@@ -125,7 +141,9 @@ function activeSchemasForPlan(
   if (affordances.supportsSocialCulturalResonance) enabled.push("Social-Cultural Resonance");
 
   const prioritized = [...preferredSchemas.filter((schema) => enabled.includes(schema)), ...enabled.filter((schema) => !preferredSchemas.includes(schema))];
-  return narrativeMode === "full_interpretation" ? prioritized.slice(0, 4) : prioritized.slice(0, 2);
+  if (narrativeMode === "full_interpretation") return prioritized.slice(0, 3);
+  if (narrativeMode === "brief_comment") return prioritized.slice(0, 2);
+  return prioritized.slice(0, 1);
 }
 
 function evidenceSupportScore(packet: EvidencePacket) {
@@ -175,8 +193,10 @@ function mustAvoid(packet: EvidencePacket, lens: ReturnType<typeof lensForPerson
   const avoid = new Set<string>(packet.blockedTopics);
   avoid.add("claiming that a nearby place is the selected fragment unless evidence says it is visible");
   avoid.add("inventing old shop uses, community stories, or ownership");
+  avoid.add("claiming that a news item explains the selected fragment's current condition");
   if (!packet.storyAffordances.supportsMemoryTemporality || lens.stance === "outsider_questioning") {
     avoid.add("claiming long-term local memory about this exact place");
+    avoid.add("bringing local news into a tourist-style story unless it is only brief area background");
   }
   return Array.from(avoid);
 }
@@ -191,4 +211,24 @@ function planReason(
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function localConcernLevelForPersona(
+  persona: GeneratedPersona | undefined,
+  stance: ReturnType<typeof lensForPersona>["stance"]
+): PersonaFragmentPlan["localConcernLevel"] {
+  const identityText = [persona?.role, persona?.background, persona?.userIntro, persona?.voiceHint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  if (/visitor|tourist|first-time|overseas|travell?ing/.test(identityText) || stance === "outsider_questioning") return "low";
+  if (/resident|local|neighbour|neighbor|shop|stall|worker|retired|retiree|teacher|driver|security|estate|district/.test(identityText)) {
+    return "high";
+  }
+  if (/return|temporary|staying|regular|often|nearby/.test(identityText)) return "medium";
+  return "medium";
+}
+
+function isNewsClaim(claim: EvidencePacket["claims"][number]) {
+  return claim.claimType === "news_context" || claim.claimType === "official_notice" || claim.claimType === "social_context";
 }

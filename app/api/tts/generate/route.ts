@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
         provider: "elevenlabs",
         audioUrl,
         speechText: speech.speechText,
+        sourceText: body.text,
         personaId: body.persona?.id,
         config
       });
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
         audioUrl: result.audioUrl,
         durationMs: result.durationMs,
         speechText: speech.speechText,
+        sourceText: body.text,
         personaId: body.persona?.id,
         voiceId: result.voiceId,
         config
@@ -120,6 +122,7 @@ export async function POST(request: NextRequest) {
       audioUrl: data.audioUrl,
       durationMs: data.durationMs,
       speechText: speech.speechText,
+      sourceText: body.text,
       personaId: body.persona?.id,
       config
     });
@@ -193,6 +196,7 @@ async function persistAudioGeneration(params: {
   audioUrl: string;
   durationMs?: number;
   speechText?: string;
+  sourceText?: string;
   personaId?: string;
   voiceId?: string;
   config: ReturnType<typeof runtimeConfigFromHeaders>;
@@ -203,6 +207,7 @@ async function persistAudioGeneration(params: {
     audioUrl: params.audioUrl,
     durationMs: params.durationMs,
     speechText: params.speechText,
+    sourceText: params.sourceText,
     personaId: params.personaId,
     voiceId: params.voiceId,
     createdAt: new Date().toISOString()

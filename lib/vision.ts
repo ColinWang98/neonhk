@@ -8,12 +8,22 @@ const visionPrompt = `You are analyzing a user-selected crop from a street-level
 Describe only what is visually observable.
 Do not infer historical events, demographic identities, private information, ownership, or community facts.
 Focus on spatial objects, visible traces, material qualities, boundaries, signs, access points, seating, surfaces, paths, and signs of use.
+Read visible text carefully. If the crop shows a public institution, landmark, university, station, museum, hospital, government facility, or named building through visible signage, logos, or clearly readable text, include it as a publicEntityCandidate. Do not identify private people or private homes.
 
 Return strict JSON with:
 {
   "mainFeature": string,
   "fragmentCategory": string,
   "spatialContext": string,
+  "visibleText": string[],
+  "publicEntityCandidates": [
+    {
+      "name": string,
+      "entityType": string,
+      "evidence": string,
+      "confidence": number
+    }
+  ],
   "visibleCues": string[],
   "possibleEverydayUses": string[],
   "privacyRisk": {
@@ -67,20 +77,16 @@ export async function analyzeSceneSnapshot(params: {
   config?: RuntimeApiConfig;
 }): Promise<SceneVisualDescription> {
   if (!params.snapshotUrl) {
-    return fallbackSceneDescription(params.image);
+    throw new Error("Scene analysis requires a panorama snapshot URL.");
   }
 
-  try {
-    return (await callVisionWithFallback({
-      config: params.config || {},
-      imageUrl: params.snapshotUrl,
-      prompt: scenePrompt,
-      metadata: params.image,
-      purpose: "scene"
-    })) as SceneVisualDescription;
-  } catch {
-    return fallbackSceneDescription(params.image);
-  }
+  return (await callVisionWithFallback({
+    config: params.config || {},
+    imageUrl: params.snapshotUrl,
+    prompt: scenePrompt,
+    metadata: params.image,
+    purpose: "scene"
+  })) as SceneVisualDescription;
 }
 
 function extractJsonObject(content: string) {
@@ -190,16 +196,4 @@ function normalizeVisionError(error: unknown) {
     return new Error(`Vision model rate limited: ${message}`);
   }
   return error instanceof Error ? error : new Error(message);
-}
-
-export function fallbackSceneDescription(image: StreetImage): SceneVisualDescription {
-  const source = image.provider === "google" ? "street-view panorama" : "street-level image";
-  return {
-    sceneType: source,
-    spatialLayout: "A street-level scene selected from the map. The exact layout is not visually analyzed because no vision model result is available.",
-    mainVisibleElements: ["street-level view", "public-space context", "nearby urban surfaces"],
-    movementAndAccessCues: ["possible walking route", "possible edge or threshold", "orientation cues from the street image"],
-    materialAndAtmosphereCues: ["outdoor urban materials", "street-view visual texture"],
-    uncertainty: "This is a fallback description; detailed visual cues require a configured vision model."
-  };
 }

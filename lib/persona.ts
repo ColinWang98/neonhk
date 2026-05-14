@@ -55,7 +55,7 @@ export async function generatePersonas(params: {
   const ai = createAiClient(params.config || {}, "text");
 
   if (!ai) {
-    return fallbackPersonas(params.image);
+    throw new Error("Persona generation requires a configured text model.");
   }
 
   const response = await ai.client.chat.completions.create({
@@ -82,7 +82,7 @@ export async function generatePersonas(params: {
   }
 
   const parsed = JSON.parse(extractJsonObject(raw)) as { personas?: GeneratedPersona[] };
-  return normalizePersonas(parsed.personas, params.image);
+  return normalizePersonas(parsed.personas);
 }
 
 function extractJsonObject(content: string) {
@@ -99,102 +99,34 @@ function extractJsonObject(content: string) {
   return match[0];
 }
 
-export function fallbackPersonas(image: StreetImage): GeneratedPersona[] {
-  const source = image.provider === "google" ? "panorama" : "street image";
-  return [
-    {
-      id: "threshold-reader",
-      name: "Mr. Lau Wai-kin",
-      role: "A retired primary-school teacher who notices entrances, edges, and small rules of movement.",
-      userIntro: "56-year-old man, local Hong Kong resident, reads nearby streets through entrances and movement.",
-      background:
-        "Fictional guide: 56, born and raised in Hong Kong, taught primary school for three decades, likes morning tea, pork chop rice, and watching horse racing with old colleagues. He speaks carefully, with a teacher's habit of pointing out what people may miss.",
-      interpretiveLens: `Reads this ${source} through access, boundaries, and how people may understand where to enter, pause, or pass.`,
-      voiceHint: "Hong Kong bilingual, mature male, teacherly warmth",
-      voiceProfile: {
-        accent: "hong-kong-english",
-        englishFluency: "fluent",
-        gender: "male",
-        age: "middle",
-        pace: "normal",
-        tone: "documentary",
-        cantoneseRatio: 0.2
-      },
-      promptInstruction:
-        "Write as a careful Hong Kong spatial observer who notices thresholds, access points, railings, pavement edges, and signs without inventing social facts."
-    },
-    {
-      id: "routine-listener",
-      name: "Auntie Mei",
-      role: "A former wet-market stall assistant who reads streets through routine, waiting, and repeated movement.",
-      userIntro: "64-year-old woman, longtime local worker, notices routines around shopfronts and waiting spaces.",
-      background:
-        "Fictional guide: 64, spent much of her working life around shopfronts, kerbs, queues, and early-morning deliveries. She enjoys hot milk tea, egg tarts, and slow walks after dinner. Her comments are practical, observant, and slightly nostalgic.",
-      interpretiveLens: `Reads this ${source} through daily routes, repeated use, waiting, wear, and ordinary maintenance.`,
-      voiceHint: "Cantonese leaning, older female, reflective street rhythm",
-      voiceProfile: {
-        accent: "cantonese-leaning",
-        englishFluency: "conversational",
-        gender: "female",
-        age: "older",
-        pace: "slow",
-        tone: "reflective",
-        cantoneseRatio: 0.35
-      },
-      promptInstruction:
-        "Write with attention to repeated use, maintenance, and visible traces of routine, using cautious bilingual Hong Kong phrasing."
-    },
-    {
-      id: "return-visitor",
-      name: "Martin Chow",
-      role: "A return visitor in his late forties who reads streets through comparison, wayfinding, and small habits picked up while travelling.",
-      userIntro: "48-year-old man, return visitor to Hong Kong, reads the scene through wayfinding and familiarity.",
-      background:
-        "Fictional guide: 48, grew up partly overseas and visits Hong Kong every few years to see relatives, buy old camera parts, eat wonton noodles, and walk without a strict plan. He notices what feels familiar, what confuses him, and how quickly a visitor learns the manners of a street.",
-      interpretiveLens: `Reads this ${source} through public order, shared norms, navigation, and small cues that organize collective use.`,
-      voiceHint: "Middle-aged Hong Kong English male, curious return visitor, lightly playful",
-      voiceProfile: {
-        accent: "neutral-british",
-        englishFluency: "fluent",
-        gender: "male",
-        age: "middle",
-        pace: "normal",
-        tone: "warm",
-        cantoneseRatio: 0.1
-      },
-      promptInstruction:
-        "Write as a middle-aged return visitor who notices visible cues of order, navigation, and shared use through personal comparison, without claiming unverifiable cultural history."
+function normalizePersonas(personas: GeneratedPersona[] | undefined) {
+  if (!personas?.length) {
+    throw new Error("Persona model returned no personas.");
+  }
+
+  return personas.slice(0, 3).map((persona, index) => {
+    const missing = [
+      ["id", persona.id],
+      ["name", persona.name],
+      ["role", persona.role],
+      ["userIntro", persona.userIntro],
+      ["background", persona.background],
+      ["interpretiveLens", persona.interpretiveLens],
+      ["voiceHint", persona.voiceHint],
+      ["voiceProfile", persona.voiceProfile],
+      ["promptInstruction", persona.promptInstruction]
+    ].filter(([, value]) => !value);
+
+    if (missing.length) {
+      throw new Error(`Persona ${index + 1} is missing required fields: ${missing.map(([key]) => key).join(", ")}.`);
     }
-  ];
-}
 
-function normalizePersonas(personas: GeneratedPersona[] | undefined, image: StreetImage) {
-  const fallback = fallbackPersonas(image);
-  if (!personas?.length) return fallback;
-
-  return personas.slice(0, 3).map((persona, index) => ({
-    id: persona.id || fallback[index]?.id || `persona-${index + 1}`,
-    name: persona.name || fallback[index]?.name || `Persona ${index + 1}`,
-    role: persona.role || fallback[index]?.role || "A cautious spatial observer.",
-    userIntro:
-      cleanUserIntro(persona.userIntro) ||
-      fallback[index]?.userIntro ||
-      fallbackUserIntro(persona, fallback[index]),
-    background:
-      persona.background ||
-      fallback[index]?.background ||
-      "Fictional guide with a grounded Hong Kong everyday perspective.",
-    interpretiveLens:
-      persona.interpretiveLens ||
-      fallback[index]?.interpretiveLens ||
-      "Reads visible spatial cues with caution.",
-    voiceHint: persona.voiceHint || fallback[index]?.voiceHint || "Hong Kong bilingual",
-    voiceProfile: normalizeVoiceProfile(persona.voiceProfile || fallback[index]?.voiceProfile),
-    promptInstruction:
-      persona.promptInstruction ||
-      fallback[index]?.promptInstruction ||
-      "Use only observable cues and cautious interpretation."
-  }));
+    return {
+      ...persona,
+      userIntro: cleanUserIntro(persona.userIntro) || persona.userIntro,
+      voiceProfile: normalizeVoiceProfile(persona.voiceProfile)
+    };
+  });
 }
 
 function cleanUserIntro(intro?: string) {
@@ -202,21 +134,10 @@ function cleanUserIntro(intro?: string) {
   return intro.replace(/\s+/g, " ").trim().split(" ").slice(0, 24).join(" ");
 }
 
-function fallbackUserIntro(persona?: GeneratedPersona, fallback?: GeneratedPersona) {
-  const profile = persona?.voiceProfile || fallback?.voiceProfile;
-  const age = profile?.age === "older" ? "older" : "middle-aged";
-  const gender = profile?.gender || "person";
-  const role = persona?.role || fallback?.role || "street-scene observer";
-  const relation = role.toLowerCase().includes("visitor")
-    ? "visitor to this Hong Kong street scene"
-    : role.toLowerCase().includes("worker") || role.toLowerCase().includes("assistant")
-      ? "nearby worker reading this Hong Kong street scene"
-      : "local Hong Kong observer of this street scene";
-  return `${age} ${gender}, ${relation}.`;
-}
-
 function normalizeVoiceProfile(profile: GeneratedPersona["voiceProfile"]) {
-  if (!profile) return profile;
+  if (!profile) {
+    throw new Error("Persona voiceProfile is required.");
+  }
   return {
     ...profile,
     age: profile.age === "young" ? "middle" : profile.age
