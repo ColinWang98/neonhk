@@ -43,6 +43,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (isMiniMaxGenerationPaused(provider)) {
+      return NextResponse.json(
+        { error: "MiniMax TTS generation is paused while story content is being tuned." },
+        { status: 503 }
+      );
+    }
+
     const speech = await adaptSpeechText({
       text: body.text,
       persona: body.persona,
@@ -256,6 +263,10 @@ function normalizeProvider(provider?: string): TtsProvider {
     return provider;
   }
   return "minimax";
+}
+
+function isMiniMaxGenerationPaused(provider: TtsProvider): boolean {
+  return provider === "minimax";
 }
 
 async function generateElevenLabsAudio(body: TtsRequest, config: ReturnType<typeof runtimeConfigFromHeaders>) {

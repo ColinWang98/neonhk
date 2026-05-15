@@ -86,6 +86,8 @@ export function TtsControls({
   }, [includeIntro, introText, storyText]);
 
   const previewText = storyText || introText || "";
+  const selectedProvider = normalizeFrontendTtsProvider(config.ttsProvider);
+  const voiceGenerationPaused = !cachedAudio?.audioUrl && (!selectedProvider || selectedProvider === "minimax");
 
   const stop = useCallback(() => {
     requestIdRef.current += 1;
@@ -98,6 +100,14 @@ export function TtsControls({
 
   const play = useCallback(async () => {
     if (!speechText) return;
+    if (voiceGenerationPaused) {
+      setMessage(
+        zh
+          ? "语音生成已暂时暂停，先调整好故事内容后再开启。"
+          : "Voice generation is paused while the story text is being tuned."
+      );
+      return;
+    }
     stop();
     const requestId = requestIdRef.current;
     setMessage(null);
@@ -121,12 +131,6 @@ export function TtsControls({
         return;
       }
 
-      const provider =
-        config.ttsProvider === "local-open-source" ||
-        config.ttsProvider === "minimax" ||
-        config.ttsProvider === "elevenlabs"
-          ? config.ttsProvider
-          : undefined;
       const res = await fetch("/api/tts/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...runtimeConfigToHeaders(config) },
@@ -135,8 +139,8 @@ export function TtsControls({
           persona,
           fragmentId,
           language: "zh-HK-en-mixed",
-          format: provider === "local-open-source" ? "wav" : undefined,
-          provider
+          format: selectedProvider === "local-open-source" ? "wav" : undefined,
+          provider: selectedProvider
         })
       });
       const data = await res.json();
@@ -178,7 +182,7 @@ export function TtsControls({
       );
       onCaptionChange?.(null);
     }
-  }, [cachedAudio, captionSegments, config, fragmentId, includeIntro, onAudioGenerated, onCaptionChange, onIntroPlayed, persona, speechText, stop, zh]);
+  }, [cachedAudio, captionSegments, config, fragmentId, includeIntro, onAudioGenerated, onCaptionChange, onIntroPlayed, persona, selectedProvider, speechText, stop, voiceGenerationPaused, zh]);
 
   useEffect(() => {
     stop();
@@ -198,7 +202,7 @@ export function TtsControls({
         <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
           <button
             type="button"
-            disabled={!speechText || status === "loading"}
+            disabled={!speechText || status === "loading" || voiceGenerationPaused}
             onClick={() => play()}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -222,6 +226,8 @@ export function TtsControls({
               ? zh ? "播放中" : "Playing"
               : status === "loading"
                 ? zh ? "准备中" : "Preparing"
+                : voiceGenerationPaused
+                  ? zh ? "已暂停" : "Paused"
                 : zh ? "就绪" : "Ready"}
           </span>
           <span>{durationLabel}</span>
@@ -233,9 +239,22 @@ export function TtsControls({
           {previewText || (zh ? "故事准备好后可播放旁白。" : "Once the story is ready, narration can be played.")}
         </p>
       </div>
-      {message ? <p className="mt-3 text-xs leading-5 text-amber-800">{message}</p> : null}
+      {voiceGenerationPaused ? (
+        <p className="mt-3 text-xs leading-5 text-amber-800">
+          {zh
+            ? "语音生成已暂时暂停。已有缓存音频仍可播放。"
+            : "Voice generation is paused for now. Existing cached audio can still be played."}
+        </p>
+      ) : message ? <p className="mt-3 text-xs leading-5 text-amber-800">{message}</p> : null}
     </div>
   );
+}
+
+function normalizeFrontendTtsProvider(provider?: string) {
+  if (provider === "local-open-source" || provider === "elevenlabs" || provider === "minimax") {
+    return provider;
+  }
+  return undefined;
 }
 
 async function playAudioUrl(
