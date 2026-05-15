@@ -224,8 +224,10 @@ export type VisionDescription = {
   fragmentCategory: string;
   spatialContext: string;
   visibleText?: string[];
+  visibleTextEnglish?: string[];
   publicEntityCandidates?: Array<{
     name: string;
+    nameEnglish?: string;
     entityType?: string;
     evidence: string;
     confidence: number;
@@ -427,6 +429,7 @@ export type SceneOpeningValidation = {
 
 export type SceneOpeningGeneration = {
   personaId: string;
+  version?: number;
   openingText: string;
   openingBlocks: SceneOpeningBlock[];
   groundingSummary: string;

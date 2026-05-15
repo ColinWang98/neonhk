@@ -63,12 +63,14 @@ export async function analyzeFragment(
         config.appUrl || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       ).toString();
 
-  return callVisionWithFallback({
+  const vision = await callVisionWithFallback({
     config,
     imageUrl,
     prompt: visionPrompt,
     purpose: "fragment"
-  }) as Promise<VisionDescription>;
+  }) as VisionDescription;
+
+  return normalizeVisibleTextForEvidence(vision, config);
 }
 
 export async function analyzeSceneSnapshot(params: {
@@ -196,4 +198,71 @@ function normalizeVisionError(error: unknown) {
     return new Error(`Vision model rate limited: ${message}`);
   }
   return error instanceof Error ? error : new Error(message);
+}
+
+async function normalizeVisibleTextForEvidence(
+  vision: VisionDescription,
+  config: RuntimeApiConfig
+): Promise<VisionDescription> {
+  const visibleText = (vision.visibleText || []).map((text) => text.trim()).filter(Boolean);
+  const entities = vision.publicEntityCandidates || [];
+  if (!visibleText.length && !entities.length) return vision;
+
+  const needsEnglish = [...visibleText, ...entities.map((entity) => entity.name)].some((text) => /[^\x00-\x7F]/.test(text));
+  if (!needsEnglish) {
+    return {
+      ...vision,
+      visibleTextEnglish: visibleText,
+      publicEntityCandidates: entities.map((entity) => ({ ...entity, nameEnglish: entity.name }))
+    };
+  }
+
+  const ai = createAiClient(config, "text");
+  if (!ai) {
+    return vision;
+  }
+
+  try {
+    const response = await ai.client.chat.completions.create({
+      model: ai.model,
+      ...ai.defaults,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "user",
+          content: JSON.stringify({
+            task: "Translate OCR text and public place/entity names into concise English for backend evidence only. Do not add facts. Preserve proper nouns where appropriate.",
+            visibleText,
+            publicEntityNames: entities.map((entity) => entity.name),
+            outputShape: {
+              visibleTextEnglish: ["string"],
+              publicEntityNamesEnglish: ["string"]
+            }
+          })
+        }
+      ]
+    });
+    const raw = response.choices[0]?.message.content;
+    if (!raw) return vision;
+    const parsed = JSON.parse(extractJsonObject(raw)) as {
+      visibleTextEnglish?: string[];
+      publicEntityNamesEnglish?: string[];
+    };
+    return {
+      ...vision,
+      visibleTextEnglish: normalizeStringList(parsed.visibleTextEnglish, visibleText),
+      publicEntityCandidates: entities.map((entity, index) => ({
+        ...entity,
+        nameEnglish: parsed.publicEntityNamesEnglish?.[index]?.trim() || entity.name
+      }))
+    };
+  } catch {
+    return vision;
+  }
+}
+
+function normalizeStringList(value: unknown, fallback: string[]) {
+  if (!Array.isArray(value)) return fallback;
+  const next = value.map((item) => String(item || "").trim()).filter(Boolean);
+  return next.length ? next : fallback;
 }

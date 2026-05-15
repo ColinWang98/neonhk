@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     const personaId = body.persona?.id || "default";
     const narrativeGeneration: NarrativeGeneration = {
       personaId,
-      version: 3,
+      version: 4,
       narratives,
       evidencePacket,
       personaFragmentPlan,

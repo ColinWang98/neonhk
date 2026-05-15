@@ -78,7 +78,8 @@ export default function StoryPage() {
   const runtimeHeaders = useMemo(() => runtimeConfigToHeaders(apiConfig), [apiConfig]);
   const activeFragment = useMemo(() => fragments[0], [fragments]);
   const readyFragment = activeFragment?.status === "ready" ? activeFragment : undefined;
-  const activeOpening = selectedPersona ? storySession?.sceneOpeningGenerations?.[selectedPersona.id] : undefined;
+  const storedOpening = selectedPersona ? storySession?.sceneOpeningGenerations?.[selectedPersona.id] : undefined;
+  const activeOpening = storedOpening?.version === openingCacheVersion ? storedOpening : undefined;
   const activeOpeningKey = storySession?.id && selectedPersona?.id
     ? `${storySession.id}:${selectedPersona.id}`
     : undefined;
@@ -301,7 +302,7 @@ export default function StoryPage() {
     setSelectedPersona(persona);
     setCaption(null);
     openingPersonaIdRef.current = undefined;
-    setOpeningStatus(storySession?.sceneOpeningGenerations?.[persona.id] ? "ready" : "loading");
+    setOpeningStatus(storySession?.sceneOpeningGenerations?.[persona.id]?.version === openingCacheVersion ? "ready" : "loading");
     setStoryStatus(activeFragment ? "loading" : "idle");
     if (storySession) {
       const nextSession = { ...storySession, selectedPersona: persona };
@@ -314,7 +315,8 @@ export default function StoryPage() {
   useEffect(() => {
     if (!storageHydrated || !selectedImage || !storySession?.id || !selectedPersona) return;
     const cachedOpening = storySession.sceneOpeningGenerations?.[selectedPersona.id];
-    if (cachedOpening) {
+    const cacheReady = cachedOpening?.version === openingCacheVersion;
+    if (cacheReady) {
       setOpeningStatus("ready");
       setCaption(openingCaption(cachedOpening));
       return;
@@ -354,7 +356,10 @@ export default function StoryPage() {
           selectedPersona,
           sceneOpeningGenerations: {
             ...(storySession.sceneOpeningGenerations || {}),
-            [selectedPersona.id]: opening
+            [selectedPersona.id]: {
+              ...opening,
+              version: openingCacheVersion
+            }
           }
         };
         setStorySession(nextSession);
@@ -1433,7 +1438,8 @@ const storyLabels = {
   en: ["Everyday use", "Feeling of entry", "Time and routine", "Shared space"],
   zh: ["日常使用", "进入感", "时间与惯常", "共享空间"]
 } as const;
-const narrativeCacheVersion = 3;
+const narrativeCacheVersion = 4;
+const openingCacheVersion = 2;
 
 function StoryArchiveDrawer({
   open,
@@ -1599,9 +1605,10 @@ async function fetchPlaceContext(
 function localContextQueriesFromVision(visionDescription?: VisionDescription) {
   const queries = new Set<string>();
   for (const entity of visionDescription?.publicEntityCandidates || []) {
+    if (entity.nameEnglish?.trim()) queries.add(entity.nameEnglish.trim());
     if (entity.name?.trim()) queries.add(entity.name.trim());
   }
-  for (const text of visionDescription?.visibleText || []) {
+  for (const text of [...(visionDescription?.visibleTextEnglish || []), ...(visionDescription?.visibleText || [])]) {
     const cleaned = text.replace(/\s+/g, " ").trim();
     if (cleaned.length >= 4 && /university|polytechnic|school|college|station|hospital|museum|library|centre|center|building/i.test(cleaned)) {
       queries.add(cleaned);
@@ -1705,16 +1712,8 @@ function groundingHints(fragment: SelectedFragment) {
     hints.push({
       kind: "Readable identity",
       zhKind: "可读身份",
-      label: entity.name,
+      label: entity.nameEnglish || entity.name,
       confidence: entity.confidence >= 0.82 ? "high" : "medium"
-    });
-  }
-  for (const text of fragment.visionDescription?.visibleText || []) {
-    hints.push({
-      kind: "Readable text",
-      zhKind: "可读文字",
-      label: text,
-      confidence: "medium"
     });
   }
   for (const candidate of fragment.placeContext?.publicDataCandidates || []) {

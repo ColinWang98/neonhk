@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     const cached = body.existingOpenings?.[body.persona.id];
-    if (cached?.openingText) {
+    if (cached?.openingText && cached.version === 2) {
       return NextResponse.json({
         ...cached,
         cached: true
@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
     });
     const generation: SceneOpeningGeneration = {
       personaId: body.persona.id,
+      version: 2,
       ...opening,
       createdAt: new Date().toISOString()
     };

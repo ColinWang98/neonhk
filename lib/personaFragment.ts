@@ -141,8 +141,8 @@ function activeSchemasForPlan(
   if (affordances.supportsSocialCulturalResonance) enabled.push("Social-Cultural Resonance");
 
   const prioritized = [...preferredSchemas.filter((schema) => enabled.includes(schema)), ...enabled.filter((schema) => !preferredSchemas.includes(schema))];
-  if (narrativeMode === "full_interpretation") return prioritized.slice(0, 3);
-  if (narrativeMode === "brief_comment") return prioritized.slice(0, 2);
+  if (narrativeMode === "full_interpretation") return prioritized.slice(0, 4);
+  if (narrativeMode === "brief_comment") return prioritized.slice(0, 3);
   return prioritized.slice(0, 1);
 }
 

@@ -80,12 +80,13 @@ Evidence boundary:
 - If a schema is not listed in activeSchemas, keep that segment very brief and say there is not enough evidence for a fuller story.
 - If the plan localConcernLevel is low, avoid news_context and official_notice claims.
 
-Generate four spoken story segments, each 24-42 words. They should not sound like four versions of the same point.
+Generate four spoken story segments, each 45-75 words. They should not sound like four versions of the same point.
 
 Hard structure for each segment:
 - Sentence 1: one concrete fact or cautious map match, preferably with a name if evidence supports it.
 - Sentence 2: the narrator's personal street-level judgement.
 - Sentence 3: one action, habit, or small social rule.
+- Sentence 4: one grounded detail from the wider street, district, campus edge, entrance, pavement, queue, nearby public context, or daily timing. Keep it ordinary.
 
 Do not start more than one segment with "This looks like", "I would", or "Maybe". Use different openings.
 

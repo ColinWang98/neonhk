@@ -96,8 +96,8 @@ export function inferFragmentAffordances(vision: VisionDescription): FragmentAff
     vision.mainFeature,
     vision.fragmentCategory,
     vision.spatialContext,
-    ...(vision.visibleText || []),
-    ...(vision.publicEntityCandidates || []).map((entity) => `${entity.name} ${entity.entityType || ""}`),
+    ...(vision.visibleTextEnglish || vision.visibleText || []),
+    ...(vision.publicEntityCandidates || []).map((entity) => `${entity.nameEnglish || entity.name} ${entity.entityType || ""}`),
     ...vision.visibleCues,
     ...vision.possibleEverydayUses
   ].join(" ").toLowerCase();
@@ -188,10 +188,10 @@ function visualClaims(vision: VisionDescription, affordances: FragmentAffordance
     });
   });
 
-  (vision.visibleText || []).slice(0, 3).forEach((text, index) => {
+  (vision.visibleTextEnglish || vision.visibleText || []).slice(0, 3).forEach((text, index) => {
     claims.push({
       id: `txt${index + 1}`,
-      text: `Readable text in the selected crop: "${text}".`,
+      text: `Readable text in the selected crop, translated to English for backend evidence: "${text}".`,
       source: "vision_model",
       claimType: "visual_observation",
       confidence: 0.82,
@@ -207,7 +207,7 @@ function visualClaims(vision: VisionDescription, affordances: FragmentAffordance
     const confidence = Math.max(0, Math.min(1, entity.confidence || 0.7));
     claims.push({
       id: `ent${index + 1}`,
-      text: `The crop may show the public entity "${entity.name}"${entity.entityType ? ` (${entity.entityType})` : ""}, based on ${entity.evidence}.`,
+      text: `The crop may show the public entity "${entity.nameEnglish || entity.name}"${entity.entityType ? ` (${entity.entityType})` : ""}, based on ${entity.evidence}.`,
       source: "vision_model",
       claimType: "visual_observation",
       confidence,
@@ -303,6 +303,9 @@ function isViewAlignedCandidate(
   }
   if (candidate.viewAlignment === "near_fragment_view" && publicLandmark) {
     return distance <= 180;
+  }
+  if (candidate.viewAlignment && candidate.viewAlignment !== "unknown") {
+    return false;
   }
   if (candidate.relativeDirection !== "ahead") return false;
   if (publicLandmark) return distance <= 180 && headingDelta <= 45;

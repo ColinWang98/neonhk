@@ -16,6 +16,7 @@ Purpose:
 - Introduce the narrator in first person.
 - Explain how this narrator relates to Hong Kong or this kind of street.
 - Give a concrete whole-scene overview before any fragment is selected.
+- Name the street, district, campus, estate, station area, or nearby public place when the provided address/map context supports it.
 - Mention only reliable scene-level context: visible whole-scene cues, pano coordinate context, nearby map context, nearby public source notes, and brief local news only when it fits the narrator.
 - Invite the user to select one detail next.
 
@@ -24,6 +25,7 @@ Rules:
 - Do not claim a nearby place is visible unless the input explicitly says it is visible.
 - Use "nearby", "around here", or "in this area" for map/Wikipedia/Wikidata context.
 - The opening must say what kind of street setting this appears to be, what large public elements are visible, how a visitor might orient themselves, and what detail is worth selecting next.
+- The first block must include a street/district/area cue from placeContext.address or nearby public places if available.
 - If the sceneVisualDescription or map context indicates a public institution, university, campus, station, museum, hospital, government facility, or named landmark, mention it plainly but cautiously.
 - Do not invent news, ownership, former shop uses, private routines, or local history.
 - If publicNewsContext is provided, use it only as local concern background. It is most suitable for local residents, shop workers, and long-term Hong Kong narrators.
@@ -34,7 +36,7 @@ Rules:
 - Avoid poetic words like atmosphere, memory, layers, resonance, threshold, belonging, or meaning.
 - Avoid em dashes and long sentences.
 - Default to English with light Hong Kong everyday phrasing where natural.
-- Return 4 subtitle-friendly blocks. Total opening should be around 85 to 130 words.
+- Return 4 subtitle-friendly blocks. Total opening should be around 120 to 170 words.
 
 Return strict JSON:
 {
@@ -82,8 +84,9 @@ export async function generateSceneOpening(params: SceneOpeningInput): Promise<O
           sceneVisualDescription: params.sceneVisualDescription,
           placeContext: params.placeContext,
           localConcernLevel: localConcernLevelForOpening(params.persona),
+          explicitAreaCue: buildAreaCue(params.placeContext),
           languageStyle:
-            "Speak like a practical person orienting a visitor on the pavement. Plain, short, and concrete. No poetic voiceover. The opening should be a whole-scene overview: what kind of place this is, what big things are visible, how to move or enter, and what detail to select next. Keep map and source information cautious and scene-level."
+            "Speak like a practical person orienting a visitor on the pavement. Plain, short, and concrete. No poetic voiceover. The opening should be a whole-scene overview: street or district cue first, what kind of place this is, what big things are visible, how to move or enter, and what detail to select next. Keep map and source information cautious and scene-level."
         })
       }
     ]
@@ -190,4 +193,20 @@ function localConcernLevelForOpening(persona: GeneratedPersona) {
   if (/visitor|tourist|first-time|overseas|travell?ing/.test(text)) return "low";
   if (/resident|local|neighbour|neighbor|shop|stall|worker|retired|teacher|district/.test(text)) return "high";
   return "medium";
+}
+
+function buildAreaCue(placeContext?: PlaceContext) {
+  const placeNames = (placeContext?.places || [])
+    .slice(0, 4)
+    .map((place) => place.name)
+    .filter(Boolean);
+  const publicNames = (placeContext?.publicDataCandidates || [])
+    .slice(0, 4)
+    .map((candidate) => candidate.label)
+    .filter(Boolean);
+  return {
+    address: placeContext?.address,
+    nearbyNames: Array.from(new Set([...placeNames, ...publicNames])).slice(0, 6),
+    sourceNotes: placeContext?.sourceNotes?.slice(0, 2).map((note) => note.title) || []
+  };
 }
