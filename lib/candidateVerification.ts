@@ -105,14 +105,9 @@ export async function verifyCandidateMatches(params: VerifyParams): Promise<Cand
 }
 
 async function verifyWithGemini(params: VerifyParams, candidates: CandidateInput[]): Promise<CandidateVerification> {
-  const apiKey =
-    params.config?.googleMapsApiKey ||
-    process.env.GOOGLE_MAPS_API_KEY ||
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_AI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
   if (!apiKey) {
-    throw new Error("Gemini candidate verification requires the configured Google Maps API key.");
+    throw new Error("Gemini candidate verification requires GEMINI_API_KEY.");
   }
 
   const model = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
@@ -150,16 +145,17 @@ async function verifyWithGemini(params: VerifyParams, candidates: CandidateInput
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  const payload = JSON.stringify({
+    contents: [{ role: "user", parts }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      temperature: 0.1
+    }
+  });
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.1
-      }
-    })
+    body: payload
   });
 
   const data = await res.json() as GeminiResponse & { error?: { message?: string } };
