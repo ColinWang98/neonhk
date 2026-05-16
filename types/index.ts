@@ -104,6 +104,36 @@ export type ContextCandidate = {
   allowedUse: AllowedNarrativeUse;
 };
 
+export type CandidateVerificationMatch = {
+  candidateId: string;
+  label: string;
+  source:
+    | "google_places"
+    | "osm"
+    | "hk_landsd"
+    | "wikidata"
+    | "wikipedia";
+  category?: string;
+  matchLevel: "likely" | "possible" | "nearby_only" | "reject";
+  confidence: number;
+  allowedUse: AllowedNarrativeUse;
+  visibilityStatus: VisibilityStatus;
+  visualEvidence: string[];
+  mapEvidence: string[];
+  reason: string;
+  suggestedWording?: string;
+};
+
+export type CandidateVerification = {
+  status: "verified" | "skipped";
+  provider?: string;
+  model?: string;
+  matches: CandidateVerificationMatch[];
+  rejected: CandidateVerificationMatch[];
+  warnings: string[];
+  createdAt: string;
+};
+
 export type PublicNewsItem = {
   id: string;
   title: string;
@@ -303,6 +333,7 @@ export type EvidenceClaim = {
     | "rthk"
     | "gdelt"
     | "social"
+    | "candidate_verifier"
     | "system";
   claimType: EvidenceClaimType;
   confidence: number;
@@ -352,6 +383,7 @@ export type EvidencePacket = {
     reason: string;
   };
   blockedTopics: string[];
+  candidateVerification?: CandidateVerification;
 };
 
 export type FragmentAffordance =

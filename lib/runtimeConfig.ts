@@ -8,6 +8,9 @@ export type RuntimeApiConfig = {
   glmBaseUrl?: string;
   qwenApiKey?: string;
   qwenBaseUrl?: string;
+  geminiApiKey?: string;
+  geminiModel?: string;
+  candidateVerifierProvider?: string;
   sceneVisionModel?: string;
   visionProvider?: string;
   visionModel?: string;
@@ -37,7 +40,8 @@ export function publicRuntimeConfig(): RuntimeApiConfig {
   return {
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
     aiProvider: "deepseek",
-    visionProvider: "qwen"
+    visionProvider: "qwen",
+    candidateVerifierProvider: "qwen"
   };
 }
 
@@ -53,6 +57,9 @@ export function runtimeConfigToHeaders(config: RuntimeApiConfig) {
   setHeader(headers, "x-glm-base-url", config.glmBaseUrl);
   setHeader(headers, "x-qwen-api-key", config.qwenApiKey);
   setHeader(headers, "x-qwen-base-url", config.qwenBaseUrl);
+  setHeader(headers, "x-gemini-api-key", config.geminiApiKey);
+  setHeader(headers, "x-gemini-model", config.geminiModel);
+  setHeader(headers, "x-candidate-verifier-provider", config.candidateVerifierProvider);
   setHeader(headers, "x-scene-vision-model", normalizeLegacyVisionModel(config.sceneVisionModel));
   setHeader(headers, "x-vision-provider", config.visionProvider);
   setHeader(headers, "x-vision-model", normalizeLegacyVisionModel(config.visionModel));
@@ -91,6 +98,9 @@ export function runtimeConfigFromHeaders(headers: Headers): RuntimeApiConfig {
     glmBaseUrl: readHeader(headers, "x-glm-base-url"),
     qwenApiKey: readHeader(headers, "x-qwen-api-key"),
     qwenBaseUrl: readHeader(headers, "x-qwen-base-url"),
+    geminiApiKey: readHeader(headers, "x-gemini-api-key"),
+    geminiModel: readHeader(headers, "x-gemini-model"),
+    candidateVerifierProvider: readHeader(headers, "x-candidate-verifier-provider"),
     sceneVisionModel: readHeader(headers, "x-scene-vision-model"),
     visionProvider: readHeader(headers, "x-vision-provider"),
     visionModel: readHeader(headers, "x-vision-model"),

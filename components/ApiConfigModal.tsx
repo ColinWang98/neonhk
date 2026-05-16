@@ -23,6 +23,7 @@ const overrideFields: Field[] = [
   { key: "googleMapsApiKey", label: "Google Maps API Key Override", secret: true },
   { key: "aiApiKey", label: "Story Service Key Override", secret: true },
   { key: "qwenApiKey", label: "Scene Reading Key Override", secret: true },
+  { key: "geminiApiKey", label: "Visual-map Verifier Key Override", secret: true },
   { key: "glmApiKey", label: "Backup Scene Reading Key Override", secret: true }
 ];
 
@@ -39,6 +40,8 @@ const advancedFields: Field[] = [
   { key: "glmBaseUrl", label: "Backup Scene Reading URL", placeholder: "server configured" },
   { key: "llmModel", label: "Story Engine Name", placeholder: "server configured" },
   { key: "visionProvider", label: "Scene Reading Mode", placeholder: "primary or backup" },
+  { key: "candidateVerifierProvider", label: "Visual-map Verifier Mode", placeholder: "qwen or gemini" },
+  { key: "geminiModel", label: "Visual-map Verifier Engine", placeholder: "server configured" },
   { key: "visionModel", label: "Fragment Reading Engine", placeholder: "server configured" },
   { key: "sceneVisionModel", label: "Scene Reading Engine", placeholder: "server configured" },
   { key: "appUrl", label: "App URL", placeholder: "http://localhost:3000" },
@@ -181,6 +184,17 @@ function ApiConfigModal({
                       ]}
                       onChange={(value) => setDraft((current) => ({ ...current, ttsProvider: value }))}
                     />
+                  ) : field.key === "candidateVerifierProvider" ? (
+                    <SelectField
+                      key={field.key}
+                      label={field.label}
+                      value={draft.candidateVerifierProvider || "qwen"}
+                      options={[
+                        { value: "qwen", label: "Qwen Visual-map" },
+                        { value: "gemini", label: "Gemini Visual-map" }
+                      ]}
+                      onChange={(value) => setDraft((current) => ({ ...current, candidateVerifierProvider: value }))}
+                    />
                   ) : (
                     <TextField
                       key={field.key}
@@ -311,11 +325,13 @@ function applyDefaults(config: RuntimeApiConfig): RuntimeApiConfig {
     ...config,
     aiProvider: "deepseek",
     visionProvider: "qwen",
+    candidateVerifierProvider: config.candidateVerifierProvider || "qwen",
     aiBaseUrl: config.aiBaseUrl || "https://api.deepseek.com",
     qwenBaseUrl: config.qwenBaseUrl || "https://dashscope.aliyuncs.com/compatible-mode/v1",
     glmBaseUrl: config.glmBaseUrl || "https://open.bigmodel.cn/api/paas/v4",
     visionModel: normalizeLegacyVisionModel(config.visionModel) || "qwen3-vl-plus",
     sceneVisionModel: normalizeLegacyVisionModel(config.sceneVisionModel) || "qwen3-vl-flash",
+    geminiModel: config.geminiModel || "gemini-3-flash-preview",
     llmModel: config.llmModel || "deepseek-chat",
     appUrl: config.appUrl || "http://localhost:3000"
   };
@@ -347,6 +363,9 @@ function cleanConfig(config: RuntimeApiConfig): RuntimeApiConfig {
   cleaned.aiProvider = "deepseek";
   if (cleaned.visionProvider !== "qwen" && cleaned.visionProvider !== "glm") {
     cleaned.visionProvider = "qwen";
+  }
+  if (cleaned.candidateVerifierProvider !== "qwen" && cleaned.candidateVerifierProvider !== "gemini") {
+    cleaned.candidateVerifierProvider = "qwen";
   }
 
   return cleaned;

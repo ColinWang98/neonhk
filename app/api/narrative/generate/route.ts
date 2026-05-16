@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAiProviderDiagnostics } from "@/lib/aiProvider";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
+import { verifyCandidateMatches } from "@/lib/candidateVerification";
 import { buildEvidencePacket } from "@/lib/evidence";
 import { persistFragment } from "@/lib/fragments";
 import { logEvent } from "@/lib/logger";
@@ -10,6 +11,7 @@ import { buildPersonaFragmentPlan } from "@/lib/personaFragment";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import type {
   GeneratedPersona,
+  EvidencePacket,
   NarrativeGeneration,
   PanoramaPov,
   PersonaFragmentPlan,
@@ -29,6 +31,7 @@ type NarrativeRequest = {
   panoramaPov?: PanoramaPov;
   existingNarrativeGenerations?: Record<string, NarrativeGeneration>;
   existingPersonaFragmentPlans?: Record<string, PersonaFragmentPlan>;
+  existingEvidencePacket?: EvidencePacket;
 };
 
 export async function POST(request: NextRequest) {
@@ -42,6 +45,14 @@ export async function POST(request: NextRequest) {
 
     const startedAt = performance.now();
     const aiDiagnostics = getAiProviderDiagnostics(config);
+    const candidateVerification = body.existingEvidencePacket?.candidateVerification || await verifyCandidateMatches({
+        cropImageUrl: body.cropImageUrl,
+        image: body.image,
+        panoramaPov: body.panoramaPov,
+        visionDescription: body.visionDescription,
+        placeContext: body.placeContext,
+        config
+      });
     const evidencePacket = buildEvidencePacket({
       fragmentId: body.fragmentId,
       sessionId: body.sessionId,
@@ -49,7 +60,8 @@ export async function POST(request: NextRequest) {
       cropImageUrl: body.cropImageUrl,
       visionDescription: body.visionDescription,
       placeContext: body.placeContext,
-      panoramaPov: body.panoramaPov
+      panoramaPov: body.panoramaPov,
+      candidateVerification
     });
     const personaFragmentPlan = buildPersonaFragmentPlan({
       fragmentId: body.fragmentId,
@@ -109,6 +121,7 @@ export async function POST(request: NextRequest) {
           visionDescription: body.visionDescription,
           personaId: body.persona?.id,
           evidenceClaimCount: evidencePacket.claims.length,
+          candidateVerification,
           personaFragmentPlan
         },
         output: { narratives, narrativeBlocks, narrativeValidation },

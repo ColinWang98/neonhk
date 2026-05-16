@@ -127,6 +127,21 @@ export function validateNarrative(params: {
 }
 
 function topConcreteFact(evidencePacket: EvidencePacket): { name: string; sentence: string } | undefined {
+  const verifier = evidencePacket.claims.find((claim) =>
+    claim.id.startsWith("cv") && claim.allowedUse !== "do_not_use" && claim.confidence >= 0.62
+  );
+  if (verifier) {
+    const name = extractCandidateName(verifier.text);
+    if (name) {
+      return {
+        name,
+        sentence: verifier.allowedUse === "direct_fact"
+          ? `The visible details point to ${name}.`
+          : `The map and the visible details seem to point to ${name}.`
+      };
+    }
+  }
+
   const footprint = evidencePacket.claims.find((claim) =>
     /mapped building footprint intersects the selected sight line/i.test(claim.text)
   );
@@ -183,7 +198,7 @@ function hasUncertaintyCue(text: string) {
 }
 
 function extractCandidateName(text: string) {
-  const match = text.match(/^(.+?) (is listed|is a Wikidata entity|near|around|reported)/i);
+  const match = text.match(/^(.+?) (is listed|is a Wikidata entity|is a visual-map verifier|near|around|reported)/i);
   return match?.[1]?.trim();
 }
 

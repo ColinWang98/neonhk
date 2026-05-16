@@ -453,6 +453,7 @@ export default function StoryPage() {
           image: selectedImage,
           cropImageUrl: readyFragment.cropImageUrl,
           panoramaPov: readyFragment.panoramaPov,
+          existingEvidencePacket: readyFragment.evidencePacket,
           existingPersonaFragmentPlans: readyFragment.personaFragmentPlans,
           existingNarrativeGenerations: readyFragment.narrativeGenerations
         })

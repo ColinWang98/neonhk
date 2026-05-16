@@ -1,6 +1,7 @@
 import type {
   EvidenceClaim,
   EvidencePacket,
+  CandidateVerification,
   FragmentAffordance,
   PanoramaPov,
   PlaceContext,
@@ -16,6 +17,7 @@ type BuildEvidencePacketParams = {
   visionDescription: VisionDescription;
   placeContext?: PlaceContext;
   panoramaPov?: PanoramaPov;
+  candidateVerification?: CandidateVerification;
 };
 
 const evidenceLimits = {
@@ -32,6 +34,7 @@ export function buildEvidencePacket(params: BuildEvidencePacketParams): Evidence
   const claims: EvidenceClaim[] = [
     ...visualClaims(params.visionDescription, affordances),
     ...panoClaims(params),
+    ...candidateVerificationClaims(params.candidateVerification),
     ...nearbyPlaceClaims(params.placeContext),
     ...publicDataClaims(params.placeContext),
     ...wikidataClaims(params.placeContext),
@@ -87,7 +90,8 @@ export function buildEvidencePacket(params: BuildEvidencePacketParams): Evidence
       "Treat news and official notices as local concern background, not as proof about the selected fragment."
     ],
     storyAffordances: buildStoryAffordances(params.visionDescription, affordances, claims),
-    blockedTopics: blockedTopics(params.visionDescription)
+    blockedTopics: blockedTopics(params.visionDescription),
+    candidateVerification: params.candidateVerification
   };
 }
 
@@ -238,6 +242,24 @@ function panoClaims(params: BuildEvidencePacketParams): EvidenceClaim[] {
       relatedSchemas: ["Functional-Use", "Identity-Belonging"]
     }
   ];
+}
+
+function candidateVerificationClaims(candidateVerification?: CandidateVerification): EvidenceClaim[] {
+  return (candidateVerification?.matches || [])
+    .filter((match) => match.allowedUse !== "do_not_use")
+    .slice(0, 4)
+    .map((match, index) => ({
+      id: `cv${index + 1}`,
+      text: `${match.label} is a visual-map verifier ${match.matchLevel} match for this selected crop. ${match.suggestedWording || match.reason}${match.visualEvidence.length ? ` Visual evidence: ${match.visualEvidence.join("; ")}.` : ""}${match.mapEvidence.length ? ` Map evidence: ${match.mapEvidence.join("; ")}.` : ""}`,
+      source: "candidate_verifier",
+      claimType: "model_inference",
+      confidence: match.confidence,
+      visibilityStatus: match.visibilityStatus,
+      allowedUse: match.allowedUse === "direct_fact" ? "direct_fact" : match.matchLevel === "nearby_only" ? "background_only" : "cautious_possible",
+      uncertaintyCueRequired: match.allowedUse !== "direct_fact",
+      privacySensitive: false,
+      relatedSchemas: ["Functional-Use", "Identity-Belonging", "Memory-Temporality", "Social-Cultural Resonance"]
+    } satisfies EvidenceClaim));
 }
 
 function nearbyPlaceClaims(placeContext?: PlaceContext): EvidenceClaim[] {
