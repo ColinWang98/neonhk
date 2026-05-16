@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { createAiClient } from "@/lib/aiProvider";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type {
   AllowedNarrativeUse,
@@ -102,76 +101,21 @@ export async function verifyCandidateMatches(params: VerifyParams): Promise<Cand
     return skipped("No crop image or map candidates available.");
   }
 
-  if (candidateVerifierProvider(params.config) === "gemini") {
-    return verifyWithGemini(params, candidates);
-  }
-
-  const ai = createAiClient(params.config || {}, "vision");
-  if (!ai) {
-    throw new Error("Candidate verification requires a configured vision model.");
-  }
-
-  const cropImage = await prepareImageUrl(params.cropImageUrl);
-  const wholeImage = params.image?.fullUrl || params.image?.thumbUrl;
-  const content: Array<
-    | { type: "text"; text: string }
-    | { type: "image_url"; image_url: { url: string } }
-  > = [
-    {
-      type: "text",
-      text: JSON.stringify({
-        task: "Verify which map candidate, if any, matches the selected crop.",
-        pano: {
-          id: params.image?.panoId || params.image?.id,
-          lat: params.image?.lat,
-          lng: params.image?.lng,
-          heading: params.panoramaPov?.heading ?? params.placeContext?.heading,
-          pitch: params.panoramaPov?.pitch,
-          fov: params.panoramaPov?.fov
-        },
-        visionSummary: {
-          mainFeature: params.visionDescription.mainFeature,
-          fragmentCategory: params.visionDescription.fragmentCategory,
-          spatialContext: params.visionDescription.spatialContext,
-          visibleText: params.visionDescription.visibleTextEnglish || params.visionDescription.visibleText || [],
-          publicEntityCandidates: params.visionDescription.publicEntityCandidates || [],
-          visibleCues: params.visionDescription.visibleCues
-        },
-        mapCandidates: candidates
-      })
-    },
-    { type: "image_url", image_url: { url: cropImage } }
-  ];
-
-  if (wholeImage) {
-    content.push({ type: "image_url", image_url: { url: await prepareImageUrl(wholeImage) } });
-  }
-
-  const response = await ai.client.chat.completions.create({
-    model: ai.model,
-    ...ai.defaults,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: verificationPrompt },
-      { role: "user", content }
-    ]
-  });
-
-  const raw = response.choices[0]?.message.content;
-  if (!raw) {
-    throw new Error("Candidate verifier returned no content.");
-  }
-
-  return normalizeVerificationOutput(raw, candidates, ai.provider, ai.model);
+  return verifyWithGemini(params, candidates);
 }
 
 async function verifyWithGemini(params: VerifyParams, candidates: CandidateInput[]): Promise<CandidateVerification> {
-  const apiKey = params.config?.geminiApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+  const apiKey =
+    params.config?.googleMapsApiKey ||
+    process.env.GOOGLE_MAPS_API_KEY ||
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_AI_API_KEY;
   if (!apiKey) {
-    throw new Error("Gemini candidate verification requires GEMINI_API_KEY.");
+    throw new Error("Gemini candidate verification requires the configured Google Maps API key.");
   }
 
-  const model = params.config?.geminiModel || process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+  const model = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
   const cropImage = await prepareGeminiImagePart(params.cropImageUrl || "");
   const wholeImageUrl = params.image?.fullUrl || params.image?.thumbUrl;
   const parts: GeminiPart[] = [
@@ -403,11 +347,6 @@ function skipped(reason: string): CandidateVerification {
     warnings: [reason],
     createdAt: new Date().toISOString()
   };
-}
-
-function candidateVerifierProvider(config?: RuntimeApiConfig) {
-  const provider = config?.candidateVerifierProvider || process.env.CANDIDATE_VERIFIER_PROVIDER || "qwen";
-  return provider === "gemini" ? "gemini" : "qwen";
 }
 
 async function prepareGeminiImagePart(imageUrl: string): Promise<GeminiPart> {
