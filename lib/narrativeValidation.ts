@@ -92,8 +92,15 @@ export function validateNarrative(params: {
   const allText = Object.values(params.narratives)
     .map((item) => item.text.toLowerCase())
     .join(" ");
+  const strongerCandidateNames = new Set(
+    params.evidencePacket.claims
+      .filter((claim) => claim.allowedUse !== "background_only" && claim.allowedUse !== "do_not_use")
+      .map((claim) => extractCandidateName(claim.text)?.toLowerCase())
+      .filter((name): name is string => Boolean(name))
+  );
   for (const claim of backgroundOnlyClaims) {
     const candidate = extractCandidateName(claim.text);
+    if (candidate && strongerCandidateNames.has(candidate.toLowerCase())) continue;
     if (candidate && allText.includes(candidate.toLowerCase()) && /this is|this shop is|this place is|the selected|the visible/.test(allText)) {
       warnings.push(`A background-only claim may be overstated as visible: ${candidate}.`);
     }

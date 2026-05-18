@@ -460,7 +460,16 @@ export default function StoryPage() {
       })
       .then(async (res) => {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Story could not be prepared. Please try again.");
+        if (!res.ok) {
+          const warnings = Array.isArray(data.validation?.warnings)
+            ? data.validation.warnings.filter(Boolean).slice(0, 3).join(" ")
+            : "";
+          throw new Error(
+            warnings
+              ? `${data.error || "Story could not be prepared."} ${warnings}`
+              : data.error || "Story could not be prepared. Please try again."
+          );
+        }
         return data as SchemaNarratives & {
           evidencePacket?: EvidencePacket;
           personaFragmentPlan?: PersonaFragmentPlan;
@@ -825,7 +834,7 @@ export default function StoryPage() {
             {currentStage === "narrator"
               ? "Choose a narrator for this panorama."
               : currentStage === "opening"
-                ? "Listen to a short opening, then select a place detail."
+                ? "Read the opening, or select a place detail when you are ready."
                 : currentStage === "select"
                   ? "Select a place fragment for this narrator to read."
                   : "Switch narrator, read, and listen."}
@@ -896,7 +905,6 @@ export default function StoryPage() {
                 willPlayWithStory={includeOpeningInStoryAudio}
                 openingPlayed={Boolean(activeOpeningKey && playedOpeningKeys[activeOpeningKey])}
                 hasStory={activeStoryReady}
-                compact
               />
             ) : null}
             {activeOpening && !activeStoryReady ? (
@@ -1040,7 +1048,7 @@ function PersonaSwitcher({
           <h2 className="mt-1 text-sm font-semibold text-ink">
             {zh ? "选择讲述人" : "Choose narrator"}
           </h2>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/58">
+          <p className="mt-1 text-xs leading-5 text-ink/58">
             {fragment?.visionDescription?.mainFeature ||
               (zh ? "先从讲述人的角度进入这个街景。" : "Start with a narrator's view of this panorama.")}
           </p>
@@ -1076,7 +1084,7 @@ function PersonaSwitcher({
                 <h3 className="text-sm font-semibold text-ink">{persona.name}</h3>
                 {selected ? <span className="rounded bg-signal px-2 py-0.5 text-[11px] text-white">{zh ? "当前" : "Active"}</span> : null}
               </div>
-              <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/68">{persona.userIntro}</p>
+              <p className="mt-1 text-xs leading-5 text-ink/68">{persona.userIntro}</p>
             </button>
           );
         })}
@@ -1092,8 +1100,7 @@ function SceneOpeningPanel({
   language,
   willPlayWithStory,
   openingPlayed,
-  hasStory,
-  compact = false
+  hasStory
 }: {
   opening?: SceneOpeningGeneration;
   status: "idle" | "loading" | "ready" | "error";
@@ -1102,7 +1109,6 @@ function SceneOpeningPanel({
   willPlayWithStory: boolean;
   openingPlayed: boolean;
   hasStory: boolean;
-  compact?: boolean;
 }) {
   const zh = language === "zh";
   const blocks = useMemo(
@@ -1128,7 +1134,7 @@ function SceneOpeningPanel({
                 : hasStory
                   ? zh ? "这段开场已准备好，可以和故事一起播放。" : "This opening is ready to play with the story."
                   : opening
-                    ? zh ? "先听这段整体环境开场，再框选一个细节。" : "Play this wider scene opening first, then select a detail."
+                    ? zh ? "这段整体环境开场供参考。准备好后就可以框选细节。" : "This wider scene opening is context. Select a detail when ready."
                     : zh ? "选择一位讲述人后，会出现一段整体环境开场。" : "Choose a narrator to prepare a wider scene opening."}
           </p>
         </div>
@@ -1138,8 +1144,8 @@ function SceneOpeningPanel({
       {persona && opening ? (
         <>
           <div className="mt-2 space-y-2 rounded-md border border-ink/10 bg-paper p-3">
-            {(blocks.length ? blocks : splitOpeningText(openingText)).slice(0, compact ? 1 : 3).map((line, index) => (
-              <p key={`${index}-${line}`} className={`${compact ? "line-clamp-2" : ""} text-sm leading-6 text-ink/74`}>
+            {(blocks.length ? blocks : splitOpeningText(openingText)).map((line, index) => (
+              <p key={`${index}-${line}`} className="text-sm leading-6 text-ink/74">
                 {line}
               </p>
             ))}
@@ -1263,11 +1269,11 @@ function FragmentFirstPanel({ language, hasOpening }: { language: "en" | "zh"; h
       <p className="mt-3 text-sm leading-6 text-ink/62">
         {hasOpening
           ? zh
-            ? "听完开场后，旋转全景图，点“开始框选”，在你想继续听的位置拖出一个框。"
-            : "After the opening, rotate the panorama, press Select fragment, and drag over one detail."
+            ? "选择讲述人后，旋转全景图，点“开始框选”，在你想继续听的位置拖出一个框。开场只是整体背景，不会阻止你框选。"
+            : "After choosing a narrator, rotate the panorama, press Select fragment, and drag over one detail. The opening is context, not a required gate."
           : zh
-            ? "先选择讲述人。开场准备好后，再框选你想继续听的位置。"
-            : "Choose a narrator first. After the opening is ready, select one detail in the panorama."}
+            ? "先选择讲述人，然后框选你想继续听的位置。"
+            : "Choose a narrator first, then select one detail in the panorama."}
       </p>
     </div>
   );

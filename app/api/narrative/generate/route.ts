@@ -86,6 +86,27 @@ export async function POST(request: NextRequest) {
       plan: personaFragmentPlan
     });
     if (narrativeValidation.requiresRegeneration) {
+      await logAiGeneration(
+        {
+          sessionId: body.sessionId,
+          fragmentId: body.fragmentId,
+          stage: "narrative_generation",
+          provider: aiDiagnostics.text.provider,
+          model: aiDiagnostics.text.model,
+          status: "error",
+          inputSummary: {
+            visionDescription: body.visionDescription,
+            personaId: body.persona?.id,
+            evidenceClaimCount: evidencePacket.claims.length,
+            candidateVerification,
+            personaFragmentPlan
+          },
+          output: { narratives, narrativeBlocks, narrativeValidation },
+          errorMessage: narrativeValidation.warnings.join(" | "),
+          durationMs: Math.round(performance.now() - startedAt)
+        },
+        config
+      );
       return NextResponse.json(
         {
           error: "Story validation failed.",
