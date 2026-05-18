@@ -1,17 +1,6 @@
 export type RuntimeApiConfig = {
   mapillaryAccessToken?: string;
   googleMapsApiKey?: string;
-  aiApiKey?: string;
-  aiBaseUrl?: string;
-  aiProvider?: string;
-  glmApiKey?: string;
-  glmBaseUrl?: string;
-  qwenApiKey?: string;
-  qwenBaseUrl?: string;
-  sceneVisionModel?: string;
-  visionProvider?: string;
-  visionModel?: string;
-  llmModel?: string;
   supabaseUrl?: string;
   supabaseAnonKey?: string;
   supabaseServiceRoleKey?: string;
@@ -35,9 +24,7 @@ export const runtimeConfigStorageKey = "street-fragment-explorer.api-config";
 
 export function publicRuntimeConfig(): RuntimeApiConfig {
   return {
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-    aiProvider: "deepseek",
-    visionProvider: "qwen"
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
   };
 }
 
@@ -46,17 +33,6 @@ export function runtimeConfigToHeaders(config: RuntimeApiConfig) {
 
   setHeader(headers, "x-mapillary-access-token", config.mapillaryAccessToken);
   setHeader(headers, "x-google-maps-api-key", config.googleMapsApiKey);
-  setHeader(headers, "x-ai-api-key", config.aiApiKey);
-  setHeader(headers, "x-ai-base-url", config.aiBaseUrl);
-  setHeader(headers, "x-ai-provider", config.aiProvider);
-  setHeader(headers, "x-glm-api-key", config.glmApiKey);
-  setHeader(headers, "x-glm-base-url", config.glmBaseUrl);
-  setHeader(headers, "x-qwen-api-key", config.qwenApiKey);
-  setHeader(headers, "x-qwen-base-url", config.qwenBaseUrl);
-  setHeader(headers, "x-scene-vision-model", normalizeLegacyVisionModel(config.sceneVisionModel));
-  setHeader(headers, "x-vision-provider", config.visionProvider);
-  setHeader(headers, "x-vision-model", normalizeLegacyVisionModel(config.visionModel));
-  setHeader(headers, "x-llm-model", config.llmModel);
   setHeader(headers, "x-supabase-url", config.supabaseUrl);
   setHeader(headers, "x-supabase-anon-key", config.supabaseAnonKey);
   setHeader(headers, "x-supabase-service-role-key", config.supabaseServiceRoleKey);
@@ -82,19 +58,6 @@ export function runtimeConfigFromHeaders(headers: Headers): RuntimeApiConfig {
   return {
     mapillaryAccessToken: readHeader(headers, "x-mapillary-access-token"),
     googleMapsApiKey: readHeader(headers, "x-google-maps-api-key"),
-    aiApiKey:
-      readHeader(headers, "x-ai-api-key") ||
-      readHeader(headers, "x-openai-api-key"),
-    aiBaseUrl: readHeader(headers, "x-ai-base-url"),
-    aiProvider: readHeader(headers, "x-ai-provider"),
-    glmApiKey: readHeader(headers, "x-glm-api-key"),
-    glmBaseUrl: readHeader(headers, "x-glm-base-url"),
-    qwenApiKey: readHeader(headers, "x-qwen-api-key"),
-    qwenBaseUrl: readHeader(headers, "x-qwen-base-url"),
-    sceneVisionModel: readHeader(headers, "x-scene-vision-model"),
-    visionProvider: readHeader(headers, "x-vision-provider"),
-    visionModel: readHeader(headers, "x-vision-model"),
-    llmModel: readHeader(headers, "x-llm-model"),
     supabaseUrl: readHeader(headers, "x-supabase-url"),
     supabaseAnonKey: readHeader(headers, "x-supabase-anon-key"),
     supabaseServiceRoleKey: readHeader(headers, "x-supabase-service-role-key"),
@@ -124,10 +87,4 @@ function setHeader(headers: Record<string, string>, name: string, value?: string
 function readHeader(headers: Headers, name: string) {
   const value = headers.get(name);
   return value?.trim() || undefined;
-}
-
-function normalizeLegacyVisionModel(model?: string) {
-  if (model === "qwen3.6-plus") return "qwen3-vl-plus";
-  if (model === "qwen3.6-flash") return "qwen3-vl-flash";
-  return model;
 }

@@ -20,10 +20,7 @@ type Field = {
 };
 
 const overrideFields: Field[] = [
-  { key: "googleMapsApiKey", label: "Google Maps API Key Override", secret: true },
-  { key: "aiApiKey", label: "Story Service Key Override", secret: true },
-  { key: "qwenApiKey", label: "Scene Reading Key Override", secret: true },
-  { key: "glmApiKey", label: "Backup Scene Reading Key Override", secret: true }
+  { key: "googleMapsApiKey", label: "Google Maps API Key Override", secret: true }
 ];
 
 const optionalFields: Field[] = [
@@ -34,13 +31,6 @@ const optionalFields: Field[] = [
 
 const advancedFields: Field[] = [
   { key: "mapillaryAccessToken", label: "Mapillary Access Token", secret: true },
-  { key: "aiBaseUrl", label: "Story Service URL", placeholder: "server configured" },
-  { key: "qwenBaseUrl", label: "Scene Reading Service URL", placeholder: "server configured" },
-  { key: "glmBaseUrl", label: "Backup Scene Reading URL", placeholder: "server configured" },
-  { key: "llmModel", label: "Story Engine Name", placeholder: "server configured" },
-  { key: "visionProvider", label: "Scene Reading Mode", placeholder: "primary or backup" },
-  { key: "visionModel", label: "Fragment Reading Engine", placeholder: "server configured" },
-  { key: "sceneVisionModel", label: "Scene Reading Engine", placeholder: "server configured" },
   { key: "appUrl", label: "App URL", placeholder: "http://localhost:3000" },
   { key: "ttsProvider", label: "Narration Mode", placeholder: "cloud or local" },
   { key: "localTtsEndpoint", label: "Local Narration Endpoint", placeholder: "http://127.0.0.1:7860/tts" },
@@ -309,22 +299,8 @@ function SelectField({
 function applyDefaults(config: RuntimeApiConfig): RuntimeApiConfig {
   return {
     ...config,
-    aiProvider: "deepseek",
-    visionProvider: "qwen",
-    aiBaseUrl: config.aiBaseUrl || "https://api.deepseek.com",
-    qwenBaseUrl: config.qwenBaseUrl || "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    glmBaseUrl: config.glmBaseUrl || "https://open.bigmodel.cn/api/paas/v4",
-    visionModel: normalizeLegacyVisionModel(config.visionModel) || "qwen3-vl-plus",
-    sceneVisionModel: normalizeLegacyVisionModel(config.sceneVisionModel) || "qwen3-vl-flash",
-    llmModel: config.llmModel || "deepseek-chat",
     appUrl: config.appUrl || "http://localhost:3000"
   };
-}
-
-function normalizeLegacyVisionModel(model?: string) {
-  if (model === "qwen3.6-plus") return "qwen3-vl-plus";
-  if (model === "qwen3.6-flash") return "qwen3-vl-flash";
-  return model;
 }
 
 function cleanConfig(config: RuntimeApiConfig): RuntimeApiConfig {
@@ -344,9 +320,5 @@ function cleanConfig(config: RuntimeApiConfig): RuntimeApiConfig {
     cleaned.ttsProvider = "elevenlabs";
   }
 
-  cleaned.aiProvider = "deepseek";
-  if (cleaned.visionProvider !== "qwen" && cleaned.visionProvider !== "glm") {
-    cleaned.visionProvider = "qwen";
-  }
   return cleaned;
 }

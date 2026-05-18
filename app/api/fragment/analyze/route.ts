@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAiProviderDiagnostics } from "@/lib/aiProvider";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
 import { persistFragment } from "@/lib/fragments";
+import { geminiDiagnostics } from "@/lib/gemini";
 import { logEvent } from "@/lib/logger";
 import { shouldBlockFragment } from "@/lib/privacyFilter";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const startedAt = performance.now();
-    const aiDiagnostics = getAiProviderDiagnostics(config);
+    const aiDiagnostics = geminiDiagnostics();
     const visionDescription = await analyzeFragment(body.cropImageUrl, config);
     const blocked = shouldBlockFragment(visionDescription.privacyRisk);
     await logAiGeneration(
@@ -31,8 +31,8 @@ export async function POST(request: NextRequest) {
         sessionId: body.sessionId,
         fragmentId: body.fragmentId,
         stage: "fragment_analysis",
-        provider: aiDiagnostics.vision.provider,
-        model: aiDiagnostics.vision.model,
+        provider: aiDiagnostics.provider,
+        model: aiDiagnostics.model,
         status: "success",
         inputSummary: {
           cropImageUrl: body.cropImageUrl

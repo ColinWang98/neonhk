@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generateGeminiJson } from "@/lib/gemini";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { GeneratedPersona, TtsProvider } from "@/types";
 
@@ -11,7 +11,7 @@ type AdaptSpeechTextParams = {
 
 type SpeechAdaptation = {
   speechText: string;
-  strategy: "llm" | "local-rules";
+  strategy: "gemini" | "local-rules";
   note?: string;
 };
 
@@ -83,47 +83,30 @@ export async function adaptSpeechText(params: AdaptSpeechTextParams): Promise<Sp
     return { speechText: "", strategy: "local-rules" };
   }
 
-  const apiKey = params.config?.aiApiKey || process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
-  const baseURL = params.config?.aiBaseUrl || process.env.AI_BASE_URL || "https://api.deepseek.com";
-  const model = params.config?.llmModel || process.env.LLM_MODEL || "deepseek-chat";
-
-  if (apiKey) {
-    try {
-      const client = new OpenAI({ apiKey, baseURL });
-      const response = await client.chat.completions.create({
-        model,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: speechStylePrompt },
-          {
-            role: "user",
-            content: JSON.stringify({
-              provider: params.provider,
-              persona: params.persona,
-              targetVoice: speechGuidance(params.persona, params.provider, params.config),
-              text: input
-            })
-          }
-        ]
-      });
-      const raw = response.choices[0]?.message.content;
-      const parsed = raw ? (JSON.parse(extractJsonObject(raw)) as { speechText?: string }) : {};
-      const speechText = parsed.speechText?.trim();
-      if (speechText) {
-        return {
-          speechText: limitRunawayPauses(speechText),
-          strategy: "llm"
-        };
+  const raw = await generateGeminiJson({
+    parts: [
+      { text: speechStylePrompt },
+      {
+        text: JSON.stringify({
+          provider: params.provider,
+          persona: params.persona,
+          targetVoice: speechGuidance(params.persona, params.provider, params.config),
+          text: input
+        })
       }
-    } catch {
-      // Keep TTS usable when the chat model is unavailable.
-    }
+    ],
+    temperature: 0.2,
+    errorPrefix: "Gemini speech adaptation"
+  });
+  const parsed = JSON.parse(extractJsonObject(raw)) as { speechText?: string };
+  const speechText = parsed.speechText?.trim();
+  if (!speechText) {
+    throw new Error("Gemini speech adaptation returned no speechText.");
   }
 
   return {
-    speechText: applyLocalSpeechRules(input, params.persona),
-    strategy: "local-rules",
-    note: apiKey ? "Speech adaptation model failed; used local rules." : "No LLM key; used local speech rules."
+    speechText: limitRunawayPauses(speechText),
+    strategy: "gemini"
   };
 }
 
@@ -152,65 +135,6 @@ function speechGuidance(persona?: GeneratedPersona, provider?: TtsProvider, conf
   }[profile.tone];
 
   return `${configuredPrompt || "Voice direction: calm English narrator."} Persona adjustment: ${profile.age} ${profile.gender} voice; ${ageGuidance}; ${toneGuidance}; ${profile.pace} pace; ${profile.accent} accent style; English fluency ${profile.englishFluency}`;
-}
-
-function applyLocalSpeechRules(text: string, persona?: GeneratedPersona) {
-  const profile = persona?.voiceProfile;
-  let speech = text
-    .replace(/\r/g, "")
-    .replace(/[—–]/g, ", ")
-    .replace(/[。！？]/g, ". ")
-    .replace(/[，、]/g, ", ")
-    .replace(/[；;]/g, ". ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  speech = removeCjkForEnglishReference(speech);
-  speech = removeEmptyPunctuationFragments(speech);
-  speech = splitLongSentences(speech, profile?.age === "young" ? 120 : 150);
-
-  if (profile?.age === "older" || profile?.pace === "slow") {
-    speech = speech.replace(/\. /g, "... ");
-  } else if (profile?.tone === "casual" || profile?.age === "young") {
-    speech = addLightDiscourseMarker(speech, profile.age);
-  }
-
-  if (profile?.tone === "reflective" && !speech.includes("...")) {
-    speech = speech.replace(/, /, "... ");
-  }
-
-  return limitRunawayPauses(speech);
-}
-
-function removeCjkForEnglishReference(text: string) {
-  const withoutCjkRuns = text.replace(/[\u3400-\u9fff\u3040-\u30ff\uff00-\uffef]+/g, " ");
-  return withoutCjkRuns.replace(/\s+/g, " ").trim();
-}
-
-function removeEmptyPunctuationFragments(text: string) {
-  return text
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.replace(/\s+([,.!?;:])/g, "$1").trim())
-    .filter((sentence) => /[a-z0-9]/i.test(sentence))
-    .join(" ")
-    .replace(/\s+([,.!?;:])/g, "$1")
-    .replace(/[,;:]\s*([.!?])/g, "$1")
-    .trim();
-}
-
-function splitLongSentences(text: string, maxLength: number) {
-  return text
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => {
-      if (sentence.length <= maxLength) return sentence;
-      return sentence.replace(/,\s+/g, ", ... ");
-    })
-    .join(" ");
-}
-
-function addLightDiscourseMarker(text: string, age?: string) {
-  if (/^(well|you know|i mean),/i.test(text)) return text;
-  return age === "young" ? `You know, ${text}` : `Well, ${text}`;
 }
 
 function limitRunawayPauses(text: string) {
