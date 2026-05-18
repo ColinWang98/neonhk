@@ -1,5 +1,6 @@
 import type { ChatCompletion } from "openai/resources/chat/completions";
 import { createAiClient, normalizeQwenVisionModel, type AiProvider } from "@/lib/aiProvider";
+import { generateGeminiJson, prepareGeminiImagePart, type GeminiPart } from "@/lib/gemini";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { SceneVisualDescription, StreetImage, VisionDescription } from "@/types";
 
@@ -82,13 +83,28 @@ export async function analyzeSceneSnapshot(params: {
     throw new Error("Scene analysis requires a panorama snapshot URL.");
   }
 
-  return (await callVisionWithFallback({
-    config: params.config || {},
-    imageUrl: params.snapshotUrl,
-    prompt: scenePrompt,
-    metadata: params.image,
-    purpose: "scene"
-  })) as SceneVisualDescription;
+  const parts: GeminiPart[] = [
+    { text: scenePrompt },
+    {
+      text: JSON.stringify({
+        image: {
+          provider: params.image.provider,
+          lat: params.image.lat,
+          lng: params.image.lng,
+          panoId: params.image.panoId || params.image.id,
+          capturedAt: params.image.capturedAt
+        }
+      })
+    },
+    await prepareGeminiImagePart(params.snapshotUrl, "Gemini scene analysis")
+  ];
+  const raw = await generateGeminiJson({
+    parts,
+    temperature: 0.1,
+    errorPrefix: "Gemini scene analysis"
+  });
+
+  return JSON.parse(extractJsonObject(raw)) as SceneVisualDescription;
 }
 
 function extractJsonObject(content: string) {

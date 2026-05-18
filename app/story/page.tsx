@@ -219,7 +219,9 @@ export default function StoryPage() {
     ])
       .then(async ([placeContext, personaRes]) => {
         const personaData = await personaRes.json();
-        if (!personaRes.ok) throw new Error("Narrators could not be prepared. Please try another scene.");
+        if (!personaRes.ok) {
+          throw new Error(personaData.error || "Narrators could not be prepared. Please try another scene.");
+        }
         return {
           placeContext,
           personas: personaData.personas as GeneratedPersona[],
@@ -1446,7 +1448,7 @@ const storyLabels = {
   zh: ["日常使用", "进入感", "时间与惯常", "共享空间"]
 } as const;
 const narrativeCacheVersion = 5;
-const openingCacheVersion = 2;
+const openingCacheVersion = 3;
 
 function StoryArchiveDrawer({
   open,

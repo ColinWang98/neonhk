@@ -1,4 +1,4 @@
-import { createAiClient } from "@/lib/aiProvider";
+import { generateGeminiJson } from "@/lib/gemini";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { GeneratedPersona, SceneVisualDescription, StreetImage } from "@/types";
 
@@ -52,34 +52,23 @@ export async function generatePersonas(params: {
   sceneVisualDescription?: SceneVisualDescription;
   config?: RuntimeApiConfig;
 }): Promise<GeneratedPersona[]> {
-  const ai = createAiClient(params.config || {}, "text");
+  void params.config;
 
-  if (!ai) {
-    throw new Error("Persona generation requires a configured text model.");
-  }
-
-  const response = await ai.client.chat.completions.create({
-    model: ai.model,
-    ...ai.defaults,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: personaPrompt },
+  const raw = await generateGeminiJson({
+    parts: [
+      { text: personaPrompt },
       {
-        role: "user",
-        content: JSON.stringify({
+        text: JSON.stringify({
           image: params.image,
           sceneVisualDescription: params.sceneVisualDescription,
           languageStyle:
             "Persona names and roles should be concise English. userIntro should be a short user-facing line about age, gender, and relationship to this Hong Kong street scene. All personas must be 40 or older. Backgrounds should be warm, specific, and human, with light Hong Kong bilingual phrasing where natural. Vary their relationship to Hong Kong: local resident, tourist/visitor, temporary resident, recent arrival, or return visitor. They can have cultural perspective, but express it through ordinary jobs, routines, food, transport, shopping, weather, family habits, and street manners."
         })
       }
-    ]
+    ],
+    temperature: 0.35,
+    errorPrefix: "Gemini persona generation"
   });
-
-  const raw = response.choices[0]?.message.content;
-  if (!raw) {
-    throw new Error("Persona model returned no content.");
-  }
 
   const parsed = JSON.parse(extractJsonObject(raw)) as { personas?: GeneratedPersona[] };
   return normalizePersonas(parsed.personas);

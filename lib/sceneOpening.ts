@@ -1,4 +1,4 @@
-import { createAiClient } from "@/lib/aiProvider";
+import { generateGeminiJson } from "@/lib/gemini";
 import type {
   GeneratedPersona,
   PlaceContext,
@@ -58,21 +58,13 @@ type SceneOpeningInput = {
 };
 
 export async function generateSceneOpening(params: SceneOpeningInput): Promise<Omit<SceneOpeningGeneration, "personaId" | "createdAt">> {
-  const ai = createAiClient(params.config || {}, "text");
+  void params.config;
 
-  if (!ai) {
-    throw new Error("Scene opening requires a configured text model.");
-  }
-
-  const response = await ai.client.chat.completions.create({
-    model: ai.model,
-    ...ai.defaults,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: sceneOpeningPrompt },
+  const raw = await generateGeminiJson({
+    parts: [
+      { text: sceneOpeningPrompt },
       {
-        role: "user",
-        content: JSON.stringify({
+        text: JSON.stringify({
           image: {
             provider: params.image.provider,
             lat: params.image.lat,
@@ -89,13 +81,10 @@ export async function generateSceneOpening(params: SceneOpeningInput): Promise<O
             "Speak like a practical person orienting a visitor on the pavement. Plain, short, and concrete. No poetic voiceover. The opening should be a whole-scene overview: street or district cue first, what kind of place this is, what big things are visible, how to move or enter, and what detail to select next. Keep map and source information cautious and scene-level."
         })
       }
-    ]
+    ],
+    temperature: 0.35,
+    errorPrefix: "Gemini scene opening"
   });
-
-  const raw = response.choices[0]?.message.content;
-  if (!raw) {
-    throw new Error("Scene opening model returned no content.");
-  }
 
   const parsed = JSON.parse(extractJsonObject(raw)) as {
     openingBlocks?: SceneOpeningBlock[];

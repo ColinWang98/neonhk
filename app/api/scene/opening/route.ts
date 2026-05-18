@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAiProviderDiagnostics } from "@/lib/aiProvider";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
+import { geminiDiagnostics } from "@/lib/gemini";
 import { generateSceneOpening } from "@/lib/sceneOpening";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import { upsertStorySession } from "@/lib/storySessions";
@@ -12,6 +12,8 @@ import type {
   StorySession,
   StreetImage
 } from "@/types";
+
+const openingCacheVersion = 3;
 
 type SceneOpeningRequest = {
   sessionId?: string;
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const cached = body.existingOpenings?.[body.persona.id];
-    if (cached?.openingText && cached.version === 2) {
+    if (cached?.openingText && cached.version === openingCacheVersion) {
       return NextResponse.json({
         ...cached,
         cached: true
@@ -41,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const startedAt = performance.now();
-    const aiDiagnostics = getAiProviderDiagnostics(config);
+    const aiDiagnostics = geminiDiagnostics();
     const opening = await generateSceneOpening({
       image: body.image,
       persona: body.persona,
@@ -51,7 +53,7 @@ export async function POST(request: NextRequest) {
     });
     const generation: SceneOpeningGeneration = {
       personaId: body.persona.id,
-      version: 2,
+      version: openingCacheVersion,
       ...opening,
       createdAt: new Date().toISOString()
     };
@@ -60,8 +62,8 @@ export async function POST(request: NextRequest) {
       {
         sessionId: body.sessionId,
         stage: "scene_opening",
-        provider: aiDiagnostics.text.provider,
-        model: aiDiagnostics.text.model,
+        provider: aiDiagnostics.provider,
+        model: aiDiagnostics.model,
         status: "success",
         inputSummary: {
           imageId: body.image.id,

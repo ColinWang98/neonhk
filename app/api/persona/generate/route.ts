@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAiProviderDiagnostics } from "@/lib/aiProvider";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
 import { persistFragment } from "@/lib/fragments";
+import { geminiDiagnostics } from "@/lib/gemini";
 import { generatePersonas } from "@/lib/persona";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import { analyzeSceneSnapshot } from "@/lib/vision";
@@ -17,7 +17,7 @@ type PersonaRequest = {
 };
 
 const SCENE_ANALYSIS_TIMEOUT_MS = 30000;
-const PERSONA_GENERATION_TIMEOUT_MS = 20000;
+const PERSONA_GENERATION_TIMEOUT_MS = 30000;
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string) {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     const config = runtimeConfigFromHeaders(request.headers);
-    const aiDiagnostics = getAiProviderDiagnostics(config);
+    const aiDiagnostics = geminiDiagnostics();
 
     console.info("[persona.generate] started", {
       requestId,
@@ -95,8 +95,8 @@ export async function POST(request: NextRequest) {
           {
             sessionId: body.sessionId,
             stage: "scene_analysis",
-            provider: aiDiagnostics.vision.provider,
-            model: aiDiagnostics.vision.model,
+            provider: aiDiagnostics.provider,
+            model: aiDiagnostics.model,
             status: "success",
             inputSummary: {
               imageId: body.image.id,
@@ -119,8 +119,8 @@ export async function POST(request: NextRequest) {
           {
             sessionId: body.sessionId,
             stage: "scene_analysis",
-            provider: aiDiagnostics.vision.provider,
-            model: aiDiagnostics.vision.model,
+            provider: aiDiagnostics.provider,
+            model: aiDiagnostics.model,
             status: "error",
             inputSummary: {
               imageId: body.image.id,
@@ -155,8 +155,8 @@ export async function POST(request: NextRequest) {
         {
           sessionId: body.sessionId,
           stage: "persona_generation",
-          provider: aiDiagnostics.text.provider,
-          model: aiDiagnostics.text.model,
+          provider: aiDiagnostics.provider,
+          model: aiDiagnostics.model,
           status: "success",
           inputSummary: {
             imageId: body.image.id,
@@ -188,8 +188,8 @@ export async function POST(request: NextRequest) {
         {
           sessionId: body.sessionId,
           stage: "persona_generation",
-          provider: aiDiagnostics.text.provider,
-          model: aiDiagnostics.text.model,
+          provider: aiDiagnostics.provider,
+          model: aiDiagnostics.model,
           status: "error",
           inputSummary: {
             imageId: body.image.id,
