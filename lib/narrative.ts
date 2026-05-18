@@ -1,4 +1,4 @@
-import { createAiClient } from "@/lib/aiProvider";
+import { generateGeminiJson, geminiModel, prepareGeminiImagePart, type GeminiPart } from "@/lib/gemini";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type {
   EvidencePacket,
@@ -6,8 +6,14 @@ import type {
   PersonaFragmentPlan,
   PlaceContext,
   SchemaNarratives,
+  StreetImage,
   VisionDescription
 } from "@/types";
+
+type NarrativeVisualContext = {
+  cropImageUrl?: string;
+  image?: StreetImage;
+};
 
 const narrativePrompt = `You are generating spoken place stories for a user-selected street-level image fragment.
 
@@ -80,6 +86,9 @@ Evidence boundary:
 - If the plan narrativeMode is question_or_observation, phrase the segment as a small observation or question.
 - If a schema is not listed in activeSchemas, keep that segment very brief and say there is not enough evidence for a fuller story.
 - If the plan localConcernLevel is low, avoid news_context and official_notice claims.
+- If the persona is a tourist, newcomer, temporary resident, first-time visitor, or return visitor, weak fit does not mean silence. Use outsider stance: uncertainty, first impressions, route-finding, travel comparison, or origin-culture comparison. Do not pretend to know long-term local memory.
+- If the plan fitLevel is low or not_applicable, still write useful spoken observations unless the plan narrativeMode is disabled. Keep them modest and comparative.
+- If the plan narrativeMode is disabled, return very brief privacy-safe text only. Do not invent a story.
 
 Generate four spoken story segments, each 45-75 words. They should not sound like four versions of the same point.
 
@@ -145,45 +154,61 @@ Return strict JSON with this shape:
 
 export async function generateNarratives(
   visionDescription: VisionDescription,
-  config: RuntimeApiConfig = {},
+  _config: RuntimeApiConfig = {},
   persona?: GeneratedPersona,
   placeContext?: PlaceContext,
   evidencePacket?: EvidencePacket,
-  personaFragmentPlan?: PersonaFragmentPlan
+  personaFragmentPlan?: PersonaFragmentPlan,
+  visualContext: NarrativeVisualContext = {}
 ): Promise<SchemaNarratives> {
-  const ai = createAiClient(config, "text");
+  void _config;
+  const model = geminiModel();
+  const wholeImageUrl = visualContext.image?.fullUrl || visualContext.image?.thumbUrl;
+  const parts: GeminiPart[] = [
+    { text: narrativePrompt },
+    {
+      text: JSON.stringify({
+        task: "Write fragment story segments from Evidence Packet and Persona Fragment Plan. Return the required JSON only.",
+        evidencePacket,
+        personaFragmentPlan,
+        visionDescription: evidencePacket ? undefined : visionDescription,
+        persona,
+        placeContext: evidencePacket ? undefined : placeContext,
+        visualContext: {
+          cropImageAttached: Boolean(visualContext.cropImageUrl),
+          wholePanoImageAttached: Boolean(wholeImageUrl),
+          panoId: visualContext.image?.panoId || visualContext.image?.id,
+          lat: visualContext.image?.lat,
+          lng: visualContext.image?.lng
+        },
+        languageStyle:
+          "Default to English. Write like plain street talk, not a literary voiceover. First-person, short, practical, slightly messy. Keep the schema logic hidden. Use only Evidence Packet claim ids and Persona Fragment Plan boundaries for facts. Each segment should be fact, personal judgement, then action. If candidate_verifier, a public institution, campus, station, hospital, museum, public building, landmark, mapped footprint match, or visible readable text supports a concrete name, mention that name early. Use concrete actions: stand, wait, pass, queue, check the sign, avoid the rain, do not block the door. Tourist, newcomer, and temporary-resident narrators may compare with places they know, but must say it as a personal comparison, not a fact about this location. Avoid poetic words such as traces, layers, resonance, threshold, memory, belonging, rhythm, atmosphere, or meaning. If a map candidate is close and view-aligned, mention it cautiously as a possible nearby match. Do not overstate it. Avoid repeating the same line across segments."
+      })
+    }
+  ];
 
-  if (!ai) {
-    throw new Error("Narrative generation requires a configured text model.");
+  if (visualContext.cropImageUrl) {
+    parts.push(await prepareGeminiImagePart(visualContext.cropImageUrl, "Gemini narrative generation"));
+  }
+  if (wholeImageUrl) {
+    parts.push(await prepareGeminiImagePart(wholeImageUrl, "Gemini narrative generation"));
   }
 
-  const response = await ai.client.chat.completions.create({
-    model: ai.model,
-    ...ai.defaults,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: narrativePrompt },
-      {
-        role: "user",
-        content: JSON.stringify({
-          evidencePacket,
-          personaFragmentPlan,
-          visionDescription: evidencePacket ? undefined : visionDescription,
-          persona,
-          placeContext: evidencePacket ? undefined : placeContext,
-          languageStyle:
-            "Default to English. Write like plain street talk, not a literary voiceover. First-person, short, practical, slightly messy. Keep the schema logic hidden. Use only Evidence Packet claim ids and Persona Fragment Plan boundaries for facts. Each segment should be fact, personal judgement, then action. If candidate_verifier, a public institution, campus, station, hospital, museum, public building, landmark, mapped footprint match, or visible readable text supports a concrete name, mention that name early. Use concrete actions: stand, wait, pass, queue, check the sign, avoid the rain, do not block the door. Avoid poetic words such as traces, layers, resonance, threshold, memory, belonging, rhythm, atmosphere, or meaning. If a map candidate is close and view-aligned, mention it cautiously as a possible nearby match. Do not overstate it. Avoid repeating the same line across segments."
-        })
-      }
-    ]
+  const content = await generateGeminiJson({
+    parts,
+    model,
+    temperature: 0.35,
+    errorPrefix: "Gemini narrative generation"
   });
 
-  const content = response.choices[0]?.message.content;
-  if (!content) {
-    throw new Error("Narrative model returned no content.");
+  try {
+    return normalizeNarratives(JSON.parse(content) as Partial<SchemaNarratives>);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error("Gemini narrative generation returned invalid JSON.");
+    }
+    throw error;
   }
-
-  return normalizeNarratives(JSON.parse(content) as Partial<SchemaNarratives>);
 }
 
 function normalizeNarratives(

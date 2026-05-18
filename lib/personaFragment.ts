@@ -36,7 +36,7 @@ export function buildPersonaFragmentPlan(params: {
     1
   );
   const fitLevel = fitLevelForScore(fitScore);
-  const narrativeMode = narrativeModeForFit(fitScore, affordances);
+  const narrativeMode = narrativeModeForFit(fitScore, affordances, params.evidencePacket.fragment.privacyRisk);
   const localConcernLevel = localConcernLevelForPersona(params.persona, lens.stance);
   const activeSchemas = activeSchemasForPlan(params.evidencePacket, lens.preferredSchemas, narrativeMode);
   const sourceClaimIds = params.evidencePacket.claims
@@ -171,8 +171,12 @@ function fitLevelForScore(score: number): PersonaFragmentPlan["fitLevel"] {
   return "not_applicable";
 }
 
-function narrativeModeForFit(score: number, affordances: FragmentAffordance[]): PersonaFragmentPlan["narrativeMode"] {
-  if (affordances.includes("private_sensitive") || score < 0.3) return "disabled";
+function narrativeModeForFit(
+  score: number,
+  affordances: FragmentAffordance[],
+  privacyRisk: EvidencePacket["fragment"]["privacyRisk"]
+): PersonaFragmentPlan["narrativeMode"] {
+  if (affordances.includes("private_sensitive") || privacyRisk === "high") return "disabled";
   if (score >= 0.75) return "full_interpretation";
   if (score >= 0.5) return "brief_comment";
   return "question_or_observation";
@@ -185,6 +189,8 @@ function canSpeakAbout(affordances: FragmentAffordance[], lens: ReturnType<typeo
   if (affordances.includes("commercial")) topics.add("street-facing shops and everyday errands");
   if (affordances.includes("infrastructure")) topics.add("small public rules created by rails, pipes, barriers, or civic fixtures");
   if (lens.stance === "outsider_questioning") topics.add("visitor uncertainty and first-time orientation");
+  if (lens.stance === "outsider_questioning") topics.add("careful comparisons with places the visitor already knows");
+  if (lens.stance === "cautious_interpretation") topics.add("temporary resident or newcomer comparisons without claiming local memory");
   if (lens.stance === "practical_commentary") topics.add("practical use and street manners");
   return Array.from(topics).slice(0, 5);
 }

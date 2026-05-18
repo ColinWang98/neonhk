@@ -1445,7 +1445,7 @@ const storyLabels = {
   en: ["Everyday use", "Feeling of entry", "Time and routine", "Shared space"],
   zh: ["日常使用", "进入感", "时间与惯常", "共享空间"]
 } as const;
-const narrativeCacheVersion = 4;
+const narrativeCacheVersion = 5;
 const openingCacheVersion = 2;
 
 function StoryArchiveDrawer({

@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { generateGeminiJson, geminiModel, prepareGeminiImagePart, stripJsonFence, type GeminiPart } from "@/lib/gemini";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type {
   AllowedNarrativeUse,
@@ -34,18 +33,6 @@ type VerifyParams = {
   visionDescription: VisionDescription;
   placeContext?: PlaceContext;
   config?: RuntimeApiConfig;
-};
-
-type GeminiPart =
-  | { text: string }
-  | { inline_data: { mime_type: string; data: string } };
-
-type GeminiResponse = {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{ text?: string }>;
-    };
-  }>;
 };
 
 const verificationPrompt = `You verify whether map candidates plausibly match a user-selected Street View crop.
@@ -105,13 +92,8 @@ export async function verifyCandidateMatches(params: VerifyParams): Promise<Cand
 }
 
 async function verifyWithGemini(params: VerifyParams, candidates: CandidateInput[]): Promise<CandidateVerification> {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Gemini candidate verification requires GEMINI_API_KEY.");
-  }
-
-  const model = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
-  const cropImage = await prepareGeminiImagePart(params.cropImageUrl || "");
+  const model = geminiModel();
+  const cropImage = await prepareGeminiImagePart(params.cropImageUrl || "", "Gemini candidate verification");
   const wholeImageUrl = params.image?.fullUrl || params.image?.thumbUrl;
   const parts: GeminiPart[] = [
     { text: verificationPrompt },
@@ -141,32 +123,15 @@ async function verifyWithGemini(params: VerifyParams, candidates: CandidateInput
   ];
 
   if (wholeImageUrl) {
-    parts.push(await prepareGeminiImagePart(wholeImageUrl));
+    parts.push(await prepareGeminiImagePart(wholeImageUrl, "Gemini candidate verification"));
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-  const payload = JSON.stringify({
-    contents: [{ role: "user", parts }],
-    generationConfig: {
-      responseMimeType: "application/json",
-      temperature: 0.1
-    }
+  const raw = await generateGeminiJson({
+    parts,
+    model,
+    temperature: 0.1,
+    errorPrefix: "Gemini candidate verification"
   });
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-    body: payload
-  });
-
-  const data = await res.json() as GeminiResponse & { error?: { message?: string } };
-  if (!res.ok) {
-    throw new Error(data.error?.message || `Gemini candidate verification failed: ${res.status}`);
-  }
-
-  const raw = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim();
-  if (!raw) {
-    throw new Error("Gemini candidate verifier returned no content.");
-  }
 
   return normalizeVerificationOutput(raw, candidates, "gemini", model);
 }
@@ -343,34 +308,4 @@ function skipped(reason: string): CandidateVerification {
     warnings: [reason],
     createdAt: new Date().toISOString()
   };
-}
-
-async function prepareGeminiImagePart(imageUrl: string): Promise<GeminiPart> {
-  const dataUrl = await prepareImageUrl(imageUrl);
-  if (dataUrl.startsWith("data:")) {
-    const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-    if (!match) throw new Error("Invalid data URL for Gemini image input.");
-    return { inline_data: { mime_type: match[1], data: match[2] } };
-  }
-
-  const res = await fetch(dataUrl, { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch image for Gemini candidate verification: ${res.status}`);
-  }
-  const contentType = res.headers.get("content-type")?.split(";")[0] || "image/jpeg";
-  const buffer = Buffer.from(await res.arrayBuffer());
-  return { inline_data: { mime_type: contentType, data: buffer.toString("base64") } };
-}
-
-async function prepareImageUrl(imageUrl: string) {
-  if (!imageUrl.startsWith("/")) return imageUrl;
-  const file = await readFile(path.join(process.cwd(), "public", imageUrl));
-  return `data:image/jpeg;base64,${file.toString("base64")}`;
-}
-
-function stripJsonFence(value: string) {
-  return value
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
 }

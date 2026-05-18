@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAiProviderDiagnostics } from "@/lib/aiProvider";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
 import { verifyCandidateMatches } from "@/lib/candidateVerification";
 import { buildEvidencePacket } from "@/lib/evidence";
 import { persistFragment } from "@/lib/fragments";
+import { geminiDiagnostics } from "@/lib/gemini";
 import { logEvent } from "@/lib/logger";
 import { generateNarratives } from "@/lib/narrative";
 import { buildNarrativeBlocks, reinforceConcreteFacts, validateNarrative } from "@/lib/narrativeValidation";
@@ -19,6 +19,8 @@ import type {
   StreetImage,
   VisionDescription
 } from "@/types";
+
+const narrativeCacheVersion = 5;
 
 type NarrativeRequest = {
   fragmentId: string;
@@ -44,15 +46,17 @@ export async function POST(request: NextRequest) {
     }
 
     const startedAt = performance.now();
-    const aiDiagnostics = getAiProviderDiagnostics(config);
-    const candidateVerification = body.existingEvidencePacket?.candidateVerification || await verifyCandidateMatches({
+    const narrativeDiagnostics = geminiDiagnostics();
+    const candidateVerification =
+      body.existingEvidencePacket?.candidateVerification ||
+      (await verifyCandidateMatches({
         cropImageUrl: body.cropImageUrl,
         image: body.image,
         panoramaPov: body.panoramaPov,
         visionDescription: body.visionDescription,
         placeContext: body.placeContext,
         config
-      });
+      }));
     const evidencePacket = buildEvidencePacket({
       fragmentId: body.fragmentId,
       sessionId: body.sessionId,
@@ -75,7 +79,11 @@ export async function POST(request: NextRequest) {
       body.persona,
       body.placeContext,
       evidencePacket,
-      personaFragmentPlan
+      personaFragmentPlan,
+      {
+        cropImageUrl: body.cropImageUrl,
+        image: body.image
+      }
     );
     const narratives = reinforceConcreteFacts(generatedNarratives, evidencePacket);
     const narrativeBlocks = buildNarrativeBlocks(narratives, evidencePacket, personaFragmentPlan);
@@ -91,8 +99,8 @@ export async function POST(request: NextRequest) {
           sessionId: body.sessionId,
           fragmentId: body.fragmentId,
           stage: "narrative_generation",
-          provider: aiDiagnostics.text.provider,
-          model: aiDiagnostics.text.model,
+          provider: narrativeDiagnostics.provider,
+          model: narrativeDiagnostics.model,
           status: "error",
           inputSummary: {
             visionDescription: body.visionDescription,
@@ -118,7 +126,7 @@ export async function POST(request: NextRequest) {
     const personaId = body.persona?.id || "default";
     const narrativeGeneration: NarrativeGeneration = {
       personaId,
-      version: 4,
+      version: narrativeCacheVersion,
       narratives,
       evidencePacket,
       personaFragmentPlan,
@@ -135,8 +143,8 @@ export async function POST(request: NextRequest) {
         sessionId: body.sessionId,
         fragmentId: body.fragmentId,
         stage: "narrative_generation",
-        provider: aiDiagnostics.text.provider,
-        model: aiDiagnostics.text.model,
+        provider: narrativeDiagnostics.provider,
+        model: narrativeDiagnostics.model,
         status: "success",
         inputSummary: {
           visionDescription: body.visionDescription,
