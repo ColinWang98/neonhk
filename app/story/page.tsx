@@ -74,6 +74,8 @@ export default function StoryPage() {
   const openingRequestIdRef = useRef(0);
   const openingPersonaIdRef = useRef<string | undefined>(undefined);
   const storySessionIdRef = useRef<string | undefined>(storySession?.id);
+  const storySessionRef = useRef<StorySession | undefined>(storySession);
+  const selectedPersonaIdRef = useRef<string | undefined>(selectedPersona?.id);
 
   const runtimeHeaders = useMemo(() => runtimeConfigToHeaders(apiConfig), [apiConfig]);
   const activeFragment = useMemo(() => fragments[0], [fragments]);
@@ -124,8 +126,13 @@ export default function StoryPage() {
   );
 
   useEffect(() => {
+    storySessionRef.current = storySession;
     storySessionIdRef.current = storySession?.id;
-  }, [storySession?.id]);
+  }, [storySession]);
+
+  useEffect(() => {
+    selectedPersonaIdRef.current = selectedPersona?.id;
+  }, [selectedPersona?.id]);
 
   useEffect(() => {
     const savedConfig = localStorage.getItem(runtimeConfigStorageKey);
@@ -187,12 +194,17 @@ export default function StoryPage() {
       setPersonas(storySession.personas);
       setPersonaStatus("ready");
       setSceneStatus("ready");
-      if (storySession.selectedPersona) {
-        const selected =
-          storySession.personas.find((persona) => persona.id === storySession.selectedPersona?.id) ||
-          storySession.selectedPersona;
+      const currentSelected = selectedPersonaIdRef.current
+        ? storySession.personas.find((persona) => persona.id === selectedPersonaIdRef.current)
+        : undefined;
+      const sessionSelected = storySession.selectedPersona
+        ? storySession.personas.find((persona) => persona.id === storySession.selectedPersona?.id) ||
+          storySession.selectedPersona
+        : undefined;
+      const selected = currentSelected || sessionSelected;
+      if (selected && selected.id !== selectedPersona?.id) {
         setSelectedPersona(selected);
-      } else if (selectedPersona) {
+      } else if (!selected && selectedPersona) {
         setSelectedPersona(undefined);
       }
       return;
@@ -483,10 +495,11 @@ export default function StoryPage() {
       })
       .then((narratives) => {
         if (cancelled) return;
+        const storyPersona = selectedPersona;
         const schemaNarratives = pickSchemaNarratives(narratives);
         const narrativeGeneration =
           narratives.narrativeGeneration || {
-            personaId: selectedPersona.id,
+            personaId: storyPersona.id,
             version: narrativeCacheVersion,
             narratives: schemaNarratives,
             evidencePacket: narratives.evidencePacket,
@@ -497,22 +510,32 @@ export default function StoryPage() {
           };
         updateFragment(fragmentId, {
           narratives: schemaNarratives,
-          narrativePersonaId: selectedPersona.id,
+          narrativePersonaId: storyPersona.id,
           evidencePacket: narratives.evidencePacket,
           personaFragmentPlans: narratives.personaFragmentPlan
             ? {
                 ...(readyFragment.personaFragmentPlans || {}),
-                [selectedPersona.id]: narratives.personaFragmentPlan
+                [storyPersona.id]: narratives.personaFragmentPlan
               }
             : readyFragment.personaFragmentPlans,
           narrativeGenerations: narratives.narrativeGenerations || {
             ...(readyFragment.narrativeGenerations || {}),
-            [selectedPersona.id]: narrativeGeneration
+            [storyPersona.id]: narrativeGeneration
           },
           narrativeBlocks: narratives.narrativeBlocks,
           narrativeValidation: narratives.narrativeValidation,
           status: "ready"
         });
+        const currentSession = storySessionRef.current;
+        if (currentSession && currentSession.selectedPersona?.id !== storyPersona.id) {
+          const nextSession = {
+            ...currentSession,
+            selectedPersona: storyPersona
+          };
+          setStorySession(nextSession);
+          sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
+          void saveStorySession(nextSession, runtimeHeaders);
+        }
         setStoryStatus("ready");
       })
       .catch((err) => {
@@ -541,6 +564,7 @@ export default function StoryPage() {
     selectedImage,
     selectedPersona,
     setCaption,
+    setStorySession,
     storySession?.id,
     updateFragment
   ]);
@@ -922,13 +946,7 @@ export default function StoryPage() {
                 title={uiLanguage === "zh" ? "先听讲述人开场" : "Narrator Opening"}
                 description={uiLanguage === "zh" ? "先听这个讲述人怎么看这片环境，然后再框选细节。" : "Hear this narrator read the wider scene first, then select a detail."}
                 onCaptionChange={setCaption}
-                onIntroPlayed={() => {
-                  if (!activeOpeningKey) return;
-                  setPlayedOpeningKeys((current) => ({
-                    ...current,
-                    [activeOpeningKey]: true
-                  }));
-                }}
+                onIntroPlayed={() => undefined}
                 onAudioGenerated={(entry) => {
                   if (!storySession || !selectedPersona) return;
                   const currentOpening = storySession.sceneOpeningGenerations?.[selectedPersona.id] || activeOpening;

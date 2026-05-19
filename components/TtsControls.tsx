@@ -85,7 +85,7 @@ export function TtsControls({
     return storyText;
   }, [includeIntro, introText, storyText]);
 
-  const previewText = storyText || introText || "";
+  const previewText = speechText || storyText || introText || "";
   const selectedProvider = normalizeFrontendTtsProvider(config.ttsProvider);
   const voiceGenerationPaused = !cachedAudio?.audioUrl && (!selectedProvider || selectedProvider === "minimax");
 
