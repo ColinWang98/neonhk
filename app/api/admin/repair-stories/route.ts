@@ -383,7 +383,12 @@ function patchFragmentRepair(
       clearTimeout(timeout);
       reject(error);
     });
-    request.on("close", () => clearTimeout(timeout));
+    request.on("close", () => {
+      clearTimeout(timeout);
+      if (settled) return;
+      settled = true;
+      reject(new Error("Fragment repair persistence connection closed before a response was received."));
+    });
     request.write(body);
     request.end();
   });
