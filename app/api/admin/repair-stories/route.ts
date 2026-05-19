@@ -246,17 +246,12 @@ async function repairOneStory(params: {
     createdAt: new Date().toISOString()
   };
   const narrativeGenerations = {
-    ...(params.fragment.narrativeGenerations || {}),
     [params.personaId]: generation
   };
   const personaFragmentPlans = {
-    ...(params.fragment.personaFragmentPlans || {}),
     [params.personaId]: graphResult.personaFragmentPlan
   };
-  const shouldUpdateActiveStory =
-    params.fragment.narrativePersonaId === params.personaId ||
-    !params.fragment.narrativePersonaId ||
-    Object.keys(params.fragment.narrativeGenerations || {}).length <= 1;
+  const shouldUpdateActiveStory = true;
 
   if (params.persist) {
     await patchFragmentRepair(
