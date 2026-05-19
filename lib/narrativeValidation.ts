@@ -92,6 +92,9 @@ export function validateNarrative(params: {
   const allText = Object.values(params.narratives)
     .map((item) => item.text.toLowerCase())
     .join(" ");
+  if (hasMetaRefusal(allText)) {
+    warnings.push("Narrative exposes evidence limits instead of turning uncertainty into a grounded persona perspective.");
+  }
   const strongerCandidateNames = new Set(
     params.evidencePacket.claims
       .filter((claim) => claim.allowedUse !== "background_only" && claim.allowedUse !== "do_not_use")
@@ -123,6 +126,7 @@ export function validateNarrative(params: {
   const failed = warnings.some((warning) =>
     warning.includes("do_not_use") ||
     warning.includes("disabled") ||
+    warning.includes("evidence limits") ||
     warning.includes("overstated as visible") ||
     warning.includes("direct cause")
   );
@@ -201,7 +205,12 @@ function requiresUncertainty(ids: string[], packet: EvidencePacket) {
 }
 
 function hasUncertaintyCue(text: string) {
-  return /\b(may|might|could|maybe|possibly|looks like|feels like|seems|seem|i cannot know|i can't know|i would guess|suggests)\b/i.test(text);
+  return /\b(may|might|could|maybe|possibly|looks like|feels like|seems|seem|i would guess|i would read|from what i can see|i would not treat it as certain|reminds me of|suggests)\b/i.test(text);
+}
+
+function hasMetaRefusal(text: string) {
+  return /\b(not enough evidence|not enough information|insufficient evidence|i cannot know|i can't know|i cannot describe|i cannot talk about|i can't talk about|i will not speculate|i won't speculate|i will not guess|i won't guess|i will not invent|i won't invent|i don't know enough|no detailed story can be provided)\b/i.test(text) ||
+    /(没有足够|证据不足|信息不足|我无法|我不能描述|不能描述|不愿猜测|不会编造|不能提供更详细)/.test(text);
 }
 
 function extractCandidateName(text: string) {

@@ -20,7 +20,7 @@ import type {
   VisionDescription
 } from "@/types";
 
-const narrativeCacheVersion = 5;
+const narrativeCacheVersion = 6;
 
 type NarrativeRequest = {
   fragmentId: string;

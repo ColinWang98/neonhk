@@ -133,6 +133,12 @@ function activeSchemasForPlan(
   narrativeMode: PersonaFragmentPlan["narrativeMode"]
 ) {
   if (narrativeMode === "disabled") return [];
+  const allSchemas: SchemaName[] = [
+    "Functional-Use",
+    "Identity-Belonging",
+    "Memory-Temporality",
+    "Social-Cultural Resonance"
+  ];
   const enabled: SchemaName[] = [];
   const affordances = evidencePacket.storyAffordances;
   if (affordances.supportsFunctionalUse) enabled.push("Functional-Use");
@@ -140,10 +146,13 @@ function activeSchemasForPlan(
   if (affordances.supportsMemoryTemporality) enabled.push("Memory-Temporality");
   if (affordances.supportsSocialCulturalResonance) enabled.push("Social-Cultural Resonance");
 
-  const prioritized = [...preferredSchemas.filter((schema) => enabled.includes(schema)), ...enabled.filter((schema) => !preferredSchemas.includes(schema))];
-  if (narrativeMode === "full_interpretation") return prioritized.slice(0, 4);
-  if (narrativeMode === "brief_comment") return prioritized.slice(0, 3);
-  return prioritized.slice(0, 1);
+  const prioritized = [
+    ...preferredSchemas.filter((schema) => enabled.includes(schema)),
+    ...enabled.filter((schema) => !preferredSchemas.includes(schema)),
+    ...allSchemas.filter((schema) => !enabled.includes(schema) && !preferredSchemas.includes(schema)),
+    ...preferredSchemas.filter((schema) => !enabled.includes(schema))
+  ];
+  return Array.from(new Set(prioritized)).slice(0, 4);
 }
 
 function evidenceSupportScore(packet: EvidencePacket) {
