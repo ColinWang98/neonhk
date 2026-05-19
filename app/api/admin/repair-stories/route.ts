@@ -29,6 +29,7 @@ type RepairStoriesRequest = {
   dryRun?: boolean;
   includeImages?: boolean;
   validationMode?: "full" | "system";
+  persist?: boolean;
 };
 
 type RepairResult = {
@@ -38,6 +39,7 @@ type RepairResult = {
   status: "repaired" | "dry_run" | "skipped" | "failed";
   reason?: string;
   repairedByJudge?: boolean;
+  persisted?: boolean;
   validationWarnings?: string[];
   agentRuns?: Array<{
     agentName: string;
@@ -150,7 +152,8 @@ export async function POST(request: NextRequest) {
           config,
           includeImages: Boolean(body.includeImages),
           skipAiJudge: body.validationMode === "system",
-          skipLogs: true
+          skipLogs: true,
+          persist: body.persist !== false
         });
         repairedCount += 1;
         results.push({
@@ -159,6 +162,7 @@ export async function POST(request: NextRequest) {
           personaId,
           status: "repaired",
           repairedByJudge: result.repaired,
+          persisted: result.persisted,
           validationWarnings: result.generation.narrativeValidation?.warnings || [],
           agentRuns: result.generation.agentRuns
         });
@@ -205,6 +209,7 @@ async function repairOneStory(params: {
   includeImages: boolean;
   skipAiJudge: boolean;
   skipLogs: boolean;
+  persist: boolean;
 }) {
   if (!params.fragment.visionDescription) {
     throw new Error("Fragment has no vision description.");
@@ -252,40 +257,42 @@ async function repairOneStory(params: {
     !params.fragment.narrativePersonaId ||
     Object.keys(params.fragment.narrativeGenerations || {}).length <= 1;
 
-  const persistResult = await persistFragment(
-    {
-      id: params.fragment.id,
-      visionDescription: params.fragment.visionDescription,
-      placeContext,
-      evidencePacket: graphResult.evidencePacket,
-      personaFragmentPlans,
-      narrativeGenerations,
-      ...(shouldUpdateActiveStory
-        ? {
-            narratives: graphResult.narratives,
-            narrativePersonaId: params.personaId,
-            narrativeBlocks: graphResult.narrativeBlocks,
-            narrativeValidation: graphResult.narrativeValidation
-          }
-        : {}),
-      status: "ready"
-    },
-    params.config
-  );
-  if (persistResult && !persistResult.ok) {
-    throw new Error(`Fragment repair persistence failed: ${persistResult.error || "unknown persistence error"}`);
-  }
-
-  const [persisted] = await listFragmentsForNarrativeRepair({
-    fragmentId: params.fragment.id,
-    limit: 1,
-    config: params.config
-  });
-  const persistedVersion = persisted?.fragment.narrativeGenerations?.[params.personaId]?.version;
-  if (persistedVersion !== narrativeCacheVersion) {
-    throw new Error(
-      `Fragment repair persistence verification failed: expected narrative version ${narrativeCacheVersion}, got ${persistedVersion ?? "missing"}.`
+  if (params.persist) {
+    const persistResult = await persistFragment(
+      {
+        id: params.fragment.id,
+        visionDescription: params.fragment.visionDescription,
+        placeContext,
+        evidencePacket: graphResult.evidencePacket,
+        personaFragmentPlans,
+        narrativeGenerations,
+        ...(shouldUpdateActiveStory
+          ? {
+              narratives: graphResult.narratives,
+              narrativePersonaId: params.personaId,
+              narrativeBlocks: graphResult.narrativeBlocks,
+              narrativeValidation: graphResult.narrativeValidation
+            }
+          : {}),
+        status: "ready"
+      },
+      params.config
     );
+    if (persistResult && !persistResult.ok) {
+      throw new Error(`Fragment repair persistence failed: ${persistResult.error || "unknown persistence error"}`);
+    }
+
+    const [persisted] = await listFragmentsForNarrativeRepair({
+      fragmentId: params.fragment.id,
+      limit: 1,
+      config: params.config
+    });
+    const persistedVersion = persisted?.fragment.narrativeGenerations?.[params.personaId]?.version;
+    if (persistedVersion !== narrativeCacheVersion) {
+      throw new Error(
+        `Fragment repair persistence verification failed: expected narrative version ${narrativeCacheVersion}, got ${persistedVersion ?? "missing"}.`
+      );
+    }
   }
 
   if (!params.skipLogs) {
@@ -332,7 +339,7 @@ async function repairOneStory(params: {
     status: "ready"
   };
 
-  return { fragment, generation, repaired: graphResult.repaired };
+  return { fragment, generation, repaired: graphResult.repaired, persisted: params.persist };
 }
 
 function collectRepairPersonaIds(fragment: SelectedFragment, session: StorySession, body: RepairStoriesRequest) {
