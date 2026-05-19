@@ -261,9 +261,6 @@ async function repairOneStory(params: {
     const persistResult = await persistFragment(
       {
         id: params.fragment.id,
-        visionDescription: params.fragment.visionDescription,
-        placeContext,
-        evidencePacket: graphResult.evidencePacket,
         personaFragmentPlans,
         narrativeGenerations,
         ...(shouldUpdateActiveStory
