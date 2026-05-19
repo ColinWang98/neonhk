@@ -70,6 +70,7 @@ export async function judgeNarrativeWithGemini(input: StoryJudgeInput): Promise<
   const raw = await generateGeminiJson({
     model,
     temperature: 0.1,
+    maxOutputTokens: 900,
     errorPrefix: "Gemini story judge",
     parts: [
       { text: storyJudgePrompt },

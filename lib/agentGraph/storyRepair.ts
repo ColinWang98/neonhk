@@ -44,6 +44,7 @@ export async function repairNarrativeWithGemini(input: StoryRepairInput): Promis
   const raw = await generateGeminiJson({
     model: geminiModel(),
     temperature: 0.25,
+    maxOutputTokens: 1800,
     errorPrefix: "Gemini story repair",
     parts: [
       { text: repairPrompt },

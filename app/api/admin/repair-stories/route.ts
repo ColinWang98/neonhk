@@ -16,7 +16,7 @@ import type {
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type RepairStoriesRequest = {
   sessionId?: string;

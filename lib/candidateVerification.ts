@@ -130,6 +130,7 @@ async function verifyWithGemini(params: VerifyParams, candidates: CandidateInput
     parts,
     model,
     temperature: 0.1,
+    maxOutputTokens: 900,
     errorPrefix: "Gemini candidate verification"
   });
 

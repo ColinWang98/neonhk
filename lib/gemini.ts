@@ -36,6 +36,8 @@ export async function generateGeminiJson(params: {
   parts: GeminiPart[];
   model?: string;
   temperature?: number;
+  maxOutputTokens?: number;
+  timeoutMs?: number;
   errorPrefix: string;
 }) {
   const apiKey = geminiApiKey();
@@ -49,14 +51,32 @@ export async function generateGeminiJson(params: {
     contents: [{ role: "user", parts: params.parts }],
     generationConfig: {
       responseMimeType: "application/json",
-      temperature: params.temperature ?? 0.2
+      temperature: params.temperature ?? 0.2,
+      ...(params.maxOutputTokens ? { maxOutputTokens: params.maxOutputTokens } : {})
     }
   });
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-    body: payload
-  });
+  const timeoutMs = normalizeTimeoutMs(params.timeoutMs);
+  const controller = new AbortController();
+  const timeout = timeoutMs
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : undefined;
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: payload,
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`${params.errorPrefix} timed out after ${timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 
   const data = (await res.json()) as GeminiResponse;
   if (!res.ok) {
@@ -69,6 +89,12 @@ export async function generateGeminiJson(params: {
   }
 
   return stripJsonFence(raw);
+}
+
+function normalizeTimeoutMs(value?: number) {
+  const raw = value ?? Number(process.env.GEMINI_TIMEOUT_MS || "45000");
+  if (!Number.isFinite(raw) || raw <= 0) return undefined;
+  return Math.max(1000, Math.round(raw));
 }
 
 export async function prepareGeminiImagePart(
