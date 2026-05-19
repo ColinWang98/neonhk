@@ -238,11 +238,8 @@ async function repairOneStory(params: {
     personaId: params.personaId,
     version: narrativeCacheVersion,
     narratives: graphResult.narratives,
-    evidencePacket: graphResult.evidencePacket,
-    personaFragmentPlan: graphResult.personaFragmentPlan,
     narrativeBlocks: graphResult.narrativeBlocks,
     narrativeValidation: graphResult.narrativeValidation,
-    agentRuns: graphResult.agentRuns,
     createdAt: new Date().toISOString()
   };
   const narrativeGenerations = {
