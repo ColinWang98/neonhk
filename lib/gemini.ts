@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import https from "node:https";
 import path from "node:path";
 
 export type GeminiPart =
@@ -56,31 +57,10 @@ export async function generateGeminiJson(params: {
     }
   });
   const timeoutMs = normalizeTimeoutMs(params.timeoutMs);
-  const controller = new AbortController();
-  const timeout = timeoutMs
-    ? setTimeout(() => controller.abort(), timeoutMs)
-    : undefined;
-
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: payload,
-      signal: controller.signal
-    });
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new Error(`${params.errorPrefix} timed out after ${timeoutMs}ms.`);
-    }
-    throw error;
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
-
-  const data = (await res.json()) as GeminiResponse;
-  if (!res.ok) {
-    throw new Error(data.error?.message || `${params.errorPrefix} failed: ${res.status}`);
+  const response = await postJson(url, payload, apiKey, timeoutMs, params.errorPrefix);
+  const data = parseGeminiResponse(response.body, params.errorPrefix);
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(data.error?.message || `${params.errorPrefix} failed: ${response.status}`);
   }
 
   const raw = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim();
@@ -89,6 +69,56 @@ export async function generateGeminiJson(params: {
   }
 
   return stripJsonFence(raw);
+}
+
+function postJson(
+  urlString: string,
+  payload: string,
+  apiKey: string,
+  timeoutMs: number | undefined,
+  errorPrefix: string
+): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const url = new URL(urlString);
+    const request = https.request(
+      url,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+          "x-goog-api-key": apiKey
+        }
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        response.on("end", () => {
+          resolve({
+            status: response.statusCode || 0,
+            body: Buffer.concat(chunks).toString("utf8")
+          });
+        });
+      }
+    );
+
+    request.on("error", reject);
+    if (timeoutMs) {
+      request.setTimeout(timeoutMs, () => {
+        request.destroy(new Error(`${errorPrefix} timed out after ${timeoutMs}ms.`));
+      });
+    }
+    request.write(payload);
+    request.end();
+  });
+}
+
+function parseGeminiResponse(body: string, errorPrefix: string): GeminiResponse {
+  try {
+    return JSON.parse(body) as GeminiResponse;
+  } catch {
+    throw new Error(`${errorPrefix} returned invalid response JSON.`);
+  }
 }
 
 function normalizeTimeoutMs(value?: number) {
@@ -118,10 +148,16 @@ export async function prepareGeminiImagePart(
 }
 
 export function stripJsonFence(value: string) {
-  return value
+  const stripped = value
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "")
     .trim();
+  const firstBrace = stripped.indexOf("{");
+  const lastBrace = stripped.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return stripped.slice(firstBrace, lastBrace + 1);
+  }
+  return stripped;
 }
 
 async function prepareImageUrl(imageUrl: string) {
