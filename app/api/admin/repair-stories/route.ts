@@ -249,7 +249,7 @@ async function repairOneStory(params: {
     !params.fragment.narrativePersonaId ||
     Object.keys(params.fragment.narrativeGenerations || {}).length <= 1;
 
-  await persistFragment(
+  const persistResult = await persistFragment(
     {
       id: params.fragment.id,
       visionDescription: params.fragment.visionDescription,
@@ -269,6 +269,22 @@ async function repairOneStory(params: {
     },
     params.config
   );
+  if (persistResult && !persistResult.ok) {
+    throw new Error(`Fragment repair persistence failed: ${persistResult.error || "unknown persistence error"}`);
+  }
+
+  const [persisted] = await listFragmentsForNarrativeRepair({
+    fragmentId: params.fragment.id,
+    limit: 1,
+    config: params.config
+  });
+  const persistedVersion = persisted?.fragment.narrativeGenerations?.[params.personaId]?.version;
+  if (persistedVersion !== narrativeCacheVersion) {
+    throw new Error(
+      `Fragment repair persistence verification failed: expected narrative version ${narrativeCacheVersion}, got ${persistedVersion ?? "missing"}.`
+    );
+  }
+
   await logAiGeneration(
     {
       sessionId: params.session.id,

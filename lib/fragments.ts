@@ -106,14 +106,16 @@ export async function persistFragment(record: FragmentRecord, config: RuntimeApi
 
       if (fallbackResult.error) {
         console.warn(`Fragment persistence skipped: ${fallbackResult.error.message}`);
+        return { ok: false, error: fallbackResult.error.message };
       }
-      return;
+      return { ok: true, usedFallback: true };
     }
 
     if (result.error) {
       console.warn(`Fragment persistence skipped: ${result.error.message}`);
+      return { ok: false, error: result.error.message };
     }
-    return;
+    return { ok: true };
   }
 
   if (process.env.VERCEL) {
@@ -121,7 +123,7 @@ export async function persistFragment(record: FragmentRecord, config: RuntimeApi
       ...record,
       updatedAt: new Date().toISOString()
     });
-    return;
+    return { ok: true, loggedOnly: true };
   }
 
   const logDir = path.join(process.cwd(), ".local-data");
@@ -130,6 +132,7 @@ export async function persistFragment(record: FragmentRecord, config: RuntimeApi
     path.join(logDir, "fragments.jsonl"),
     `${JSON.stringify({ ...record, updatedAt: new Date().toISOString() })}\n`
   );
+  return { ok: true, loggedOnly: true };
 }
 
 function hasOptionalColumnFailure(message: string) {
