@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import https from "node:https";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
 import { runFragmentStoryGraph } from "@/lib/agentGraph/fragmentStoryGraph";
-import { listFragmentsForNarrativeRepair, persistFragment } from "@/lib/fragments";
+import { listFragmentsForNarrativeRepair } from "@/lib/fragments";
 import { geminiDiagnostics } from "@/lib/gemini";
 import { narrativeCacheVersion } from "@/lib/narrativeCache";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
@@ -258,26 +259,23 @@ async function repairOneStory(params: {
     Object.keys(params.fragment.narrativeGenerations || {}).length <= 1;
 
   if (params.persist) {
-    const persistResult = await persistFragment(
+    await patchFragmentRepair(
+      params.fragment.id,
       {
-        id: params.fragment.id,
-        personaFragmentPlans,
-        narrativeGenerations,
+        persona_fragment_plans: personaFragmentPlans,
+        narrative_generations: narrativeGenerations,
         ...(shouldUpdateActiveStory
           ? {
               narratives: graphResult.narratives,
-              narrativePersonaId: params.personaId,
-              narrativeBlocks: graphResult.narrativeBlocks,
-              narrativeValidation: graphResult.narrativeValidation
+              narrative_persona_id: params.personaId,
+              narrative_blocks: graphResult.narrativeBlocks,
+              narrative_validation: graphResult.narrativeValidation
             }
           : {}),
         status: "ready"
       },
       params.config
     );
-    if (persistResult && !persistResult.ok) {
-      throw new Error(`Fragment repair persistence failed: ${persistResult.error || "unknown persistence error"}`);
-    }
 
     const [persisted] = await listFragmentsForNarrativeRepair({
       fragmentId: params.fragment.id,
@@ -337,6 +335,58 @@ async function repairOneStory(params: {
   };
 
   return { fragment, generation, repaired: graphResult.repaired, persisted: params.persist };
+}
+
+function patchFragmentRepair(
+  fragmentId: string,
+  payload: Record<string, unknown>,
+  config: ReturnType<typeof runtimeConfigFromHeaders>
+) {
+  const supabaseUrl = config.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = config.supabaseServiceRoleKey || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error("Supabase service credentials are not configured for repair persistence.");
+  }
+
+  const endpoint = new URL(`/rest/v1/selected_fragments?id=eq.${encodeURIComponent(fragmentId)}`, supabaseUrl);
+  const body = JSON.stringify(payload);
+  return new Promise<void>((resolve, reject) => {
+    const request = https.request(
+      endpoint,
+      {
+        method: "PATCH",
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
+          Prefer: "return=minimal"
+        }
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        response.on("end", () => {
+          const responseBody = Buffer.concat(chunks).toString("utf8");
+          if ((response.statusCode || 0) < 200 || (response.statusCode || 0) >= 300) {
+            reject(new Error(`Fragment repair persistence failed: ${response.statusCode} ${responseBody}`.trim()));
+            return;
+          }
+          resolve();
+        });
+      }
+    );
+    const timeout = setTimeout(() => {
+      request.destroy(new Error("Fragment repair persistence timed out after 15000ms."));
+    }, 15000);
+    request.on("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    request.on("close", () => clearTimeout(timeout));
+    request.write(body);
+    request.end();
+  });
 }
 
 function collectRepairPersonaIds(fragment: SelectedFragment, session: StorySession, body: RepairStoriesRequest) {
