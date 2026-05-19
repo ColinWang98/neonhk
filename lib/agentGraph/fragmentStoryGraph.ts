@@ -33,6 +33,7 @@ type FragmentStoryGraphInput = {
   panoramaPov?: PanoramaPov;
   existingEvidencePacket?: EvidencePacket;
   config?: RuntimeApiConfig;
+  skipAiJudge?: boolean;
 };
 
 type FragmentStoryGraphOutput = {
@@ -184,32 +185,53 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
     evidencePacket,
     plan: personaFragmentPlan
   });
-  let narrativeValidation = await runAgent(
-    "StoryJudgeAgent",
-    {
-      deterministicValidation,
-      narrativeBlocks
-    },
-    async () =>
-      judgeNarrativeWithGemini({
-        narratives,
-        narrativeBlocks,
-        evidencePacket,
-        personaFragmentPlan,
-        persona: input.persona,
-        deterministicValidation
-      }),
-    {
-      ...runContext,
-      config,
-      agentRuns,
-      provider: diagnostics.provider,
-      model: diagnostics.model
-    }
-  );
+  let narrativeValidation = input.skipAiJudge
+    ? await runAgent(
+        "SystemStoryJudgeAgent",
+        {
+          deterministicValidation,
+          narrativeBlocks
+        },
+        async () => ({
+          ...deterministicValidation,
+          validator: "system" as const,
+          deterministicWarnings: deterministicValidation.warnings,
+          aiWarnings: []
+        }),
+        {
+          ...runContext,
+          config,
+          agentRuns,
+          provider: "system",
+          model: "deterministic-validation-v1"
+        }
+      )
+    : await runAgent(
+        "StoryJudgeAgent",
+        {
+          deterministicValidation,
+          narrativeBlocks
+        },
+        async () =>
+          judgeNarrativeWithGemini({
+            narratives,
+            narrativeBlocks,
+            evidencePacket,
+            personaFragmentPlan,
+            persona: input.persona,
+            deterministicValidation
+          }),
+        {
+          ...runContext,
+          config,
+          agentRuns,
+          provider: diagnostics.provider,
+          model: diagnostics.model
+        }
+      );
 
   let repaired = false;
-  if (narrativeValidation.requiresRegeneration) {
+  if (!input.skipAiJudge && narrativeValidation.requiresRegeneration) {
     repaired = true;
     narratives = await runAgent(
       "StoryRepairAgent",

@@ -27,6 +27,8 @@ type RepairStoriesRequest = {
   scanLimit?: number;
   force?: boolean;
   dryRun?: boolean;
+  includeImages?: boolean;
+  validationMode?: "full" | "system";
 };
 
 type RepairResult = {
@@ -145,7 +147,9 @@ export async function POST(request: NextRequest) {
           session,
           persona,
           personaId,
-          config
+          config,
+          includeImages: Boolean(body.includeImages),
+          skipAiJudge: body.validationMode === "system"
         });
         repairedCount += 1;
         results.push({
@@ -197,6 +201,8 @@ async function repairOneStory(params: {
   persona?: GeneratedPersona;
   personaId: string;
   config: ReturnType<typeof runtimeConfigFromHeaders>;
+  includeImages: boolean;
+  skipAiJudge: boolean;
 }) {
   if (!params.fragment.visionDescription) {
     throw new Error("Fragment has no vision description.");
@@ -213,9 +219,10 @@ async function repairOneStory(params: {
     persona: params.persona,
     placeContext,
     image,
-    cropImageUrl: params.fragment.cropImageUrl,
+    cropImageUrl: params.includeImages ? params.fragment.cropImageUrl : undefined,
     panoramaPov: params.fragment.panoramaPov,
-    config: params.config
+    config: params.config,
+    skipAiJudge: params.skipAiJudge
   });
 
   const generation: NarrativeGeneration = {
@@ -274,7 +281,8 @@ async function repairOneStory(params: {
         personaId: params.personaId,
         previousVersion: params.fragment.narrativeGenerations?.[params.personaId]?.version ?? null,
         targetVersion: narrativeCacheVersion,
-        forceVerifierRefresh: true
+        includeImages: params.includeImages,
+        validationMode: params.skipAiJudge ? "system" : "full"
       },
       output: {
         validation: graphResult.narrativeValidation,
