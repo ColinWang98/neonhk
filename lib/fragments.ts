@@ -29,6 +29,7 @@ type FragmentRecord = {
 
 type FragmentRow = {
   id: string;
+  session_id?: string | null;
   image_id: string | null;
   selected_at: string | null;
   screen_box: SelectedFragment["screenBox"] | null;
@@ -47,6 +48,11 @@ type FragmentRow = {
   narrative_validation?: SelectedFragment["narrativeValidation"] | null;
   audio_generations?: SelectedFragment["audioGenerations"] | null;
   status: SelectedFragment["status"] | null;
+};
+
+export type FragmentRepairCandidate = {
+  sessionId: string;
+  fragment: SelectedFragment;
 };
 
 export async function persistFragment(record: FragmentRecord, config: RuntimeApiConfig = {}) {
@@ -208,6 +214,70 @@ export async function listFragmentsBySession(sessionId: string, config: RuntimeA
   }
 
   return (data || []).map(rowToFragment).filter(Boolean) as SelectedFragment[];
+}
+
+export async function listFragmentsForNarrativeRepair(params: {
+  sessionId?: string;
+  fragmentId?: string;
+  beforeSelectedAt?: string;
+  limit?: number;
+  config?: RuntimeApiConfig;
+} = {}): Promise<FragmentRepairCandidate[]> {
+  const supabase = getSupabaseAdmin(params.config || {});
+  if (!supabase) return [];
+
+  const fullColumns = [
+    "id",
+    "session_id",
+    "image_id",
+    "selected_at",
+    "screen_box",
+    "crop_box",
+    "crop_image_url",
+    "vision_description",
+    "personas",
+    "narratives",
+    "narrative_persona_id",
+    "place_context",
+    "panorama_pov",
+    "evidence_packet",
+    "persona_fragment_plans",
+    "narrative_generations",
+    "narrative_blocks",
+    "narrative_validation",
+    "audio_generations",
+    "status"
+  ].join(", ");
+
+  let query = supabase
+    .from("selected_fragments")
+    .select(fullColumns)
+    .order("selected_at", { ascending: false })
+    .limit(params.limit || 100);
+
+  if (params.sessionId) {
+    query = query.eq("session_id", params.sessionId);
+  }
+  if (params.fragmentId) {
+    query = query.eq("id", params.fragmentId);
+  }
+  if (params.beforeSelectedAt) {
+    query = query.lt("selected_at", params.beforeSelectedAt);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.warn("[fragments] repair_list_failed", { message: error.message });
+    return [];
+  }
+
+  return ((data || []) as unknown as FragmentRow[])
+    .map((row) => {
+      const fragment = rowToFragment(row);
+      if (!fragment || !row.session_id) return null;
+      return { sessionId: row.session_id, fragment };
+    })
+    .filter(Boolean) as FragmentRepairCandidate[];
 }
 
 function rowToFragment(row: FragmentRow): SelectedFragment | null {

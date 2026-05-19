@@ -55,6 +55,35 @@ export async function listStorySessions(config: RuntimeApiConfig = {}) {
   return (rows || []).map(rowToSession).filter(Boolean) as StorySession[];
 }
 
+export async function getStorySession(sessionId: string, config: RuntimeApiConfig = {}) {
+  const supabase = getSupabaseAdmin(config);
+  if (!supabase) return null;
+
+  const fullResult = await supabase.from("story_sessions").select(fullStorySessionSelect).eq("id", sessionId).maybeSingle();
+  let row = fullResult.data as StorySessionRow | null;
+  let error = fullResult.error;
+
+  if (error) {
+    if (!isMissingPersonasColumn(error.message)) {
+      console.warn("[story.sessions] get_failed", { sessionId, message: error.message });
+      return null;
+    }
+    const fallback = await supabase
+      .from("story_sessions")
+      .select(compatibleStorySessionSelect)
+      .eq("id", sessionId)
+      .maybeSingle();
+    row = fallback.data as StorySessionRow | null;
+    error = fallback.error;
+    if (error) {
+      console.warn("[story.sessions] compatible_get_failed", { sessionId, message: error.message });
+      return null;
+    }
+  }
+
+  return row ? rowToSession(row) : null;
+}
+
 export async function upsertStorySession(session: StorySession, config: RuntimeApiConfig = {}) {
   const supabase = getSupabaseAdmin(config);
   if (!supabase) return session;

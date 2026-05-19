@@ -4,6 +4,7 @@ import { runFragmentStoryGraph } from "@/lib/agentGraph/fragmentStoryGraph";
 import { persistFragment } from "@/lib/fragments";
 import { geminiDiagnostics } from "@/lib/gemini";
 import { logEvent } from "@/lib/logger";
+import { narrativeCacheVersion } from "@/lib/narrativeCache";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import type {
   GeneratedPersona,
@@ -15,8 +16,6 @@ import type {
   StreetImage,
   VisionDescription
 } from "@/types";
-
-const narrativeCacheVersion = 7;
 
 type NarrativeRequest = {
   fragmentId: string;
