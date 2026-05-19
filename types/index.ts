@@ -436,6 +436,19 @@ export type NarrativeValidation = {
   status: "passed" | "warning" | "failed";
   warnings: string[];
   requiresRegeneration: boolean;
+  validator?: "system" | "gemini";
+  model?: string;
+  deterministicWarnings?: string[];
+  aiWarnings?: string[];
+  aiDecision?: Record<string, unknown>;
+};
+
+export type AgentRunSummary = {
+  runId: string;
+  agentName: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  durationMs?: number;
+  errorMessage?: string;
 };
 
 export type NarrativeGeneration = {
@@ -446,6 +459,7 @@ export type NarrativeGeneration = {
   personaFragmentPlan?: PersonaFragmentPlan;
   narrativeBlocks?: NarrativeBlock[];
   narrativeValidation?: NarrativeValidation;
+  agentRuns?: AgentRunSummary[];
   createdAt: string;
 };
 

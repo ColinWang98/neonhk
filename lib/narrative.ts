@@ -221,7 +221,7 @@ export async function generateNarratives(
   }
 }
 
-function normalizeNarratives(value: unknown): SchemaNarratives {
+export function normalizeNarratives(value: unknown): SchemaNarratives {
   const source = unwrapNarrativeSource(value);
   const fromBlocks = narrativesFromBlocks(source);
   const next = {

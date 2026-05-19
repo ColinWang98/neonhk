@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
-import { verifyCandidateMatches } from "@/lib/candidateVerification";
-import { buildEvidencePacket } from "@/lib/evidence";
+import { runFragmentStoryGraph } from "@/lib/agentGraph/fragmentStoryGraph";
 import { persistFragment } from "@/lib/fragments";
 import { geminiDiagnostics } from "@/lib/gemini";
 import { logEvent } from "@/lib/logger";
-import { generateNarratives } from "@/lib/narrative";
-import { buildNarrativeBlocks, reinforceConcreteFacts, validateNarrative } from "@/lib/narrativeValidation";
-import { buildPersonaFragmentPlan } from "@/lib/personaFragment";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import type {
   GeneratedPersona,
@@ -20,7 +16,7 @@ import type {
   VisionDescription
 } from "@/types";
 
-const narrativeCacheVersion = 6;
+const narrativeCacheVersion = 7;
 
 type NarrativeRequest = {
   fragmentId: string;
@@ -47,82 +43,27 @@ export async function POST(request: NextRequest) {
 
     const startedAt = performance.now();
     const narrativeDiagnostics = geminiDiagnostics();
-    const candidateVerification =
-      body.existingEvidencePacket?.candidateVerification ||
-      (await verifyCandidateMatches({
-        cropImageUrl: body.cropImageUrl,
-        image: body.image,
-        panoramaPov: body.panoramaPov,
-        visionDescription: body.visionDescription,
-        placeContext: body.placeContext,
-        config
-      }));
-    const evidencePacket = buildEvidencePacket({
+    const graphResult = await runFragmentStoryGraph({
       fragmentId: body.fragmentId,
       sessionId: body.sessionId,
+      visionDescription: body.visionDescription,
+      persona: body.persona,
+      placeContext: body.placeContext,
       image: body.image,
       cropImageUrl: body.cropImageUrl,
-      visionDescription: body.visionDescription,
-      placeContext: body.placeContext,
       panoramaPov: body.panoramaPov,
-      candidateVerification
+      existingEvidencePacket: body.existingEvidencePacket,
+      config
     });
-    const personaFragmentPlan = buildPersonaFragmentPlan({
-      fragmentId: body.fragmentId,
-      persona: body.persona,
-      visionDescription: body.visionDescription,
-      evidencePacket
-    });
-    const generatedNarratives = await generateNarratives(
-      body.visionDescription,
-      config,
-      body.persona,
-      body.placeContext,
+    const {
+      narratives,
       evidencePacket,
       personaFragmentPlan,
-      {
-        cropImageUrl: body.cropImageUrl,
-        image: body.image
-      }
-    );
-    const narratives = reinforceConcreteFacts(generatedNarratives, evidencePacket);
-    const narrativeBlocks = buildNarrativeBlocks(narratives, evidencePacket, personaFragmentPlan);
-    const narrativeValidation = validateNarrative({
-      narratives,
       narrativeBlocks,
-      evidencePacket,
-      plan: personaFragmentPlan
-    });
-    if (narrativeValidation.requiresRegeneration) {
-      await logAiGeneration(
-        {
-          sessionId: body.sessionId,
-          fragmentId: body.fragmentId,
-          stage: "narrative_generation",
-          provider: narrativeDiagnostics.provider,
-          model: narrativeDiagnostics.model,
-          status: "error",
-          inputSummary: {
-            visionDescription: body.visionDescription,
-            personaId: body.persona?.id,
-            evidenceClaimCount: evidencePacket.claims.length,
-            candidateVerification,
-            personaFragmentPlan
-          },
-          output: { narratives, narrativeBlocks, narrativeValidation },
-          errorMessage: narrativeValidation.warnings.join(" | "),
-          durationMs: Math.round(performance.now() - startedAt)
-        },
-        config
-      );
-      return NextResponse.json(
-        {
-          error: "Story validation failed.",
-          validation: narrativeValidation
-        },
-        { status: 422 }
-      );
-    }
+      narrativeValidation,
+      agentRuns,
+      repaired
+    } = graphResult;
     const personaId = body.persona?.id || "default";
     const narrativeGeneration: NarrativeGeneration = {
       personaId,
@@ -132,6 +73,7 @@ export async function POST(request: NextRequest) {
       personaFragmentPlan,
       narrativeBlocks,
       narrativeValidation,
+      agentRuns,
       createdAt: new Date().toISOString()
     };
     const narrativeGenerations = {
@@ -146,14 +88,15 @@ export async function POST(request: NextRequest) {
         provider: narrativeDiagnostics.provider,
         model: narrativeDiagnostics.model,
         status: "success",
-        inputSummary: {
-          visionDescription: body.visionDescription,
-          personaId: body.persona?.id,
-          evidenceClaimCount: evidencePacket.claims.length,
-          candidateVerification,
-          personaFragmentPlan
-        },
-        output: { narratives, narrativeBlocks, narrativeValidation },
+          inputSummary: {
+            visionDescription: body.visionDescription,
+            personaId: body.persona?.id,
+            evidenceClaimCount: evidencePacket.claims.length,
+            candidateVerification: evidencePacket.candidateVerification,
+            personaFragmentPlan,
+            agentGraph: "fragment_story_graph"
+          },
+        output: { narratives, narrativeBlocks, narrativeValidation, agentRuns, repaired },
         durationMs: Math.round(performance.now() - startedAt)
       },
       config
@@ -180,7 +123,9 @@ export async function POST(request: NextRequest) {
         payload: {
           fragmentId: body.fragmentId,
           narratives,
-          narrativeValidation
+          narrativeValidation,
+          agentRuns,
+          repaired
         }
       },
       config
@@ -193,7 +138,9 @@ export async function POST(request: NextRequest) {
       personaFragmentPlan,
       narrativeGeneration,
       narrativeGenerations,
-      narrativeValidation
+      narrativeValidation,
+      agentRuns,
+      repaired
     });
   } catch (error) {
     return NextResponse.json(
