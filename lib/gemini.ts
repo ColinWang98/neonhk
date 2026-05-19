@@ -84,7 +84,9 @@ function postJson(
     const deadline = timeoutMs
       ? setTimeout(() => {
           if (settled) return;
-          request.destroy(new Error(`${errorPrefix} timed out after ${timeoutMs}ms.`));
+          settled = true;
+          reject(new Error(`${errorPrefix} timed out after ${timeoutMs}ms.`));
+          request.destroy();
         }, timeoutMs)
       : undefined;
     const request = https.request(
@@ -101,6 +103,7 @@ function postJson(
         const chunks: Buffer[] = [];
         response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
         response.on("end", () => {
+          if (settled) return;
           settled = true;
           if (deadline) clearTimeout(deadline);
           resolve({

@@ -351,6 +351,7 @@ function patchFragmentRepair(
   const endpoint = new URL(`/rest/v1/selected_fragments?id=eq.${encodeURIComponent(fragmentId)}`, supabaseUrl);
   const body = JSON.stringify(payload);
   return new Promise<void>((resolve, reject) => {
+    let settled = false;
     const request = https.request(
       endpoint,
       {
@@ -367,6 +368,8 @@ function patchFragmentRepair(
         const chunks: Buffer[] = [];
         response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
         response.on("end", () => {
+          if (settled) return;
+          settled = true;
           const responseBody = Buffer.concat(chunks).toString("utf8");
           if ((response.statusCode || 0) < 200 || (response.statusCode || 0) >= 300) {
             reject(new Error(`Fragment repair persistence failed: ${response.statusCode} ${responseBody}`.trim()));
@@ -377,9 +380,14 @@ function patchFragmentRepair(
       }
     );
     const timeout = setTimeout(() => {
-      request.destroy(new Error("Fragment repair persistence timed out after 15000ms."));
+      if (settled) return;
+      settled = true;
+      reject(new Error("Fragment repair persistence timed out after 15000ms."));
+      request.destroy();
     }, 15000);
     request.on("error", (error) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timeout);
       reject(error);
     });
