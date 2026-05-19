@@ -150,7 +150,9 @@ Return strict JSON with this shape:
     "title": "Social-Cultural Resonance",
     "text": string
   }
-}`;
+}
+
+Do not return arrays, narrativeBlocks, markdown, or wrapper keys. The four top-level keys above are required.`;
 
 export async function generateNarratives(
   visionDescription: VisionDescription,
@@ -202,7 +204,7 @@ export async function generateNarratives(
   });
 
   try {
-    return normalizeNarratives(JSON.parse(content) as Partial<SchemaNarratives>);
+    return normalizeNarratives(JSON.parse(content) as unknown);
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new Error("Gemini narrative generation returned invalid JSON.");
@@ -211,14 +213,20 @@ export async function generateNarratives(
   }
 }
 
-function normalizeNarratives(
-  value: Partial<SchemaNarratives>
-): SchemaNarratives {
+function normalizeNarratives(value: unknown): SchemaNarratives {
+  const source = unwrapNarrativeSource(value);
+  const fromBlocks = narrativesFromBlocks(source);
+  const next = {
+    functionalUse: segmentFrom(source, "functionalUse", "functional_use", "Functional-Use", "Functional Use", "functional", fromBlocks.functionalUse),
+    identityBelonging: segmentFrom(source, "identityBelonging", "identity_belonging", "Identity-Belonging", "Identity Belonging", "identity", fromBlocks.identityBelonging),
+    memoryTemporality: segmentFrom(source, "memoryTemporality", "memory_temporality", "Memory-Temporality", "Memory Temporality", "memory", fromBlocks.memoryTemporality),
+    socialCulturalResonance: segmentFrom(source, "socialCulturalResonance", "social_cultural_resonance", "Social-Cultural Resonance", "Social Cultural Resonance", "social", fromBlocks.socialCulturalResonance)
+  };
   const missing = [
-    ["functionalUse.text", value.functionalUse?.text],
-    ["identityBelonging.text", value.identityBelonging?.text],
-    ["memoryTemporality.text", value.memoryTemporality?.text],
-    ["socialCulturalResonance.text", value.socialCulturalResonance?.text]
+    ["functionalUse.text", next.functionalUse?.text],
+    ["identityBelonging.text", next.identityBelonging?.text],
+    ["memoryTemporality.text", next.memoryTemporality?.text],
+    ["socialCulturalResonance.text", next.socialCulturalResonance?.text]
   ].filter(([, text]) => !String(text || "").trim());
   if (missing.length) {
     throw new Error(`Narrative model returned incomplete segments: ${missing.map(([key]) => key).join(", ")}.`);
@@ -226,19 +234,83 @@ function normalizeNarratives(
   return {
     functionalUse: {
       title: "Functional-Use",
-      text: value.functionalUse!.text
+      text: next.functionalUse!.text
     },
     identityBelonging: {
       title: "Identity-Belonging",
-      text: value.identityBelonging!.text
+      text: next.identityBelonging!.text
     },
     memoryTemporality: {
       title: "Memory-Temporality",
-      text: value.memoryTemporality!.text
+      text: next.memoryTemporality!.text
     },
     socialCulturalResonance: {
       title: "Social-Cultural Resonance",
-      text: value.socialCulturalResonance!.text
+      text: next.socialCulturalResonance!.text
     }
   };
+}
+
+function unwrapNarrativeSource(value: unknown): Record<string, unknown> {
+  const object = asRecord(value);
+  const nested = [
+    "narratives",
+    "schemaNarratives",
+    "schema_narratives",
+    "story",
+    "stories",
+    "output",
+    "result"
+  ];
+  for (const key of nested) {
+    const next = asRecord(object[key]);
+    if (Object.keys(next).length) return next;
+  }
+  return object;
+}
+
+function narrativesFromBlocks(source: Record<string, unknown>) {
+  const result: Partial<Record<keyof SchemaNarratives, { text: string }>> = {};
+  const blocks = arrayFromUnknown(source.narrativeBlocks) || arrayFromUnknown(source.blocks) || arrayFromUnknown(source.segments);
+  for (const block of blocks || []) {
+    const item = asRecord(block);
+    const schema = String(item.schema || item.title || item.name || "").toLowerCase();
+    const text = cleanText(item.text || item.content || item.narrative);
+    if (!text) continue;
+    if (schema.includes("functional")) result.functionalUse = { text };
+    else if (schema.includes("identity") || schema.includes("belong")) result.identityBelonging = { text };
+    else if (schema.includes("memory") || schema.includes("tempor")) result.memoryTemporality = { text };
+    else if (schema.includes("social") || schema.includes("cultural") || schema.includes("resonance")) {
+      result.socialCulturalResonance = { text };
+    }
+  }
+  return result;
+}
+
+function segmentFrom(
+  source: Record<string, unknown>,
+  ...keysAndFallback: Array<string | { text: string } | undefined>
+): { text: string } | undefined {
+  const fallback = keysAndFallback.find((value): value is { text: string } => typeof value === "object" && Boolean(value?.text));
+  for (const key of keysAndFallback) {
+    if (typeof key !== "string") continue;
+    const direct = cleanText(source[key]);
+    if (direct) return { text: direct };
+    const object = asRecord(source[key]);
+    const text = cleanText(object.text || object.content || object.narrative || object.value);
+    if (text) return { text };
+  }
+  return fallback;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function arrayFromUnknown(value: unknown) {
+  return Array.isArray(value) ? value : undefined;
+}
+
+function cleanText(value: unknown) {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }

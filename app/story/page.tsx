@@ -108,7 +108,7 @@ export default function StoryPage() {
     ? "listen"
     : activeFragment
       ? "select"
-      : activeOpening
+      : selectedPersona && (activeOpening || openingStatus === "loading" || openingStatus === "error")
         ? "opening"
         : "narrator";
   const currentStoryText = useMemo(
@@ -970,7 +970,13 @@ export default function StoryPage() {
               <GroundingSummaryCard fragment={readyFragment} language={uiLanguage} />
             ) : null}
             {!activeStoryReady || !readyFragment || !activeNarratives ? (
-                <FragmentFirstPanel language={uiLanguage} hasOpening={Boolean(activeOpening)} />
+                <FragmentFirstPanel
+                  language={uiLanguage}
+                  hasOpening={Boolean(activeOpening)}
+                  fragment={activeFragment}
+                  processing={processing}
+                  storyStatus={storyStatus}
+                />
             ) : (
               <TtsControls
                 narratives={activeNarratives}
@@ -1278,8 +1284,21 @@ function StoryProgress({
   );
 }
 
-function FragmentFirstPanel({ language, hasOpening }: { language: "en" | "zh"; hasOpening?: boolean }) {
+function FragmentFirstPanel({
+  language,
+  hasOpening,
+  fragment,
+  processing,
+  storyStatus
+}: {
+  language: "en" | "zh";
+  hasOpening?: boolean;
+  fragment?: SelectedFragment;
+  processing: boolean;
+  storyStatus: "idle" | "loading" | "ready" | "error";
+}) {
   const zh = language === "zh";
+  const flow = fragmentFlowState(fragment, processing, storyStatus, zh);
   return (
     <div className="surface-panel rounded-md p-4">
       <p className="fine-label">{zh ? "第三步" : "Step 3"}</p>
@@ -1295,8 +1314,103 @@ function FragmentFirstPanel({ language, hasOpening }: { language: "en" | "zh"; h
             ? "先选择讲述人，然后框选你想继续听的位置。"
             : "Choose a narrator first, then select one detail in the panorama."}
       </p>
+      <div className="mt-4 rounded-md border border-ink/10 bg-paper p-3">
+        <div className="flex items-start gap-3">
+          {flow.loading ? (
+            <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-ink/45" />
+          ) : flow.done ? (
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
+          ) : (
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-ink/42" />
+          )}
+          <div>
+            <p className="text-sm font-semibold text-ink">{flow.title}</p>
+            <p className="mt-1 text-xs leading-5 text-ink/60">{flow.detail}</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
+}
+
+function fragmentFlowState(
+  fragment: SelectedFragment | undefined,
+  processing: boolean,
+  storyStatus: "idle" | "loading" | "ready" | "error",
+  zh: boolean
+) {
+  if (!fragment) {
+    return {
+      title: zh ? "等待框选" : "Waiting for a fragment",
+      detail: zh
+        ? "先听开场也可以，不听也可以。准备好后在全景图里拖出一个白框。"
+        : "You can listen to the opening first, or skip it. Drag one box in the panorama when ready.",
+      loading: false,
+      done: false
+    };
+  }
+  if (fragment.status === "cropping") {
+    return {
+      title: zh ? "正在保存这个框" : "Saving the selected area",
+      detail: zh ? "先把你框住的画面切出来。" : "The selected area is being cropped from the panorama.",
+      loading: true,
+      done: false
+    };
+  }
+  if (fragment.status === "analyzing") {
+    return {
+      title: zh ? "正在读取这个细节" : "Reading this detail",
+      detail: zh ? "先看清楚框里有什么，再去找附近线索。" : "The crop is being read before nearby clues are checked.",
+      loading: true,
+      done: false
+    };
+  }
+  if (fragment.status === "generating") {
+    return {
+      title: zh ? "正在找地图和公开线索" : "Finding map and public clues",
+      detail: zh ? "这里只找和这个视角自然相关的线索，不会硬套景点故事。" : "Only clues naturally related to this view are used.",
+      loading: true,
+      done: false
+    };
+  }
+  if (fragment.status === "blocked") {
+    return {
+      title: zh ? "这个片段不适合讲述" : "This fragment is not suitable",
+      detail: zh ? "可能涉及隐私或太难可靠判断。可以重新框选公共物件、招牌、入口或街道设施。" : "It may be private or too uncertain. Try a public sign, entrance, storefront, or street fixture.",
+      loading: false,
+      done: false
+    };
+  }
+  if (fragment.status === "error" || storyStatus === "error") {
+    return {
+      title: zh ? "这一轮没有完成" : "This run did not complete",
+      detail: zh ? "后端会直接报错，不会偷偷换模型或降级。你可以换一个框再试。" : "The backend reports the error directly, without model fallback. Try another box.",
+      loading: false,
+      done: false
+    };
+  }
+  if (storyStatus === "loading") {
+    return {
+      title: zh ? "正在准备这个讲述人的故事" : "Preparing this narrator's story",
+      detail: zh ? "现在会把画面、地图线索和讲述人视角合在一起。" : "The crop, map clues, and narrator viewpoint are being combined.",
+      loading: true,
+      done: false
+    };
+  }
+  if (storyStatus === "ready") {
+    return {
+      title: zh ? "故事已准备好" : "Story is ready",
+      detail: zh ? "用右侧的播放区听。开场如果还没播过，会先接在故事前面。" : "Use the voice panel to listen. The opening plays first if it has not played for this narrator.",
+      loading: false,
+      done: true
+    };
+  }
+  return {
+    title: zh ? "地点线索已准备好" : "Place clues are ready",
+    detail: zh ? "接下来会准备这个讲述人的故事。" : "Next, the narrator-specific story will be prepared.",
+    loading: processing,
+    done: false
+  };
 }
 
 function NearbyContinuationPanel({
