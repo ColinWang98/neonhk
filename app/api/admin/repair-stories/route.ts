@@ -149,7 +149,8 @@ export async function POST(request: NextRequest) {
           personaId,
           config,
           includeImages: Boolean(body.includeImages),
-          skipAiJudge: body.validationMode === "system"
+          skipAiJudge: body.validationMode === "system",
+          skipLogs: true
         });
         repairedCount += 1;
         results.push({
@@ -203,6 +204,7 @@ async function repairOneStory(params: {
   config: ReturnType<typeof runtimeConfigFromHeaders>;
   includeImages: boolean;
   skipAiJudge: boolean;
+  skipLogs: boolean;
 }) {
   if (!params.fragment.visionDescription) {
     throw new Error("Fragment has no vision description.");
@@ -222,7 +224,8 @@ async function repairOneStory(params: {
     cropImageUrl: params.includeImages ? params.fragment.cropImageUrl : undefined,
     panoramaPov: params.fragment.panoramaPov,
     config: params.config,
-    skipAiJudge: params.skipAiJudge
+    skipAiJudge: params.skipAiJudge,
+    skipAgentLogs: params.skipLogs
   });
 
   const generation: NarrativeGeneration = {
@@ -285,30 +288,32 @@ async function repairOneStory(params: {
     );
   }
 
-  await logAiGeneration(
-    {
-      sessionId: params.session.id,
-      fragmentId: params.fragment.id,
-      stage: "narrative_repair",
-      provider: diagnostics.provider,
-      model: diagnostics.model,
-      status: "success",
-      inputSummary: {
-        personaId: params.personaId,
-        previousVersion: params.fragment.narrativeGenerations?.[params.personaId]?.version ?? null,
-        targetVersion: narrativeCacheVersion,
-        includeImages: params.includeImages,
-        validationMode: params.skipAiJudge ? "system" : "full"
+  if (!params.skipLogs) {
+    await logAiGeneration(
+      {
+        sessionId: params.session.id,
+        fragmentId: params.fragment.id,
+        stage: "narrative_repair",
+        provider: diagnostics.provider,
+        model: diagnostics.model,
+        status: "success",
+        inputSummary: {
+          personaId: params.personaId,
+          previousVersion: params.fragment.narrativeGenerations?.[params.personaId]?.version ?? null,
+          targetVersion: narrativeCacheVersion,
+          includeImages: params.includeImages,
+          validationMode: params.skipAiJudge ? "system" : "full"
+        },
+        output: {
+          validation: graphResult.narrativeValidation,
+          repaired: graphResult.repaired,
+          agentRuns: graphResult.agentRuns
+        },
+        durationMs: Math.round(performance.now() - startedAt)
       },
-      output: {
-        validation: graphResult.narrativeValidation,
-        repaired: graphResult.repaired,
-        agentRuns: graphResult.agentRuns
-      },
-      durationMs: Math.round(performance.now() - startedAt)
-    },
-    params.config
-  );
+      params.config
+    );
+  }
 
   const fragment: SelectedFragment = {
     ...params.fragment,

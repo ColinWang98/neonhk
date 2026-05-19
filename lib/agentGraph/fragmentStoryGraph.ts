@@ -34,6 +34,7 @@ type FragmentStoryGraphInput = {
   existingEvidencePacket?: EvidencePacket;
   config?: RuntimeApiConfig;
   skipAiJudge?: boolean;
+  skipAgentLogs?: boolean;
 };
 
 type FragmentStoryGraphOutput = {
@@ -54,7 +55,8 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
   const runContext = {
     sessionId: input.sessionId,
     fragmentId: input.fragmentId,
-    personaId: input.persona?.id
+    personaId: input.persona?.id,
+    skipLogs: input.skipAgentLogs
   };
   const agentRuns: AgentRunSummary[] = [];
 
@@ -316,12 +318,22 @@ async function runAgent<T>(
     agentRuns: AgentRunSummary[];
     provider?: string;
     model?: string;
+    skipLogs?: boolean;
   }
 ): Promise<T> {
   const runId = `${agentName}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   const startedAt = performance.now();
   try {
     const output = await task();
+    if (context.skipLogs) {
+      context.agentRuns.push({
+        runId,
+        agentName,
+        status: "succeeded",
+        durationMs: Math.round(performance.now() - startedAt)
+      });
+      return output;
+    }
     const summary = await logAgentRun(
       {
         runId,
@@ -343,6 +355,16 @@ async function runAgent<T>(
     return output;
   } catch (error) {
     const message = error instanceof Error ? error.message : `${agentName} failed.`;
+    if (context.skipLogs) {
+      context.agentRuns.push({
+        runId,
+        agentName,
+        status: "failed",
+        errorMessage: message,
+        durationMs: Math.round(performance.now() - startedAt)
+      });
+      throw error;
+    }
     const summary = await logAgentRun(
       {
         runId,
