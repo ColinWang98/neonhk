@@ -80,6 +80,13 @@ function postJson(
 ): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const url = new URL(urlString);
+    let settled = false;
+    const deadline = timeoutMs
+      ? setTimeout(() => {
+          if (settled) return;
+          request.destroy(new Error(`${errorPrefix} timed out after ${timeoutMs}ms.`));
+        }, timeoutMs)
+      : undefined;
     const request = https.request(
       url,
       {
@@ -94,6 +101,8 @@ function postJson(
         const chunks: Buffer[] = [];
         response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
         response.on("end", () => {
+          settled = true;
+          if (deadline) clearTimeout(deadline);
           resolve({
             status: response.statusCode || 0,
             body: Buffer.concat(chunks).toString("utf8")
@@ -102,7 +111,11 @@ function postJson(
       }
     );
 
-    request.on("error", reject);
+    request.on("error", (error) => {
+      settled = true;
+      if (deadline) clearTimeout(deadline);
+      reject(error);
+    });
     if (timeoutMs) {
       request.setTimeout(timeoutMs, () => {
         request.destroy(new Error(`${errorPrefix} timed out after ${timeoutMs}ms.`));
