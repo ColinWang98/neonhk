@@ -71,6 +71,7 @@ export async function judgeNarrativeWithGemini(input: StoryJudgeInput): Promise<
     model,
     temperature: 0.1,
     maxOutputTokens: 900,
+    timeoutMs: 30000,
     errorPrefix: "Gemini story judge",
     parts: [
       { text: storyJudgePrompt },

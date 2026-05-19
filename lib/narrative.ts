@@ -209,6 +209,7 @@ export async function generateNarratives(
     model,
     temperature: 0.35,
     maxOutputTokens: 1800,
+    timeoutMs: 40000,
     errorPrefix: "Gemini narrative generation"
   });
 
