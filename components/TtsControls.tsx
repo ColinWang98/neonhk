@@ -86,6 +86,7 @@ export function TtsControls({
   }, [includeIntro, introText, storyText]);
 
   const previewText = speechText || storyText || introText || "";
+  const showMergedPreview = Boolean(includeIntro && introText && storyText);
   const selectedProvider = normalizeFrontendTtsProvider(config.ttsProvider);
   const voiceGenerationPaused = !cachedAudio?.audioUrl && (!selectedProvider || selectedProvider === "minimax");
 
@@ -235,9 +236,26 @@ export function TtsControls({
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-field">
           <div className="h-full rounded-full bg-signal transition-[width]" style={{ width: `${progress * 100}%` }} />
         </div>
-        <p className="mt-3 line-clamp-2 text-xs leading-5 text-ink/70">
-          {previewText || (zh ? "故事准备好后可播放旁白。" : "Once the story is ready, narration can be played.")}
-        </p>
+        {showMergedPreview ? (
+          <div className="mt-3 grid gap-2">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/45">
+                {zh ? "整体开场" : "Opening"}
+              </p>
+              <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/70">{introText}</p>
+            </div>
+            <div className="border-t border-ink/10 pt-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/45">
+                {zh ? "框选细节" : "Selected detail"}
+              </p>
+              <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/70">{storyText}</p>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-3 line-clamp-2 text-xs leading-5 text-ink/70">
+            {previewText || (zh ? "故事准备好后可播放旁白。" : "Once the story is ready, narration can be played.")}
+          </p>
+        )}
       </div>
       {voiceGenerationPaused ? (
         <p className="mt-3 text-xs leading-5 text-amber-800">

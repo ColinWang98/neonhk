@@ -104,12 +104,21 @@ export default function StoryPage() {
       activeOpeningText &&
       !playedOpeningKeys[activeOpeningKey]
   );
-  const currentStage = activeStoryReady
+  const openingNeededForStory = Boolean(
+    activeStoryReady &&
+    selectedPersona?.id &&
+    activeOpeningKey &&
+    !playedOpeningKeys[activeOpeningKey]
+  );
+  const openingPendingForStory = Boolean(openingNeededForStory && !activeOpeningText && openingStatus !== "error");
+  const openingFailedForStory = Boolean(openingNeededForStory && !activeOpeningText && openingStatus === "error");
+  const storyVoiceReady = Boolean(activeStoryReady && !openingPendingForStory && !openingFailedForStory);
+  const currentStage = storyVoiceReady
     ? "listen"
     : activeFragment
       ? "select"
-      : selectedPersona && (activeOpening || openingStatus === "loading" || openingStatus === "error")
-        ? "opening"
+      : selectedPersona
+        ? "select"
         : "narrator";
   const currentStoryText = useMemo(
     () =>
@@ -332,7 +341,6 @@ export default function StoryPage() {
     const cacheReady = cachedOpening?.version === openingCacheVersion;
     if (cacheReady) {
       setOpeningStatus("ready");
-      setCaption(openingCaption(cachedOpening));
       return;
     }
     if (!storySession.sceneVisualDescription && sceneStatus === "loading") return;
@@ -380,7 +388,6 @@ export default function StoryPage() {
         sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
         void saveStorySession(nextSession, runtimeHeaders);
         setOpeningStatus("ready");
-        setCaption(openingCaption(opening));
       })
       .catch((err) => {
         if (openingRequestIdRef.current !== requestId) return;
@@ -859,9 +866,7 @@ export default function StoryPage() {
           <p className="mt-2 text-sm leading-6 text-ink/62">
             {currentStage === "narrator"
               ? "Choose a narrator for this panorama."
-              : currentStage === "opening"
-                ? "Read the opening, or select a place detail when you are ready."
-                : currentStage === "select"
+              : currentStage === "select"
                   ? "Select a place fragment for this narrator to read."
                   : "Switch narrator, read, and listen."}
           </p>
@@ -909,7 +914,7 @@ export default function StoryPage() {
               }}
               onFragmentSelected={handleFragmentSelected}
             />
-            <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(activeStoryReady || activeOpening)} />
+            <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(storyVoiceReady)} />
           </div>
           <div className="grid gap-3 lg:max-h-[calc(100dvh-170px)] lg:min-h-0 lg:auto-rows-min lg:content-start lg:overflow-y-auto lg:pr-1">
             <PersonaSwitcher
@@ -922,60 +927,15 @@ export default function StoryPage() {
               language={uiLanguage}
               onSelect={choosePersona}
             />
-            {!activeStoryReady ? (
-              <SceneOpeningPanel
-                opening={activeOpening}
-                status={openingStatus}
-                persona={selectedPersona}
-                language={uiLanguage}
-                willPlayWithStory={includeOpeningInStoryAudio}
-                openingPlayed={Boolean(activeOpeningKey && playedOpeningKeys[activeOpeningKey])}
-                hasStory={activeStoryReady}
-              />
-            ) : null}
-            {activeOpening && !activeStoryReady ? (
-              <TtsControls
-                introText={activeOpeningText}
-                introSegments={activeOpeningSegments}
-                includeIntro
-                persona={selectedPersona}
-                config={apiConfig}
-                language={uiLanguage}
-                cachedAudio={activeOpening.audioGeneration}
-                fineLabel={uiLanguage === "zh" ? "开场音频" : "Opening Audio"}
-                title={uiLanguage === "zh" ? "先听讲述人开场" : "Narrator Opening"}
-                description={uiLanguage === "zh" ? "先听这个讲述人怎么看这片环境，然后再框选细节。" : "Hear this narrator read the wider scene first, then select a detail."}
-                onCaptionChange={setCaption}
-                onIntroPlayed={() => undefined}
-                onAudioGenerated={(entry) => {
-                  if (!storySession || !selectedPersona) return;
-                  const currentOpening = storySession.sceneOpeningGenerations?.[selectedPersona.id] || activeOpening;
-                  const nextSession = {
-                    ...storySession,
-                    sceneOpeningGenerations: {
-                      ...(storySession.sceneOpeningGenerations || {}),
-                      [selectedPersona.id]: {
-                        ...currentOpening,
-                        audioGeneration: entry
-                      }
-                    }
-                  };
-                  setStorySession(nextSession);
-                  sessionStorage.setItem(storySessionStorageKey, JSON.stringify(nextSession));
-                  void saveStorySession(nextSession, runtimeHeaders);
-                }}
-              />
-            ) : null}
             {readyFragment ? (
               <GroundingSummaryCard fragment={readyFragment} language={uiLanguage} />
             ) : null}
-            {!activeStoryReady || !readyFragment || !activeNarratives ? (
+            {!storyVoiceReady || !readyFragment || !activeNarratives ? (
                 <FragmentFirstPanel
                   language={uiLanguage}
-                  hasOpening={Boolean(activeOpening)}
                   fragment={activeFragment}
                   processing={processing}
-                  storyStatus={storyStatus}
+                  storyStatus={openingPendingForStory ? "loading" : openingFailedForStory ? "error" : storyStatus}
                 />
             ) : (
               <TtsControls
@@ -989,6 +949,13 @@ export default function StoryPage() {
                 introSegments={activeOpeningSegments}
                 includeIntro={includeOpeningInStoryAudio}
                 cachedAudio={findCachedAudio(readyFragment, selectedPersona, apiConfig, currentStoryText)}
+                description={
+                  includeOpeningInStoryAudio
+                    ? uiLanguage === "zh"
+                      ? "这次会先接上讲述人的整体开场，再进入你框选的细节。之后同一讲述人不会重复开场。"
+                      : "This play starts with the narrator's wider opening, then moves into the selected detail. Later plays skip the opening for this narrator."
+                    : undefined
+                }
                 onCaptionChange={setCaption}
                 onIntroPlayed={() => {
                   if (!activeOpeningKey) return;
@@ -1119,90 +1086,6 @@ function PersonaSwitcher({
   );
 }
 
-function SceneOpeningPanel({
-  opening,
-  status,
-  persona,
-  language,
-  willPlayWithStory,
-  openingPlayed,
-  hasStory
-}: {
-  opening?: SceneOpeningGeneration;
-  status: "idle" | "loading" | "ready" | "error";
-  persona?: GeneratedPersona;
-  language: "en" | "zh";
-  willPlayWithStory: boolean;
-  openingPlayed: boolean;
-  hasStory: boolean;
-}) {
-  const zh = language === "zh";
-  const blocks = useMemo(
-    () => opening?.openingBlocks?.map((block) => block.text).filter(Boolean) || [],
-    [opening?.openingBlocks]
-  );
-  const openingText = useMemo(
-    () => opening?.openingText || blocks.join("\n\n"),
-    [blocks, opening?.openingText]
-  );
-
-  return (
-    <div className="surface-panel rounded-md p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="fine-label">{zh ? "第二步" : "Step 2"}</p>
-          <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "开场" : "Opening"}</h2>
-          <p className="mt-1 text-xs leading-5 text-ink/58">
-            {willPlayWithStory
-              ? zh ? "第一次播放故事时会先听到这段开场。" : "This opening will play once before the next story."
-              : openingPlayed
-                ? zh ? "这段开场已经播过，后续故事不会重复播放。" : "This opening has played once and will not repeat for this narrator."
-                : hasStory
-                  ? zh ? "这段开场已准备好，可以和故事一起播放。" : "This opening is ready to play with the story."
-                  : opening
-                    ? zh ? "这段整体环境开场供参考。准备好后就可以框选细节。" : "This wider scene opening is context. Select a detail when ready."
-                    : zh ? "选择一位讲述人后，会出现一段整体环境开场。" : "Choose a narrator to prepare a wider scene opening."}
-          </p>
-        </div>
-        {status === "loading" ? <Loader2 className="mt-1 h-4 w-4 animate-spin text-ink/45" /> : null}
-      </div>
-
-      {persona && opening ? (
-        <>
-          <div className="mt-2 space-y-2 rounded-md border border-ink/10 bg-paper p-3">
-            {(blocks.length ? blocks : splitOpeningText(openingText)).map((line, index) => (
-              <p key={`${index}-${line}`} className="text-sm leading-6 text-ink/74">
-                {line}
-              </p>
-            ))}
-          </div>
-          {willPlayWithStory ? (
-            <p className="mt-3 rounded-md border border-signal/20 bg-[#eef7f4] px-3 py-2 text-xs leading-5 text-ink/65">
-              {zh ? "点击下方 Story Voice 的 Play，会先播放开场，再播放当前片段故事。" : "Press Play in Story Voice below to hear the opening followed by this fragment story."}
-            </p>
-          ) : !hasStory && !openingPlayed ? (
-            <p className="mt-3 rounded-md border border-signal/20 bg-[#eef7f4] px-3 py-2 text-xs leading-5 text-ink/65">
-              {zh ? "下面的开场音频可以现在播放，不需要先框选。" : "Use the opening audio below now. You do not need to select a fragment first."}
-            </p>
-          ) : null}
-        </>
-      ) : (
-        <div className={`mt-3 rounded-md border px-3 py-4 text-sm leading-6 ${
-          status === "error"
-            ? "border-red-200 bg-red-50 text-red-800"
-            : "border-dashed border-ink/15 bg-field text-ink/58"
-        }`}>
-          {status === "error"
-            ? zh ? "开场没有生成。请查看上方错误信息。" : "Opening was not prepared. Check the error above."
-            : persona
-              ? zh ? "正在准备开场。" : "Preparing the opening."
-              : zh ? "选择一位讲述人后，会出现一段开场。" : "Choose a narrator to prepare a short opening."}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function GroundingSummaryCard({
   fragment,
   language,
@@ -1248,14 +1131,14 @@ function StoryProgress({
   stage,
   language
 }: {
-  stage: "narrator" | "opening" | "select" | "listen";
+  stage: "narrator" | "select" | "listen";
   language: "en" | "zh";
 }) {
   const zh = language === "zh";
   const steps = zh
-    ? ["选择讲述人", "开场", "选择片段", "播放故事"]
-    : ["Choose narrator", "Opening", "Select place", "Listen"];
-  const activeIndex = stage === "narrator" ? 0 : stage === "opening" ? 1 : stage === "select" ? 2 : 3;
+    ? ["选择讲述人", "选择片段", "播放故事"]
+    : ["Choose narrator", "Select place", "Listen"];
+  const activeIndex = stage === "narrator" ? 0 : stage === "select" ? 1 : 2;
 
   return (
     <div className="mt-4 flex max-w-xl overflow-hidden rounded-md border border-ink/10 bg-paper text-xs text-ink/58">
@@ -1286,13 +1169,11 @@ function StoryProgress({
 
 function FragmentFirstPanel({
   language,
-  hasOpening,
   fragment,
   processing,
   storyStatus
 }: {
   language: "en" | "zh";
-  hasOpening?: boolean;
   fragment?: SelectedFragment;
   processing: boolean;
   storyStatus: "idle" | "loading" | "ready" | "error";
@@ -1301,18 +1182,14 @@ function FragmentFirstPanel({
   const flow = fragmentFlowState(fragment, processing, storyStatus, zh);
   return (
     <div className="surface-panel rounded-md p-4">
-      <p className="fine-label">{zh ? "第三步" : "Step 3"}</p>
+      <p className="fine-label">{zh ? "第二步" : "Step 2"}</p>
       <h2 className="mt-1 text-sm font-semibold text-ink">
         {zh ? "框选一个片段" : "Select a fragment"}
       </h2>
       <p className="mt-3 text-sm leading-6 text-ink/62">
-        {hasOpening
-          ? zh
-            ? "选择讲述人后，旋转全景图，点“开始框选”，在你想继续听的位置拖出一个框。开场只是整体背景，不会阻止你框选。"
-            : "After choosing a narrator, rotate the panorama, press Select fragment, and drag over one detail. The opening is context, not a required gate."
-          : zh
-            ? "先选择讲述人，然后框选你想继续听的位置。"
-            : "Choose a narrator first, then select one detail in the panorama."}
+        {zh
+          ? "选择讲述人后，旋转全景图，点“开始框选”，在你想继续听的位置拖出一个框。"
+          : "After choosing a narrator, rotate the panorama, press Select fragment, and drag over one detail."}
       </p>
       <div className="mt-4 rounded-md border border-ink/10 bg-paper p-3">
         <div className="flex items-start gap-3">
@@ -1343,8 +1220,8 @@ function fragmentFlowState(
     return {
       title: zh ? "等待框选" : "Waiting for a fragment",
       detail: zh
-        ? "先听开场也可以，不听也可以。准备好后在全景图里拖出一个白框。"
-        : "You can listen to the opening first, or skip it. Drag one box in the panorama when ready.",
+        ? "准备好后在全景图里拖出一个白框。故事会把整体开场和这个细节放在一起。"
+        : "Drag one box in the panorama when ready. The story will combine the wider opening with this detail.",
       loading: false,
       done: false
     };
@@ -1384,7 +1261,7 @@ function fragmentFlowState(
   if (fragment.status === "error" || storyStatus === "error") {
     return {
       title: zh ? "这一轮没有完成" : "This run did not complete",
-      detail: zh ? "后端会直接报错，不会偷偷换模型或降级。你可以换一个框再试。" : "The backend reports the error directly, without model fallback. Try another box.",
+      detail: zh ? "后端会直接报错，不会偷偷换模型或降级。可以换一个讲述人或重新框选。" : "The backend reports the error directly, without model fallback. Try another narrator or another box.",
       loading: false,
       done: false
     };
@@ -1392,7 +1269,7 @@ function fragmentFlowState(
   if (storyStatus === "loading") {
     return {
       title: zh ? "正在准备这个讲述人的故事" : "Preparing this narrator's story",
-      detail: zh ? "现在会把画面、地图线索和讲述人视角合在一起。" : "The crop, map clues, and narrator viewpoint are being combined.",
+      detail: zh ? "现在会把整体开场、画面、地图线索和讲述人视角合在一起。" : "The opening, crop, map clues, and narrator viewpoint are being combined.",
       loading: true,
       done: false
     };
@@ -1400,7 +1277,7 @@ function fragmentFlowState(
   if (storyStatus === "ready") {
     return {
       title: zh ? "故事已准备好" : "Story is ready",
-      detail: zh ? "用右侧的播放区听。开场如果还没播过，会先接在故事前面。" : "Use the voice panel to listen. The opening plays first if it has not played for this narrator.",
+      detail: zh ? "用右侧的播放区听。开场和片段故事会在同一个 Story Voice 里播放。" : "Use the voice panel to listen. The opening and fragment story live in the same Story Voice.",
       loading: false,
       done: true
     };
@@ -1899,27 +1776,6 @@ function pickSchemaNarratives(narratives: SchemaNarratives): SchemaNarratives {
     identityBelonging: narratives.identityBelonging,
     memoryTemporality: narratives.memoryTemporality,
     socialCulturalResonance: narratives.socialCulturalResonance
-  };
-}
-
-function splitOpeningText(text: string) {
-  return text
-    .replace(/\s+/g, " ")
-    .split(/(?<=[.!?。！？])\s+/)
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-}
-
-function openingCaption(opening: SceneOpeningGeneration): CaptionState | null {
-  const segments = opening.openingBlocks?.map((block) => block.text.trim()).filter(Boolean);
-  const fallback = splitOpeningText(opening.openingText || "");
-  const lines = segments?.length ? segments : fallback;
-  if (!lines.length) return null;
-  return {
-    text: lines[0],
-    index: 0,
-    total: lines.length,
-    active: false
   };
 }
 
