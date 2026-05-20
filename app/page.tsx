@@ -4,13 +4,11 @@ import dynamic from "next/dynamic";
 import { ArrowRight, MapPin, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ApiConfigButton } from "@/components/ApiConfigModal";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { LoadingState } from "@/components/LoadingState";
 import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
 import {
   publicRuntimeConfig,
-  runtimeConfigStorageKey,
   runtimeConfigToHeaders,
   type RuntimeApiConfig
 } from "@/lib/runtimeConfig";
@@ -42,22 +40,11 @@ export default function Home() {
   const [searchText, setSearchText] = useState("22.303, 114.172");
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [apiConfig, setApiConfig] = useState<RuntimeApiConfig>(() => publicRuntimeConfig());
+  const apiConfig = useMemo<RuntimeApiConfig>(() => publicRuntimeConfig(), []);
   const [imageProvider, setImageProvider] = useState<ImageProvider>("google");
   const [savedSessions, setSavedSessions] = useState<StorySession[]>([]);
 
   const runtimeHeaders = useMemo(() => runtimeConfigToHeaders(apiConfig), [apiConfig]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem(runtimeConfigStorageKey);
-    if (!saved) return;
-
-    try {
-      setApiConfig({ ...publicRuntimeConfig(), ...(JSON.parse(saved) as RuntimeApiConfig) });
-    } catch {
-      localStorage.removeItem(runtimeConfigStorageKey);
-    }
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,11 +66,6 @@ export default function Home() {
       cancelled = true;
     };
   }, [runtimeHeaders]);
-
-  function saveApiConfig(nextConfig: RuntimeApiConfig) {
-    setApiConfig(nextConfig);
-    localStorage.setItem(runtimeConfigStorageKey, JSON.stringify(nextConfig));
-  }
 
   async function searchAt(lat: number, lng: number) {
     setIsSearching(true);
@@ -168,8 +150,8 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col p-3 text-ink sm:p-5 lg:h-screen">
-      <header className="mb-4 flex flex-col gap-4 border-b border-ink/10 pb-4 sm:mb-5 sm:pb-5 md:flex-row md:items-end md:justify-between">
+    <main className="story-shell flex min-h-dvh flex-col p-3 text-ink sm:p-5 lg:h-screen">
+      <header className="surface-panel mb-4 flex flex-col gap-4 px-4 py-4 sm:mb-5 sm:px-5 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="fine-label mb-2">Street-level narrative prototype</p>
           <h1 className="text-[1.75rem] font-semibold tracking-normal text-ink sm:text-[2rem] md:text-[2.4rem]">
@@ -187,7 +169,7 @@ export default function Home() {
               setImages([]);
               setSelectedImage(undefined);
             }}
-            className="h-10 rounded-md border border-ink/15 bg-paper px-3 text-sm text-ink outline-none transition focus:border-signal"
+            className="soft-button h-10 px-3 text-sm text-ink outline-none"
           >
             <option value="google">Google Street View</option>
             <option value="mapillary">Mapillary</option>
@@ -196,18 +178,17 @@ export default function Home() {
             <input
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
-              className="h-10 min-w-0 flex-1 rounded-md border border-ink/15 bg-paper px-3 text-sm outline-none transition focus:border-signal"
+              className="h-10 min-w-0 flex-1 rounded-full border-2 border-ink/15 bg-paper px-4 text-sm outline-none transition focus:border-signal"
               placeholder="lat, lng"
             />
             <button
               type="submit"
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-ink px-3 text-sm font-medium text-white transition hover:bg-ink/90 sm:px-4"
+              className="soft-button-primary inline-flex h-10 shrink-0 items-center gap-2 px-3 text-sm font-semibold sm:px-4"
             >
               <Search className="h-4 w-4" />
               Search
             </button>
           </form>
-          <ApiConfigButton config={apiConfig} onSave={saveApiConfig} />
         </div>
       </header>
 
@@ -218,7 +199,7 @@ export default function Home() {
       ) : null}
 
       <section className="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[minmax(560px,1fr)_380px] lg:gap-5">
-        <div className="quiet-panel relative min-h-[58vh] overflow-hidden rounded-md bg-field lg:min-h-0">
+        <div className="quiet-panel relative min-h-[58vh] overflow-hidden bg-field lg:min-h-0">
           <LeafletMap
             images={images}
             selectedImage={selectedImage}
@@ -236,13 +217,13 @@ export default function Home() {
             onSavedSessionSelect={enterSavedStory}
           />
           {isSearching ? (
-            <div className="absolute bottom-3 left-3 z-[600] rounded-md border border-ink/10 bg-paper/95 px-3 py-2 shadow-sm backdrop-blur">
+            <div className="absolute bottom-3 left-3 z-[600] rounded-[16px] border-2 border-ink/10 bg-paper/95 px-3 py-2 shadow-sm backdrop-blur">
               <LoadingState label={`Searching ${providerLabel(imageProvider)}`} />
             </div>
           ) : null}
         </div>
 
-        <aside className="surface-panel flex min-h-[360px] flex-col rounded-md lg:min-h-0">
+        <aside className="surface-panel flex min-h-[360px] flex-col lg:min-h-0">
           <div className="border-b border-ink/10 px-5 py-4">
             <p className="fine-label">Step 1</p>
             <h2 className="mt-1 text-base font-semibold text-ink">Select a Scene</h2>
@@ -251,7 +232,7 @@ export default function Home() {
           <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5">
             {selectedImage ? (
               <>
-                <div className="overflow-hidden rounded-md border border-ink/10 bg-field">
+                <div className="overflow-hidden rounded-[16px] border-2 border-ink/10 bg-field">
                   <img
                     src={selectedImage.thumbUrl}
                     alt="Selected street scene"
@@ -269,14 +250,14 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={enterStory}
-                  className="mt-auto inline-flex h-11 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white transition hover:bg-ink/90"
+                  className="soft-button-primary mt-auto inline-flex h-11 items-center justify-center gap-2 px-5 text-sm font-semibold"
                 >
                   Enter Story
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </>
             ) : (
-              <div className="flex h-full items-center justify-center rounded-md border border-dashed border-ink/20 px-5 text-center text-sm leading-6 text-ink/55">
+              <div className="flex h-full items-center justify-center rounded-[16px] border-2 border-dashed border-ink/20 px-5 text-center text-sm leading-6 text-ink/55">
                 Search coordinates or click the map, then choose a street scene marker.
               </div>
             )}

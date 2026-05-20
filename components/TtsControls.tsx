@@ -191,7 +191,7 @@ export function TtsControls({
   }, [persona?.id, stop, speechText]);
 
   return (
-    <div className="surface-panel rounded-md p-4">
+    <div className="surface-panel p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="fine-label">{fineLabel || (zh ? "音频" : "Audio")}</p>
@@ -205,7 +205,7 @@ export function TtsControls({
             type="button"
             disabled={!speechText || status === "loading" || voiceGenerationPaused}
             onClick={() => play()}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="soft-button-primary inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-semibold"
           >
             {status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             Play
@@ -213,14 +213,14 @@ export function TtsControls({
           <button
             type="button"
             onClick={stop}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-ink/15 bg-paper px-3 text-sm text-ink transition hover:bg-field"
+            className="soft-button inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-semibold"
           >
             <Square className="h-4 w-4" />
             Stop
           </button>
         </div>
       </div>
-      <div className="mt-4 rounded-md border border-ink/10 bg-paper p-3">
+      <div className="cozy-card mt-4 p-3">
         <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.12em] text-ink/50">
           <span>
             {status === "playing"
@@ -233,7 +233,7 @@ export function TtsControls({
           </span>
           <span>{durationLabel}</span>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-field">
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-field/70">
           <div className="h-full rounded-full bg-signal transition-[width]" style={{ width: `${progress * 100}%` }} />
         </div>
         {showMergedPreview ? (

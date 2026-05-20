@@ -210,7 +210,7 @@ export function StreetImageViewer({
   }, [image?.provider, targetPov]);
 
   return (
-    <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-md">
+    <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex flex-col gap-3 border-b border-ink/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-4">
         <div className="min-w-0">
           <p className="fine-label">{zh ? "全景图" : "Panorama"}</p>
@@ -232,7 +232,7 @@ export function StreetImageViewer({
               type="button"
               disabled={busy || googleStatus !== "ready"}
               onClick={() => setGoogleSelecting((value) => !value)}
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-ink px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-55 sm:px-4"
+              className="soft-button-primary inline-flex h-10 items-center gap-2 px-3 text-sm font-semibold sm:px-4"
             >
               <Crosshair className="h-4 w-4" />
               {googleSelecting ? (zh ? "退出框选" : "Exit selection") : zh ? "开始框选" : "Select fragment"}
@@ -305,21 +305,21 @@ export function StreetImageViewer({
                 ) : null}
                 {googleSelecting ? (
                   <div className="pointer-events-none absolute inset-0 z-[30] border-[3px] border-signal bg-signal/10">
-                    <div className="absolute left-3 right-3 top-3 inline-flex max-w-[360px] items-center gap-2 rounded-md border border-white/25 bg-ink/90 px-3 py-2 text-xs font-medium text-white shadow-lg sm:left-4 sm:right-auto sm:top-4 sm:px-4 sm:py-3 sm:text-sm">
+                    <div className="absolute left-3 right-3 top-3 inline-flex max-w-[360px] items-center gap-2 rounded-[16px] border-2 border-white/35 bg-ink/90 px-3 py-2 text-xs font-semibold text-white shadow-lg sm:left-4 sm:right-auto sm:top-4 sm:px-4 sm:py-3 sm:text-sm">
                       <MousePointer2 className="h-4 w-4 shrink-0" />
                       {zh ? "在全景图上按住鼠标拖拽，框选一个 place fragment" : "Drag on the panorama to box-select a place fragment"}
                     </div>
                   </div>
                 ) : null}
                 {googleStatus === "loading" ? (
-                  <div className="absolute bottom-3 left-3 rounded-md border border-white/20 bg-paper/95 px-3 py-2 shadow-sm backdrop-blur">
+                  <div className="absolute bottom-3 left-3 rounded-[16px] border-2 border-white/30 bg-paper/95 px-3 py-2 shadow-sm backdrop-blur">
                     <LoadingState label={zh ? "正在加载街景" : "Loading Street View"} />
                   </div>
                 ) : null}
               </>
             ) : (
               <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/70">
-                {zh ? "请在设置面板加入 Google Maps API Key 来使用交互式街景。" : "Add a Google Maps API Key in the Settings panel to use interactive Street View."}
+                {zh ? "当前部署还没有配置交互式街景。" : "Interactive Street View is not configured for this deployment."}
               </div>
             )}
           </div>

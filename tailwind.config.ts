@@ -5,11 +5,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#17211f",
-        field: "#f1eee6",
-        brass: "#a0712b",
-        signal: "#256f86",
-        paper: "#fffdf8"
+        ink: "#20332b",
+        field: "#ead9ad",
+        brass: "#9a6d2d",
+        signal: "#4f8d62",
+        paper: "#fff9ea"
       }
     }
   },

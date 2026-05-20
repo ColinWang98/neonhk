@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, ChevronLeft, Loader2, MapPin, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ApiConfigButton } from "@/components/ApiConfigModal";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SelectedFragmentList } from "@/components/SelectedFragmentList";
 import { StreetImageViewer, type FragmentSelectionMeta } from "@/components/StreetImageViewer";
@@ -12,7 +11,6 @@ import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
 import { narrativeCacheVersion } from "@/lib/narrativeCache";
 import {
   publicRuntimeConfig,
-  runtimeConfigStorageKey,
   runtimeConfigToHeaders,
   type RuntimeApiConfig
 } from "@/lib/runtimeConfig";
@@ -56,7 +54,7 @@ export default function StoryPage() {
     updateFragment,
     selectFragment
   } = useExplorerStore();
-  const [apiConfig, setApiConfig] = useState<RuntimeApiConfig>(() => publicRuntimeConfig());
+  const apiConfig = useMemo<RuntimeApiConfig>(() => publicRuntimeConfig(), []);
   const [personaStatus, setPersonaStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,15 +143,6 @@ export default function StoryPage() {
   }, [selectedPersona?.id]);
 
   useEffect(() => {
-    const savedConfig = localStorage.getItem(runtimeConfigStorageKey);
-    if (savedConfig) {
-      try {
-        setApiConfig({ ...publicRuntimeConfig(), ...(JSON.parse(savedConfig) as RuntimeApiConfig) });
-      } catch {
-        localStorage.removeItem(runtimeConfigStorageKey);
-      }
-    }
-
     if (!selectedImage) {
       const savedImage = sessionStorage.getItem(selectedImageStorageKey);
       if (savedImage) {
@@ -316,11 +305,6 @@ export default function StoryPage() {
       cancelled = true;
     };
   }, [runtimeHeaders, setFragments, storageHydrated, storySession?.id]);
-
-  function saveApiConfig(nextConfig: RuntimeApiConfig) {
-    setApiConfig(nextConfig);
-    localStorage.setItem(runtimeConfigStorageKey, JSON.stringify(nextConfig));
-  }
 
   function choosePersona(persona: GeneratedPersona) {
     setSelectedPersona(persona);
@@ -841,12 +825,12 @@ export default function StoryPage() {
 
   if (!selectedImage) {
     return (
-      <main className="flex min-h-dvh items-center justify-center p-4 text-ink sm:p-6">
-        <div className="surface-panel max-w-md rounded-md p-7 text-center">
+      <main className="story-shell flex min-h-dvh items-center justify-center p-4 text-ink sm:p-6">
+        <div className="surface-panel max-w-md p-7 text-center">
           <p className="fine-label">Start Required</p>
           <h1 className="text-xl font-semibold">No scene selected</h1>
           <p className="mt-2 text-sm text-ink/65">Start from the map to choose a Hong Kong street scene.</p>
-          <Link href="/" className="mt-4 inline-flex rounded-md bg-ink px-4 py-2 text-sm font-medium text-white transition hover:bg-ink/90">
+          <Link href="/" className="soft-button-primary mt-4 inline-flex px-5 py-2 text-sm font-semibold">
             Back to map
           </Link>
         </div>
@@ -855,10 +839,10 @@ export default function StoryPage() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col p-3 text-ink sm:p-5 lg:h-screen">
-      <header className="mb-4 flex flex-col gap-3 border-b border-ink/10 pb-4 sm:mb-5 sm:pb-5 md:flex-row md:items-end md:justify-between">
+    <main className="story-shell flex min-h-dvh flex-col p-3 text-ink sm:p-5 lg:h-screen">
+      <header className="surface-panel mb-4 flex flex-col gap-3 px-4 py-4 sm:mb-5 sm:px-5 md:flex-row md:items-end md:justify-between">
         <div>
-          <Link href="/" className="mb-2 inline-flex items-center gap-1 text-xs text-ink/58 transition hover:text-ink">
+          <Link href="/" className="mb-2 inline-flex items-center gap-1 text-xs font-semibold text-ink/58 transition hover:text-ink">
             <ArrowLeft className="h-3 w-3" />
             Map
           </Link>
@@ -874,21 +858,20 @@ export default function StoryPage() {
           <StoryProgress stage={currentStage} language={uiLanguage} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex h-10 overflow-hidden rounded-md border border-ink/15 bg-paper">
+          <div className="inline-flex h-10 overflow-hidden soft-pill">
             {(["en", "zh"] as const).map((language) => (
               <button
                 key={language}
                 type="button"
                 onClick={() => setUiLanguage(language)}
-                className={`px-3 text-xs font-medium transition ${
-                  uiLanguage === language ? "bg-ink text-white" : "text-ink/65 hover:bg-field"
+                className={`px-3 text-xs font-semibold transition ${
+                  uiLanguage === language ? "bg-[var(--leaf)] text-white" : "text-ink/65 hover:bg-[var(--paper-warm)]"
                 }`}
               >
                 {language === "en" ? "EN" : "中文"}
               </button>
             ))}
           </div>
-          <ApiConfigButton config={apiConfig} onSave={saveApiConfig} />
         </div>
       </header>
 
@@ -899,7 +882,7 @@ export default function StoryPage() {
       ) : null}
 
       <section className="grid flex-1 gap-4 lg:min-h-0 lg:grid-rows-[minmax(660px,1fr)_minmax(220px,0.26fr)] lg:gap-5">
-        <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(720px,1fr)_340px] lg:gap-5">
+        <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(720px,1fr)_360px] lg:gap-5">
           <div className="grid min-h-[56vh] grid-rows-[minmax(420px,1fr)_auto] gap-3 sm:min-h-[62vh] sm:grid-rows-[minmax(500px,1fr)_auto] lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto]">
             <StreetImageViewer
               image={selectedImage}
@@ -917,7 +900,7 @@ export default function StoryPage() {
             />
             <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(storyVoiceReady)} />
           </div>
-          <div className="grid gap-3 lg:max-h-[calc(100dvh-170px)] lg:min-h-0 lg:auto-rows-min lg:content-start lg:overflow-y-auto lg:pr-1">
+          <div className="grid gap-3 lg:max-h-[calc(100dvh-190px)] lg:min-h-0 lg:auto-rows-min lg:content-start lg:overflow-y-auto lg:pr-1">
             <PersonaSwitcher
               personas={personas}
               selectedPersona={selectedPersona}
@@ -1035,7 +1018,7 @@ function PersonaSwitcher({
 }) {
   const zh = language === "zh";
   return (
-    <div className="surface-panel min-h-0 overflow-hidden rounded-md p-4">
+    <div className="surface-panel min-h-0 overflow-hidden p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="fine-label">{zh ? "第一步" : "Step 1"}</p>
@@ -1055,7 +1038,7 @@ function PersonaSwitcher({
         </div>
       ) : null}
       {storyStatus === "loading" ? (
-        <div className="mt-4 flex items-center gap-2 rounded-md border border-ink/10 bg-field px-3 py-2 text-xs text-ink/62">
+        <div className="cozy-card mt-4 flex items-center gap-2 px-3 py-2 text-xs text-ink/62">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{zh ? "正在准备故事" : "Preparing story"}</span>
         </div>
@@ -1068,15 +1051,15 @@ function PersonaSwitcher({
               type="button"
               key={persona.id}
               onClick={() => onSelect(persona)}
-              className={`rounded-md border p-3 text-left transition ${
+              className={`p-3 text-left transition ${
                 selected
-                  ? "border-signal bg-[#eef7f4]"
-                  : "border-ink/10 bg-paper hover:border-brass/45 hover:bg-[#fbf7ed]"
+                  ? "cozy-card cozy-card-active"
+                  : "cozy-card hover:border-brass/45 hover:bg-[#fff3d8]"
               }`}
             >
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-ink">{persona.name}</h3>
-                {selected ? <span className="rounded bg-signal px-2 py-0.5 text-[11px] text-white">{zh ? "当前" : "Active"}</span> : null}
+                {selected ? <span className="rounded-full bg-signal px-2 py-0.5 text-[11px] font-semibold text-white">{zh ? "当前" : "Active"}</span> : null}
               </div>
               <p className="mt-1 text-xs leading-5 text-ink/68">{persona.userIntro}</p>
             </button>
@@ -1101,7 +1084,7 @@ function GroundingSummaryCard({
   if (!hints.length) return null;
 
   return (
-    <div className={`surface-panel rounded-md ${compact ? "p-3" : "p-4"}`}>
+    <div className={`surface-panel ${compact ? "p-3" : "p-4"}`}>
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="fine-label">{zh ? "依据" : "Grounding"}</p>
@@ -1111,7 +1094,7 @@ function GroundingSummaryCard({
       </div>
       <div className="mt-3 grid gap-2">
         {hints.slice(0, compact ? 2 : 3).map((hint) => (
-          <div key={`${hint.kind}-${hint.label}`} className="rounded-md border border-ink/10 bg-white px-3 py-2">
+          <div key={`${hint.kind}-${hint.label}`} className="cozy-card px-3 py-2">
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-semibold text-ink">{zh ? hint.zhKind : hint.kind}</span>
               <span className={`rounded px-2 py-0.5 text-[10px] font-medium ${
@@ -1142,7 +1125,7 @@ function StoryProgress({
   const activeIndex = stage === "narrator" ? 0 : stage === "select" ? 1 : 2;
 
   return (
-    <div className="mt-4 flex max-w-xl overflow-hidden rounded-md border border-ink/10 bg-paper text-xs text-ink/58">
+    <div className="soft-pill mt-4 flex max-w-xl overflow-hidden text-xs text-ink/58">
       {steps.map((step, index) => {
         const active = index === activeIndex;
         const done = index < activeIndex;
@@ -1150,12 +1133,12 @@ function StoryProgress({
           <div
             key={step}
             className={`flex min-w-0 flex-1 items-center justify-center gap-2 px-2 py-2 sm:px-3 ${
-              active ? "bg-ink text-white" : done ? "bg-[#eef7f4] text-ink" : "bg-transparent"
+              active ? "bg-[var(--leaf)] text-white" : done ? "bg-[#eef7df] text-ink" : "bg-transparent"
             }`}
           >
             <span
               className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] ${
-                active ? "bg-white text-ink" : done ? "bg-signal text-white" : "bg-field text-ink/55"
+                active ? "bg-white text-ink" : done ? "bg-signal text-white" : "bg-[#f7ebc9] text-ink/55"
               }`}
             >
               {index + 1}
@@ -1182,7 +1165,7 @@ function FragmentFirstPanel({
   const zh = language === "zh";
   const flow = fragmentFlowState(fragment, processing, storyStatus, zh);
   return (
-    <div className="surface-panel rounded-md p-4">
+    <div className="surface-panel p-4">
       <p className="fine-label">{zh ? "第二步" : "Step 2"}</p>
       <h2 className="mt-1 text-sm font-semibold text-ink">
         {zh ? "框选一个片段" : "Select a fragment"}
@@ -1192,7 +1175,7 @@ function FragmentFirstPanel({
           ? "选择讲述人后，旋转全景图，点“开始框选”，在你想继续听的位置拖出一个框。"
           : "After choosing a narrator, rotate the panorama, press Select fragment, and drag over one detail."}
       </p>
-      <div className="mt-4 rounded-md border border-ink/10 bg-paper p-3">
+      <div className="cozy-card mt-4 p-3">
         <div className="flex items-start gap-3">
           {flow.loading ? (
             <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-ink/45" />
@@ -1308,7 +1291,7 @@ function NearbyContinuationPanel({
   if (status === "ready" && recommendations.length === 0) return null;
 
   return (
-    <div className="surface-panel rounded-md p-4">
+    <div className="surface-panel p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="fine-label">{zh ? "附近延展" : "Explore Nearby"}</p>
@@ -1325,13 +1308,13 @@ function NearbyContinuationPanel({
       </div>
 
       {status === "loading" ? (
-        <div className="mt-3 rounded-md border border-dashed border-ink/15 bg-field px-3 py-4 text-sm leading-6 text-ink/58">
+        <div className="mt-3 rounded-[16px] border-2 border-dashed border-ink/15 bg-field/55 px-3 py-4 text-sm leading-6 text-ink/58">
           {zh ? "正在查找附近可继续探索的位置。" : "Finding nearby places to continue the story."}
         </div>
       ) : null}
 
       {status === "error" ? (
-        <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-3 text-xs leading-5 text-red-800">
+        <div className="mt-3 rounded-[16px] border-2 border-red-200 bg-red-50 px-3 py-3 text-xs leading-5 text-red-800">
           {error || (zh ? "附近延展暂时不可用。" : "Nearby continuation is unavailable.")}
         </div>
       ) : null}
@@ -1339,7 +1322,7 @@ function NearbyContinuationPanel({
       {recommendations.length > 0 ? (
         <div className="mt-3 grid gap-2">
           {recommendations.map((recommendation) => (
-            <article key={recommendation.placeId} className="rounded-md border border-ink/10 bg-paper p-3">
+            <article key={recommendation.placeId} className="cozy-card p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="truncate text-sm font-semibold text-ink">{recommendation.name}</h3>
@@ -1349,14 +1332,14 @@ function NearbyContinuationPanel({
                     {recommendation.category ? <span className="truncate">· {recommendation.category}</span> : null}
                   </p>
                 </div>
-                <span className="rounded bg-[#eef7f4] px-2 py-1 text-[10px] font-medium text-signal">
+                <span className="rounded-full bg-[#eef7df] px-2 py-1 text-[10px] font-semibold text-signal">
                   {recommendation.recommendedSchema || "Street"}
                 </span>
               </div>
               <p className="mt-2 text-xs leading-5 text-ink/68">{recommendation.reason}</p>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {recommendation.evidenceSources.slice(0, 5).map((source) => (
-                  <span key={source} className="inline-flex items-center gap-1 rounded bg-field px-2 py-1 text-[10px] font-medium text-ink/62">
+                  <span key={source} className="inline-flex items-center gap-1 rounded-full bg-field/75 px-2 py-1 text-[10px] font-semibold text-ink/62">
                     <CheckCircle2 className="h-3 w-3 text-signal" />
                     {evidenceSourceLabel(source)}
                   </span>
@@ -1365,7 +1348,7 @@ function NearbyContinuationPanel({
               <button
                 type="button"
                 onClick={() => onOpen(recommendation)}
-                className="mt-3 inline-flex h-9 items-center justify-center rounded-md bg-ink px-3 text-xs font-semibold text-white transition hover:bg-ink/90"
+                className="soft-button-primary mt-3 inline-flex h-9 items-center justify-center px-4 text-xs font-semibold"
               >
                 {zh ? "打开街景" : "Open Street View"}
               </button>
@@ -1427,7 +1410,7 @@ function LiveCaption({
 }) {
   const zh = language === "zh";
   return (
-    <div className="min-h-[76px] rounded-md border border-brass/25 bg-paper px-4 py-3 text-brass shadow-[0_12px_30px_rgba(82,61,38,0.12)] sm:px-5">
+    <div className="notebook-panel min-h-[76px] px-4 py-3 text-brass sm:px-5">
       <div className="mb-1 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.14em] text-brass/65">
         <span>{zh ? "实时字幕" : "Live Subtitle"}</span>
         <span>{caption ? `${caption.index + 1}/${caption.total}` : "Idle"}</span>
@@ -1484,7 +1467,7 @@ function StoryArchiveDrawer({
       <button
         type="button"
         onClick={() => onOpenChange(true)}
-        className={`fixed right-0 top-1/2 z-[850] flex -translate-y-1/2 items-center gap-2 rounded-l-md border border-r-0 border-ink/12 bg-ink px-2 py-3 text-xs font-medium text-white shadow-xl transition hover:bg-ink/90 ${
+        className={`fixed right-0 top-1/2 z-[850] flex -translate-y-1/2 items-center gap-2 rounded-l-[18px] border-2 border-r-0 border-[rgba(39,90,66,0.35)] bg-[var(--leaf)] px-2 py-3 text-xs font-semibold text-white shadow-[0_4px_0_rgba(39,90,66,0.25),0_16px_30px_rgba(54,43,25,0.16)] transition hover:bg-[var(--leaf-dark)] ${
           open ? "translate-x-full opacity-0" : "translate-x-0 opacity-100"
         }`}
         aria-label={zh ? "打开保存的故事" : "Open saved stories"}
@@ -1495,7 +1478,7 @@ function StoryArchiveDrawer({
       </button>
 
       <aside
-        className={`fixed inset-x-3 bottom-3 top-auto z-[860] flex max-h-[76dvh] flex-col overflow-hidden rounded-md border border-ink/12 bg-paper shadow-2xl transition duration-300 sm:bottom-5 sm:left-auto sm:right-5 sm:top-24 sm:max-h-none sm:w-[min(25rem,calc(100vw-1.5rem))] ${
+        className={`surface-panel fixed inset-x-3 bottom-3 top-auto z-[860] flex max-h-[76dvh] flex-col overflow-hidden transition duration-300 sm:bottom-5 sm:left-auto sm:right-5 sm:top-24 sm:max-h-[calc(100dvh-7rem)] sm:w-[min(25rem,calc(100vw-1.5rem))] ${
           open ? "translate-x-0 opacity-100" : "translate-x-[calc(100%+1.5rem)] opacity-0"
         }`}
         aria-hidden={!open}
@@ -1511,7 +1494,7 @@ function StoryArchiveDrawer({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded-md p-2 text-ink/58 transition hover:bg-field hover:text-ink"
+            className="soft-button inline-flex h-9 w-9 items-center justify-center text-ink/58 hover:text-ink"
             aria-label={zh ? "关闭" : "Close"}
           >
             <X className="h-4 w-4" />
@@ -1520,7 +1503,7 @@ function StoryArchiveDrawer({
 
         <div className="min-h-0 flex-1 overflow-auto p-4">
           {storyFragments.length === 0 ? (
-            <div className="flex h-full items-center justify-center rounded-md border border-dashed border-ink/18 bg-field/55 px-5 text-center text-sm leading-6 text-ink/56">
+            <div className="flex h-full items-center justify-center rounded-[16px] border-2 border-dashed border-ink/18 bg-field/45 px-5 text-center text-sm leading-6 text-ink/56">
               {zh ? "框选一个片段后，会自动保存在这里。" : "After a selected fragment is saved, it will appear here."}
             </div>
           ) : (
@@ -1537,25 +1520,25 @@ function StoryArchiveDrawer({
                       type="button"
                       key={fragment.id}
                       onClick={() => onSelect(fragment)}
-                      className={`rounded-md border p-3 text-left transition ${
+                      className={`p-3 text-left transition ${
                         active
-                          ? "border-signal bg-[#eef7f4]"
-                          : "border-ink/10 bg-white hover:border-brass/40 hover:bg-[#fbf7ed]"
+                          ? "cozy-card cozy-card-active"
+                          : "cozy-card hover:border-brass/40 hover:bg-[#fff3d8]"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs font-semibold text-ink">
                           {zh ? `片段 ${index + 1}` : `Fragment ${index + 1}`}
                         </span>
-                        {active ? <span className="rounded bg-signal px-2 py-0.5 text-[10px] text-white">{zh ? "当前" : "Active"}</span> : null}
+                        {active ? <span className="rounded-full bg-signal px-2 py-0.5 text-[10px] font-semibold text-white">{zh ? "当前" : "Active"}</span> : null}
                       </div>
                       <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/62">
                         {fragment.visionDescription?.mainFeature || (zh ? "街景片段" : "Street fragment")}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-medium text-ink/58">
-                        <span className="rounded bg-field px-2 py-1">{zh ? `${fragment.personas?.length || 0} 位讲述人` : `${fragment.personas?.length || 0} narrators`}</span>
-                        <span className="rounded bg-field px-2 py-1">{zh ? `${storyCount} 个故事` : `${storyCount} stories`}</span>
-                        <span className="rounded bg-field px-2 py-1">{zh ? `${audioCount} 段音频` : `${audioCount} audio`}</span>
+                        <span className="rounded-full bg-field/75 px-2 py-1">{zh ? `${fragment.personas?.length || 0} 位讲述人` : `${fragment.personas?.length || 0} narrators`}</span>
+                        <span className="rounded-full bg-field/75 px-2 py-1">{zh ? `${storyCount} 个故事` : `${storyCount} stories`}</span>
+                        <span className="rounded-full bg-field/75 px-2 py-1">{zh ? `${audioCount} 段音频` : `${audioCount} audio`}</span>
                       </div>
                     </button>
                   );
@@ -1566,7 +1549,7 @@ function StoryArchiveDrawer({
                 <div className="space-y-3 border-t border-ink/10 pt-4">
                   <GroundingSummaryCard fragment={activeStory} language={language} compact />
                   {storyKeys.map((key, index) => (
-                    <article key={key} className="rounded-md border border-ink/10 bg-white p-4">
+                    <article key={key} className="cozy-card p-4">
                       <h3 className="text-xs font-semibold text-brass">
                         {zh ? storyLabels.zh[index] : storyLabels.en[index]}
                       </h3>

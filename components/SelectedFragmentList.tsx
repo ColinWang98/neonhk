@@ -16,7 +16,7 @@ export function SelectedFragmentList({
 }) {
   const zh = language === "zh";
   return (
-    <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-md">
+    <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden">
       <div className="border-b border-ink/10 px-4 py-3 sm:px-5 sm:py-4">
         <p className="fine-label">{zh ? "碎片" : "Fragments"}</p>
         <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "Selected Fragments / 精选片段" : "Selected Fragments"}</h2>
@@ -26,7 +26,7 @@ export function SelectedFragmentList({
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
         {fragments.length === 0 ? (
-          <div className="flex h-full items-center justify-center rounded-md border border-dashed border-ink/20 bg-paper/45 px-4 text-center text-sm leading-6 text-ink/55">
+          <div className="flex h-full items-center justify-center rounded-[16px] border-2 border-dashed border-ink/20 bg-paper/45 px-4 text-center text-sm leading-6 text-ink/55">
             {zh ? "在街景图像中框选一个区域来创建 fragment。" : "Box-select a region in the street image to create a fragment."}
           </div>
         ) : (
@@ -36,12 +36,12 @@ export function SelectedFragmentList({
                 type="button"
                 key={fragment.id}
                 onClick={() => onSelect?.(fragment)}
-                className={`quiet-panel rounded-md p-3 text-left transition hover:border-brass/45 ${
-                  activeFragmentId === fragment.id ? "border-signal bg-[#eef7f4]" : ""
+                className={`quiet-panel p-3 text-left transition hover:border-brass/45 ${
+                  activeFragmentId === fragment.id ? "cozy-card-active" : ""
                 }`}
               >
                 <div className="space-y-3">
-                  <div className="flex aspect-[4/3] w-full shrink-0 items-center justify-center overflow-hidden rounded border border-ink/10 bg-field">
+                  <div className="flex aspect-[4/3] w-full shrink-0 items-center justify-center overflow-hidden rounded-[12px] border-2 border-ink/10 bg-field">
                     {fragment.cropImageUrl ? (
                       <img
                         src={fragment.cropImageUrl}
@@ -55,7 +55,7 @@ export function SelectedFragmentList({
                   <div className="min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="truncate text-xs font-semibold text-ink">{fragment.id}</h3>
-                      <span className="rounded bg-field px-2 py-0.5 text-[11px] text-ink/65">
+                      <span className="rounded-full bg-field/80 px-2 py-0.5 text-[11px] font-semibold text-ink/65">
                         {fragment.status}
                       </span>
                     </div>

@@ -6,13 +6,20 @@
 
 :root {
   color-scheme: light;
-  background: #f7f5ef;
+  background: #f5ecd1;
   color: #17211f;
-  --surface: #fffdf8;
-  --surface-muted: #f1eee6;
-  --line: rgba(23, 33, 31, 0.11);
-  --line-strong: rgba(23, 33, 31, 0.18);
-  --shadow-soft: 0 18px 45px rgba(23, 33, 31, 0.07);
+  --surface: #fff9ea;
+  --surface-muted: #efe2bf;
+  --paper-warm: #fff3d8;
+  --field-warm: #ead9ad;
+  --ink-soft: #20332b;
+  --leaf: #4f8d62;
+  --leaf-dark: #2f6f53;
+  --clay: #b77a4a;
+  --line: rgba(93, 75, 45, 0.18);
+  --line-strong: rgba(93, 75, 45, 0.32);
+  --shadow-soft: 0 5px 0 rgba(93, 75, 45, 0.16), 0 22px 42px rgba(54, 43, 25, 0.13);
+  --shadow-pressed: 0 2px 0 rgba(93, 75, 45, 0.18), 0 10px 22px rgba(54, 43, 25, 0.12);
 }
 
 * {
@@ -22,8 +29,10 @@
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 16% 0%, rgba(160, 113, 43, 0.08), transparent 28rem),
-    linear-gradient(180deg, #faf8f1 0%, #f4f1ea 100%);
+    linear-gradient(90deg, rgba(124, 101, 61, 0.045) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(124, 101, 61, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, #fbf3d8 0%, #efe2bf 100%);
+  background-size: 28px 28px, 28px 28px, auto;
   color: #17211f;
   font-feature-settings: "kern";
   text-rendering: optimizeLegibility;
@@ -39,21 +48,117 @@ body {
 }
 
 .surface-panel {
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border: 2px solid var(--line-strong);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 95%, white 5%);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
 }
 
 .quiet-panel {
-  border: 1px solid var(--line);
-  background: rgba(255, 253, 248, 0.82);
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 249, 234, 0.9);
+  box-shadow: 0 3px 0 rgba(93, 75, 45, 0.1);
 }
 
 .fine-label {
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   font-size: 0.68rem;
-  font-weight: 650;
-  color: rgba(23, 33, 31, 0.52);
+  font-weight: 750;
+  color: rgba(86, 67, 35, 0.58);
+}
+
+.story-shell {
+  background:
+    radial-gradient(circle at 0 0, rgba(255, 255, 255, 0.55) 0 1px, transparent 1.5px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.32), transparent 18rem);
+  background-size: 18px 18px, auto;
+}
+
+.cozy-card {
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 250, 237, 0.92);
+  box-shadow: 0 3px 0 rgba(93, 75, 45, 0.1);
+}
+
+.cozy-card-active {
+  border-color: rgba(79, 141, 98, 0.55);
+  background: #eef7df;
+  box-shadow: 0 3px 0 rgba(47, 111, 83, 0.18);
+}
+
+.soft-button {
+  border: 2px solid rgba(93, 75, 45, 0.22);
+  border-radius: 999px;
+  background: #fff8e8;
+  box-shadow: 0 3px 0 rgba(93, 75, 45, 0.16);
+  color: var(--ink-soft);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.soft-button:hover {
+  transform: translateY(-1px);
+  background: #fff2d5;
+}
+
+.soft-button:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-pressed);
+}
+
+.soft-button-primary {
+  border: 2px solid rgba(39, 90, 66, 0.35);
+  border-radius: 999px;
+  background: var(--leaf);
+  box-shadow: 0 4px 0 rgba(39, 90, 66, 0.28);
+  color: white;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.soft-button-primary:hover {
+  transform: translateY(-1px);
+  background: var(--leaf-dark);
+}
+
+.soft-button-primary:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(39, 90, 66, 0.24);
+}
+
+.soft-button:disabled,
+.soft-button-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+  transform: none;
+}
+
+.soft-pill {
+  border: 1px solid rgba(93, 75, 45, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 248, 232, 0.8);
+}
+
+.notebook-panel {
+  border: 2px solid rgba(160, 113, 43, 0.28);
+  border-radius: 18px;
+  background: #fff4d8;
+  box-shadow: 0 5px 0 rgba(160, 113, 43, 0.14), 0 16px 32px rgba(82, 61, 38, 0.12);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(79, 141, 98, 0.36);
+  outline-offset: 2px;
 }
