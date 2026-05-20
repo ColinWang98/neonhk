@@ -637,7 +637,7 @@ export default function StoryPage() {
       const params = new URLSearchParams({
         lat: String(recommendation.lat),
         lng: String(recommendation.lng),
-        radius: "140"
+        radius: "480"
       });
       const res = await fetch(`/api/google/streetview/search?${params.toString()}`, {
         headers: runtimeHeaders
@@ -716,6 +716,12 @@ export default function StoryPage() {
       setNearbyStatus("error");
       setNearbyError(err instanceof Error ? err.message : "Street View is not available for this place.");
     }
+  }
+
+  function retryNearbyRecommendations() {
+    setNearbyRecommendations([]);
+    setNearbyError(null);
+    setNearbyStatus("idle");
   }
 
   async function handleFragmentSelected(
@@ -976,6 +982,7 @@ export default function StoryPage() {
                 error={nearbyError}
                 language={uiLanguage}
                 onOpen={openNearbyRecommendation}
+                onRetry={retryNearbyRecommendations}
               />
             ) : null}
           </div>
@@ -1306,16 +1313,17 @@ function NearbyContinuationPanel({
   recommendations,
   error,
   language,
-  onOpen
+  onOpen,
+  onRetry
 }: {
   status: "idle" | "loading" | "ready" | "error";
   recommendations: NearbyContinuationRecommendation[];
   error: string | null;
   language: "en" | "zh";
   onOpen: (recommendation: NearbyContinuationRecommendation) => void;
+  onRetry: () => void;
 }) {
   const zh = language === "zh";
-  if (status === "ready" && recommendations.length === 0) return null;
 
   return (
     <div className="surface-panel p-4">
@@ -1342,7 +1350,31 @@ function NearbyContinuationPanel({
 
       {status === "error" ? (
         <div className="mt-3 rounded-[16px] border-2 border-red-200 bg-red-50 px-3 py-3 text-xs leading-5 text-red-800">
-          {error || (zh ? "附近延展暂时不可用。" : "Nearby continuation is unavailable.")}
+          <p>{error || (zh ? "附近延展暂时不可用。" : "Nearby continuation is unavailable.")}</p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-2 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-red-800 shadow-sm"
+          >
+            {zh ? "再试一次" : "Try again"}
+          </button>
+        </div>
+      ) : null}
+
+      {status === "ready" && recommendations.length === 0 ? (
+        <div className="mt-3 rounded-[16px] border-2 border-dashed border-ink/15 bg-field/55 px-3 py-4 text-sm leading-6 text-ink/58">
+          <p>
+            {zh
+              ? "这次附近没有找到足够合适、可直接进入街景的延展点。你可以换一个细节，或稍后再试。"
+              : "No good nearby continuation was found for this detail yet. Try another fragment, or check again in a moment."}
+          </p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="soft-button mt-3 inline-flex h-8 items-center justify-center px-3 text-xs font-semibold"
+          >
+            {zh ? "重新查找" : "Search again"}
+          </button>
         </div>
       ) : null}
 

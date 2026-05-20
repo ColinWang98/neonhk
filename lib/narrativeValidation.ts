@@ -162,23 +162,24 @@ export function buildSafeNarratives(params: {
   const visual = params.evidenceView.primaryClaims.find((claim) => claim.claimType === "visual_observation");
   const feature = mainFact?.name || params.evidencePacket.fragment.mainFeature || visualName(visual) || "this detail";
   const persona = personaStreetAngle(params.persona, params.personaRole);
-  const factLine = mainFact?.sentence || `This detail looks like ${feature}.`;
+  const detail = feature === "this detail" ? "this selected detail" : feature;
+  const factLine = mainFact?.sentence || `From the crop, ${detail} is the clearest street cue.`;
   return {
     functionalUse: {
       title: "Functional-Use",
-      text: `${factLine} ${persona.anchor} I would use it as a quick street cue, honestly. I would not stop in the doorway. I would check the sign, step to one side, and let people behind me keep moving.`
+      text: `${factLine} ${persona.anchor} I use it first for orientation, then I look for the edge of the flow. Honestly, I check the sign, step to one side, and let the faster people pass before I decide what to do next.`
     },
     identityBelonging: {
       title: "Identity-Belonging",
-      text: `${feature} gives this frontage a simple handle. ${persona.comparison} That is enough for me to feel less lost. I would read the name, watch where people pause, and copy the local pace.`
+      text: `${detail} gives me a handle on this little patch of street. ${persona.comparison} It is not a grand story. It is the ordinary way I stop feeling lost: one sign, one corner, one place where I know not to stand too long.`
     },
     memoryTemporality: {
       title: "Memory-Temporality",
-      text: `The useful thing here is the daily timing. ${persona.routine} Shops open, people pass, someone slows down, then the pavement has to work again. I would read it through errands, lunch time, rain, and small waiting habits.`
+      text: `The timing matters more than the history here. ${persona.routine} I remember places like this by the hour: lunch rush, rain, a quick stop, someone checking a phone, then the pavement clears again. That daily rhythm is the part I trust.`
     },
     socialCulturalResonance: {
       title: "Social-Cultural Resonance",
-      text: `The social rule is simple here: do not block the frontage. ${persona.socialRule} When I check my phone, I step aside first. Small moves like that matter when the pavement is busy.`
+      text: `The small rule is simple: keep the passage open. ${persona.socialRule} I pause at the side first, then decide. That is the street manner I notice here, quick, practical, and a little unforgiving when everyone is trying to get through.`
     }
   };
 }
@@ -198,8 +199,8 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
       return {
         name,
         sentence: verifier.allowedUse === "direct_fact"
-          ? `${name} is the clearest name to use for this frontage.`
-          : `Maps puts ${name} around this frontage, so I use it as a careful landmark here.`
+          ? `The clearest name here is ${name}.`
+          : `The map puts ${name} around this spot, so I treat the name as a useful landmark.`
       };
     }
   }
@@ -214,7 +215,7 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
     if (name) {
       return {
         name,
-        sentence: `The map footprint and this sight line seem to point toward ${name}.`
+        sentence: `The map footprint seems to line this view up with ${name}.`
       };
     }
   }
@@ -257,15 +258,15 @@ function personaStreetAngle(persona?: GeneratedPersona, role?: string) {
   const text = [persona?.role, persona?.userIntro, persona?.background, role].filter(Boolean).join(" ").toLowerCase();
   if (/tourist|visitor|first-time|travell?er|overseas/.test(text)) {
     return {
-      anchor: "When I visit a street like this, I keep it simple and use it to find my bearings.",
-      comparison: "I compare it with the kind of snack-shop or small frontage I use for directions when I travel.",
-      routine: "I notice when people buy quickly and move away quickly.",
-      socialRule: "Visitors learn fast that the middle of the pavement is not a good place to hesitate."
+      anchor: "When I visit a street like this, I use big signs first and slow down at the edge.",
+      comparison: "It reminds me of how I travel in dense cities: I trust signs, queues, and where locals pause.",
+      routine: "I notice the small bursts first, people buying quickly, checking directions, then moving away.",
+      socialRule: "Visitors learn fast that the middle of the pavement is a bad place to hesitate."
     };
   }
   if (/temporary|short-term|recent arrival|newcomer|staying|migrant/.test(text)) {
     return {
-      anchor: "Since I am only settled here for a while, I read places by practical cues first.",
+      anchor: "After staying here a while, I read places by practical cues first.",
       comparison: "I compare it with streets I already know from home, then adjust to Hong Kong's faster pace.",
       routine: "After staying here a bit, I notice the small rushes: lunch, school time, rain, and people buying something fast.",
       socialRule: "For someone still learning the city, the safest move is to pause at the edge, not in the flow."
@@ -288,8 +289,8 @@ function personaStreetAngle(persona?: GeneratedPersona, role?: string) {
     };
   }
   return {
-    anchor: "I keep the reading practical and small.",
-    comparison: "It helps me orient myself without pretending I know everything about the place.",
+    anchor: "I keep my reading practical and small.",
+    comparison: "It helps me orient myself before I try to understand the wider place.",
     routine: "The useful clues are ordinary ones: errands, waiting, rain, lunch time, and people passing.",
     socialRule: "The safest rule is to stand aside before stopping."
   };

@@ -50,8 +50,21 @@ export async function recommendNearbyContinuations(input: NearbyContinuationInpu
 
   if (!placeContext) return [];
 
+  let candidatePool = buildCandidates(placeContext, input.lat, input.lng);
+  if (candidatePool.length < 3 && input.placeContext) {
+    const freshContext = await getLocalContext({
+      lat: input.lat,
+      lng: input.lng,
+      radius: Math.min(radiusMeters + 400, 1500),
+      config: input.config
+    }).catch(() => undefined);
+    if (freshContext) {
+      candidatePool = mergeCandidateList(candidatePool, buildCandidates(freshContext, input.lat, input.lng));
+    }
+  }
+
   const candidates = rankCandidates(
-    buildCandidates(placeContext, input.lat, input.lng),
+    candidatePool,
     input.activeSchemas || inferSchemasFromEvidence(input.evidencePacket)
   )
     .filter((candidate) => (candidate.distanceMeters ?? radiusMeters + 1) <= radiusMeters)
@@ -267,7 +280,7 @@ function scoreEverydayRelevance(candidate: ContinuationCandidate) {
 
 async function hasNearbyStreetView(candidate: ContinuationCandidate, config?: RuntimeApiConfig) {
   try {
-    const images = await searchGoogleStreetView(candidate.lat, candidate.lng, 120, config);
+    const images = await searchGoogleStreetView(candidate.lat, candidate.lng, 360, config);
     return images.length > 0;
   } catch {
     return false;
@@ -290,14 +303,39 @@ function buildReason(candidate: ContinuationCandidate, schema: SchemaName) {
     schema === "Memory-Temporality"
       ? "time, public memory, and urban change"
       : schema === "Social-Cultural Resonance"
-        ? "daily public life and shared street culture"
+        ? "daily public life and shared street habits"
         : schema === "Identity-Belonging"
-          ? "how people recognize and belong to this area"
+          ? "how people recognize this part of the area"
           : "how people move through and use the street";
   const sourceText = candidate.evidenceSources.has("wikipedia") || candidate.evidenceSources.has("wikidata") || candidate.evidenceSources.has("hk_amo")
-    ? "It has richer public records"
-    : "It has useful map and street-level context";
-  return `${sourceText}, and it can extend the current reading toward ${schemaText} without treating nearby context as proof of the selected detail.`;
+    ? "This nearby stop has richer public records"
+    : "This nearby stop has useful map and street-level context";
+  return `${sourceText}, so it can carry the current thread into ${schemaText}. It gives the narrator more to work with than this single detail.`;
+}
+
+function mergeCandidateList(a: ContinuationCandidate[], b: ContinuationCandidate[]) {
+  const merged = new Map<string, ContinuationCandidate>();
+  for (const candidate of [...a, ...b]) {
+    const key = normalizeCandidateKey(candidate.name, candidate.lat, candidate.lng);
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, {
+        ...candidate,
+        evidenceSources: new Set(candidate.evidenceSources),
+        sourceNotes: [...candidate.sourceNotes]
+      });
+      continue;
+    }
+    for (const source of candidate.evidenceSources) existing.evidenceSources.add(source);
+    existing.sourceNotes.push(...candidate.sourceNotes);
+    existing.category ||= candidate.category;
+    if (typeof candidate.distanceMeters === "number" && Number.isFinite(candidate.distanceMeters)) {
+      existing.distanceMeters = typeof existing.distanceMeters === "number" && Number.isFinite(existing.distanceMeters)
+        ? Math.min(existing.distanceMeters, candidate.distanceMeters)
+        : candidate.distanceMeters;
+    }
+  }
+  return Array.from(merged.values());
 }
 
 function inferSchemasFromEvidence(packet?: EvidencePacket) {

@@ -28,13 +28,16 @@ Repair goals:
 3. If evidence is weak, use smaller grounded observations and practical persona judgement.
 4. Do not say "not enough evidence", "I cannot know", "I will not guess", or similar policy language.
 5. Keep it natural, spoken, and first-person.
-6. Return the same four segment JSON shape.
+6. Make the four segments feel like one small walk-through, not four checklist answers.
+7. Return the same four segment JSON shape.
 
 Persona style:
 - Do not label the persona in the sentence. Never write "as a temporary-resident", "as a tourist", or "as a local resident".
 - Use the persona's role, userIntro, background, and voiceHint as speaking texture: route-finding, working nearby, local errands, short-term learning, travel comparison, age, pace, food, rain, queues, or transport habits.
 - Treat the persona as an active fictional role-play speaker. Their own habits and experiences can be direct: "I usually...", "I learned...", "after staying here...", "when I visit...", "on my usual route...".
 - Avoid role-play hypotheticals such as "if I were visiting", "if I were working nearby", and "if this were on my usual route".
+- Use direct action more than conditional language: "I slow down", "I use the sign", "I step aside", "I learned this after a few weeks here". Use "I would" only when the action is genuinely conditional.
+- Add one tiny everyday scene when possible: checking a sign, arriving from transport, holding a drink, keeping out of a doorway, leaving space for a delivery, waiting in rain, or comparing the place with a street near home.
 - Turn uncertainty into practical street judgement. Do not expose evidence mechanics.
 
 Do not add new factual claims beyond NarrativeEvidenceView.primaryClaims.
