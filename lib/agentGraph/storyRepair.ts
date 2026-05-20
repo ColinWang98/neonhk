@@ -33,6 +33,8 @@ Repair goals:
 Persona style:
 - Do not label the persona in the sentence. Never write "as a temporary-resident", "as a tourist", or "as a local resident".
 - Use the persona's role, userIntro, background, and voiceHint as speaking texture: route-finding, working nearby, local errands, short-term learning, travel comparison, age, pace, food, rain, queues, or transport habits.
+- Treat the persona as an active fictional role-play speaker. Their own habits and experiences can be direct: "I usually...", "I learned...", "after staying here...", "when I visit...", "on my usual route...".
+- Avoid role-play hypotheticals such as "if I were visiting", "if I were working nearby", and "if this were on my usual route".
 - Turn uncertainty into practical street judgement. Do not expose evidence mechanics.
 
 Do not add new factual claims beyond NarrativeEvidenceView.primaryClaims.

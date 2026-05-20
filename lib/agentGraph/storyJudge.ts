@@ -42,6 +42,7 @@ You must check:
 4. Persona fit: the story should sound like the selected persona can reasonably say it.
 5. Naturalness: the story should sound like everyday speech. It must not repeat "not enough evidence", "I cannot know", "I will not guess", or similar meta-refusals.
 6. Product quality: avoid template-like repetition, academic labels, and four segments saying the same thing.
+7. Role-play voice: the narrator's own fictional habits and experiences should sound direct, not hypothetical. Repeated phrases like "if I were visiting", "if I were working nearby", or "if this were on my usual route" are unnatural.
 
 Important:
 - A persona may make practical, cautious, first-person comparisons.
