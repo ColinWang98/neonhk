@@ -88,8 +88,16 @@ export type ContextCandidate = {
   category?: string;
   distanceMeters?: number;
   relativeDirection?: "ahead" | "left" | "right" | "behind" | "nearby";
+  address?: string;
   publishedAt?: string;
   url?: string;
+  sourceTitle?: string;
+  sourceTier?: SourceTier;
+  spatialMatch?: SpatialMatch | "footprint_intersection" | "view_cone" | "centroid" | "nearby";
+  temporalRelevance?: TemporalRelevance;
+  localConcernLevel?: LocalConcernLevel;
+  retrievalScore?: number;
+  matchReason?: string;
   source:
     | "google_places"
     | "osm"
@@ -206,6 +214,8 @@ export type PlaceContext = {
   publicNewsContext?: PublicNewsItem[];
   wikidataEntities?: LocalEntity[];
   sourceNotes?: SourceNote[];
+  ragCandidates?: ContextCandidate[];
+  ragSummary?: string;
   uncertainty: string;
 };
 
@@ -384,6 +394,11 @@ export type EvidencePacket = {
   };
   blockedTopics: string[];
   candidateVerification?: CandidateVerification;
+  retrieval?: {
+    strategy: "spatial-rag-v1";
+    candidates: ContextCandidate[];
+    summary?: string;
+  };
 };
 
 export type FragmentAffordance =

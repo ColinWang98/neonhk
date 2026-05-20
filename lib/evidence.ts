@@ -26,7 +26,8 @@ const evidenceLimits = {
   publicData: 6,
   wikidata: 3,
   wikipedia: 2,
-  publicNews: 3
+  publicNews: 3,
+  spatialRag: 10
 };
 
 export function buildEvidencePacket(params: BuildEvidencePacketParams): EvidencePacket {
@@ -35,11 +36,15 @@ export function buildEvidencePacket(params: BuildEvidencePacketParams): Evidence
     ...visualClaims(params.visionDescription, affordances),
     ...panoClaims(params),
     ...candidateVerificationClaims(params.candidateVerification),
-    ...nearbyPlaceClaims(params.placeContext),
-    ...publicDataClaims(params.placeContext),
-    ...wikidataClaims(params.placeContext),
-    ...wikipediaClaims(params.placeContext),
-    ...publicNewsClaims(params.placeContext)
+    ...(params.placeContext?.ragCandidates?.length
+      ? spatialRagClaims(params.placeContext)
+      : [
+          ...nearbyPlaceClaims(params.placeContext),
+          ...publicDataClaims(params.placeContext),
+          ...wikidataClaims(params.placeContext),
+          ...wikipediaClaims(params.placeContext),
+          ...publicNewsClaims(params.placeContext)
+        ])
   ];
 
   if (params.visionDescription.privacyRisk.riskLevel !== "low") {
@@ -91,7 +96,14 @@ export function buildEvidencePacket(params: BuildEvidencePacketParams): Evidence
     ],
     storyAffordances: buildStoryAffordances(params.visionDescription, affordances, claims),
     blockedTopics: blockedTopics(params.visionDescription),
-    candidateVerification: params.candidateVerification
+    candidateVerification: params.candidateVerification,
+    retrieval: params.placeContext?.ragCandidates?.length
+      ? {
+          strategy: "spatial-rag-v1",
+          candidates: params.placeContext.ragCandidates,
+          summary: params.placeContext.ragSummary
+        }
+      : undefined
   };
 }
 
@@ -386,6 +398,78 @@ function publicNewsClaims(placeContext?: PlaceContext): EvidenceClaim[] {
   } satisfies EvidenceClaim));
 }
 
+function spatialRagClaims(placeContext?: PlaceContext): EvidenceClaim[] {
+  return (placeContext?.ragCandidates || [])
+    .filter((candidate) => candidate.allowedUse !== "do_not_use" && candidate.visibilityConfidence !== "reject")
+    .slice(0, evidenceLimits.spatialRag)
+    .map((candidate, index) => {
+      const isNews = candidate.source === "gov_press_release" || candidate.source === "rthk" || candidate.source === "gdelt";
+      const visiblePhrase =
+        candidate.visibilityConfidence === "visible_likely"
+          ? "a strong spatial candidate for the selected view"
+          : candidate.visibilityConfidence === "possible"
+            ? "a possible spatial candidate for the selected view"
+            : candidate.visibilityConfidence === "nearby_only"
+              ? "nearby but not confirmed visible"
+              : "area-level background";
+      return {
+        id: `rag${index + 1}`,
+        text: `${candidate.label} is retrieved by Spatial RAG from ${sourceLabel(candidate.source)} as ${visiblePhrase}${candidate.category ? `, category ${candidate.category}` : ""}${candidate.distanceMeters ? `, about ${Math.round(candidate.distanceMeters)} meters away` : ""}. ${candidate.matchReason || ""}`.trim(),
+        source: candidate.source,
+        claimType: isNews
+          ? candidate.source === "gov_press_release" ? "official_notice" : "news_context"
+          : candidate.source === "wikipedia" || candidate.source === "wikidata" ? "retrieved_area_context" : "nearby_candidate",
+        confidence: confidenceForRagCandidate(candidate),
+        visibilityStatus: visibilityStatusForRagCandidate(candidate),
+        allowedUse: candidate.allowedUse,
+        uncertaintyCueRequired: candidate.allowedUse !== "direct_fact",
+        privacySensitive: false,
+        relatedSchemas: schemasForRagCandidate(candidate),
+        url: candidate.url,
+        publishedAt: candidate.publishedAt,
+        sourceTitle: candidate.sourceTitle,
+        sourceTier: candidate.sourceTier,
+        spatialMatch: narrativeSpatialMatch(candidate.spatialMatch),
+        temporalRelevance: candidate.temporalRelevance,
+        localConcernLevel: candidate.localConcernLevel
+      } satisfies EvidenceClaim;
+    });
+}
+
+function confidenceForRagCandidate(candidate: NonNullable<PlaceContext["ragCandidates"]>[number]) {
+  if (candidate.visibilityConfidence === "visible_likely") return Math.min(0.88, Math.max(0.72, candidate.retrievalScore || 0.78));
+  if (candidate.visibilityConfidence === "possible") return Math.min(0.76, Math.max(0.58, candidate.retrievalScore || 0.64));
+  if (candidate.visibilityConfidence === "nearby_only") return Math.min(0.58, Math.max(0.42, candidate.retrievalScore || 0.5));
+  return Math.min(0.56, Math.max(0.38, candidate.retrievalScore || 0.46));
+}
+
+function visibilityStatusForRagCandidate(candidate: NonNullable<PlaceContext["ragCandidates"]>[number]): EvidenceClaim["visibilityStatus"] {
+  if (candidate.visibilityConfidence === "visible_likely" || candidate.visibilityConfidence === "possible") return "possibly_visible";
+  if (candidate.visibilityConfidence === "nearby_only") return "nearby_not_confirmed_visible";
+  if (candidate.visibilityConfidence === "area_background") return "area_level_only";
+  return "unknown";
+}
+
+function schemasForRagCandidate(candidate: NonNullable<PlaceContext["ragCandidates"]>[number]): EvidenceClaim["relatedSchemas"] {
+  if (candidate.source === "gov_press_release" || candidate.source === "rthk" || candidate.source === "gdelt" || candidate.source === "wikipedia" || candidate.source === "wikidata") {
+    return ["Memory-Temporality", "Social-Cultural Resonance"];
+  }
+  const text = `${candidate.label} ${candidate.category || ""}`.toLowerCase();
+  if (isPublicLandmarkCategory(text)) {
+    return ["Functional-Use", "Identity-Belonging", "Memory-Temporality", "Social-Cultural Resonance"];
+  }
+  if (/shop|store|market|restaurant|cafe|mall|commercial/i.test(text)) {
+    return ["Functional-Use", "Identity-Belonging", "Social-Cultural Resonance"];
+  }
+  return ["Functional-Use", "Identity-Belonging"];
+}
+
+function narrativeSpatialMatch(value?: string): EvidenceClaim["spatialMatch"] {
+  if (value === "exact_address" || value === "nearby_address" || value === "area_only" || value === "unknown") return value;
+  if (value === "nearby") return "nearby_address";
+  return undefined;
+}
+
 function buildStoryAffordances(
   vision: VisionDescription,
   affordances: FragmentAffordance[],
@@ -445,6 +529,11 @@ function truncate(text: string, max: number) {
 }
 
 function sourceLabel(source: string) {
+  if (source === "google_places") return "Google Places";
+  if (source === "osm") return "OpenStreetMap";
+  if (source === "hk_landsd") return "Hong Kong public open data";
+  if (source === "wikidata") return "Wikidata";
+  if (source === "wikipedia") return "Wikipedia";
   if (source === "gov_press_release") return "A Hong Kong Government notice";
   if (source === "rthk") return "RTHK local news";
   if (source === "gdelt") return "A news index";

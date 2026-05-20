@@ -2,6 +2,7 @@ import { getGooglePlaceContext } from "@/lib/googlePlaceContext";
 import { getHongKongLocationSearchCandidates, getNearbyHongKongPublicDataCandidates } from "@/lib/hkPublicData";
 import { getNearbyOsmCandidates } from "@/lib/osm";
 import { getPublicNewsContext } from "@/lib/publicNews";
+import { buildSpatialRagContext } from "@/lib/spatialRag";
 import { getNearbyWikidataEntities } from "@/lib/wikidata";
 import { getWikipediaSummary } from "@/lib/wikipedia";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
@@ -93,6 +94,17 @@ export async function getLocalContext(params: {
       }).catch(() => [])
     ]);
 
+    const spatialRag = buildSpatialRagContext({
+      lat: params.lat,
+      lng: params.lng,
+      heading: params.heading,
+      places: [...(googleContext?.places || []), ...publicPlaces],
+      publicDataCandidates,
+      wikidataEntities,
+      sourceNotes,
+      publicNewsContext
+    });
+
     return {
       address: googleContext?.address,
       heading: googleContext?.heading ?? (Number.isFinite(params.heading) ? normalizeDegrees(params.heading || 0) : undefined),
@@ -101,6 +113,7 @@ export async function getLocalContext(params: {
       publicNewsContext,
       wikidataEntities,
       sourceNotes,
+      ...spatialRag,
       uncertainty:
         "Google Maps places, OpenStreetMap features, Hong Kong CSDI public-data candidates, Wikidata entities, Wikipedia notes, and nearby public news are approximate context around the panorama coordinate. They may be near the street view point rather than inside the selected crop, so stories must connect them cautiously."
     };
