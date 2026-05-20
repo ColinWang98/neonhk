@@ -1,5 +1,5 @@
-import { generateGeminiJson } from "@/lib/gemini";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
+import { generateTextJson } from "@/lib/textModel";
 import type { GeneratedPersona, TtsProvider } from "@/types";
 
 type AdaptSpeechTextParams = {
@@ -11,7 +11,7 @@ type AdaptSpeechTextParams = {
 
 type SpeechAdaptation = {
   speechText: string;
-  strategy: "gemini" | "local-rules";
+  strategy: "deepseek" | "local-rules";
   note?: string;
 };
 
@@ -83,11 +83,12 @@ export async function adaptSpeechText(params: AdaptSpeechTextParams): Promise<Sp
     return { speechText: "", strategy: "local-rules" };
   }
 
-  const raw = await generateGeminiJson({
-    parts: [
-      { text: speechStylePrompt },
+  const raw = await generateTextJson({
+    messages: [
+      { role: "system", content: speechStylePrompt },
       {
-        text: JSON.stringify({
+        role: "user",
+        content: JSON.stringify({
           provider: params.provider,
           persona: params.persona,
           targetVoice: speechGuidance(params.persona, params.provider, params.config),
@@ -96,17 +97,17 @@ export async function adaptSpeechText(params: AdaptSpeechTextParams): Promise<Sp
       }
     ],
     temperature: 0.2,
-    errorPrefix: "Gemini speech adaptation"
+    errorPrefix: "DeepSeek speech adaptation"
   });
   const parsed = JSON.parse(extractJsonObject(raw)) as { speechText?: string };
   const speechText = parsed.speechText?.trim();
   if (!speechText) {
-    throw new Error("Gemini speech adaptation returned no speechText.");
+    throw new Error("DeepSeek speech adaptation returned no speechText.");
   }
 
   return {
     speechText: limitRunawayPauses(speechText),
-    strategy: "gemini"
+    strategy: "deepseek"
   };
 }
 

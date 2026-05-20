@@ -1,5 +1,5 @@
-import { generateGeminiJson } from "@/lib/gemini";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
+import { generateTextJson } from "@/lib/textModel";
 import type { GeneratedPersona, SceneVisualDescription, StreetImage } from "@/types";
 
 const personaPrompt = `Generate three scene-grounded fictional interpretive personas for a Hong Kong street-view scene.
@@ -61,11 +61,12 @@ export async function generatePersonas(params: {
 }): Promise<GeneratedPersona[]> {
   void params.config;
 
-  const raw = await generateGeminiJson({
-    parts: [
-      { text: personaPrompt },
+  const raw = await generateTextJson({
+    messages: [
+      { role: "system", content: personaPrompt },
       {
-        text: JSON.stringify({
+        role: "user",
+        content: JSON.stringify({
           image: params.image,
           sceneVisualDescription: params.sceneVisualDescription,
           languageStyle:
@@ -75,7 +76,7 @@ export async function generatePersonas(params: {
     ],
     temperature: 0.35,
     maxOutputTokens: 2400,
-    errorPrefix: "Gemini persona generation"
+    errorPrefix: "DeepSeek persona generation"
   });
 
   const parsed = JSON.parse(extractJsonObject(raw)) as { personas?: GeneratedPersona[] };

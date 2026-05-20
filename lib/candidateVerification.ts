@@ -87,6 +87,9 @@ export async function verifyCandidateMatches(params: VerifyParams): Promise<Cand
   if (!params.cropImageUrl || candidates.length === 0) {
     return skipped("No crop image or map candidates available.");
   }
+  if (!shouldRunCandidateVerifier(params, candidates)) {
+    return skipped("Visual-map verification skipped because the fragment has no strong public-place or sign/building cues.");
+  }
 
   return verifyWithGemini(params, candidates);
 }
@@ -183,6 +186,41 @@ function collectCandidates(placeContext?: PlaceContext): CandidateInput[] {
     .filter((candidate) => candidate.label)
     .sort((a, b) => candidatePriority(b) - candidatePriority(a))
     .slice(0, 12);
+}
+
+function shouldRunCandidateVerifier(params: VerifyParams, candidates: CandidateInput[]) {
+  const visionText = [
+    params.visionDescription.mainFeature,
+    params.visionDescription.fragmentCategory,
+    params.visionDescription.spatialContext,
+    ...(params.visionDescription.visibleCues || []),
+    ...(params.visionDescription.visibleTextEnglish || params.visionDescription.visibleText || [])
+  ].join(" ");
+  const visibleTextCount = (params.visionDescription.visibleTextEnglish || params.visionDescription.visibleText || []).length;
+  const publicEntityCount = (params.visionDescription.publicEntityCandidates || []).length;
+  const maxPriority = Math.max(...candidates.map(candidatePriority));
+  const hasStrongSpatialCandidate = candidates.some((candidate) =>
+    candidate.spatialMatch === "footprint_intersection" ||
+    candidate.viewAlignment === "inside_fragment_view" ||
+    candidate.viewAlignment === "near_fragment_view"
+  );
+  const hasPublicCandidate = candidates.some((candidate) =>
+    /university|school|campus|hospital|station|museum|library|government|market|heritage|polytechnic|public|mansion|centre|center|building/i.test(
+      `${candidate.label} ${candidate.category || ""}`
+    )
+  );
+  const fragmentLooksVerifiable = /sign|text|logo|shop|store|front|facade|façade|building|entrance|gate|campus|university|school|station|hospital|museum|market|restaurant|pharmacy|dispensary|temple|church|public|landmark/i.test(
+    visionText
+  );
+  const fragmentLooksGeneric = /sky|road surface|asphalt|vehicle only|bus only|person|people|crowd|tree|pavement only|sidewalk only/i.test(
+    visionText
+  ) && !fragmentLooksVerifiable;
+
+  if (fragmentLooksGeneric && maxPriority < 55 && !publicEntityCount && !visibleTextCount) return false;
+  if (publicEntityCount || visibleTextCount) return maxPriority >= 14 || hasStrongSpatialCandidate;
+  if (hasPublicCandidate && hasStrongSpatialCandidate) return maxPriority >= 24;
+  if (fragmentLooksVerifiable && hasStrongSpatialCandidate) return maxPriority >= 24;
+  return fragmentLooksVerifiable && maxPriority >= 42;
 }
 
 function candidateFromPlace(place: NearbyPlace, candidateId: string): CandidateInput {

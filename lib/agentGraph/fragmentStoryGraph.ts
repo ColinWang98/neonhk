@@ -6,9 +6,10 @@ import { generateNarratives } from "@/lib/narrative";
 import { buildNarrativeBlocks, buildSafeNarratives, reinforceConcreteFacts, validateNarrative } from "@/lib/narrativeValidation";
 import { buildNarrativeEvidenceView } from "@/lib/narrativeEvidenceView";
 import { buildPersonaFragmentPlan } from "@/lib/personaFragment";
-import { judgeNarrativeWithGemini } from "@/lib/agentGraph/storyJudge";
-import { repairNarrativeWithGemini } from "@/lib/agentGraph/storyRepair";
+import { judgeNarrativeWithTextModel } from "@/lib/agentGraph/storyJudge";
+import { repairNarrativeWithTextModel } from "@/lib/agentGraph/storyRepair";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
+import { textModelDiagnostics } from "@/lib/textModel";
 import type {
   AgentRunSummary,
   EvidencePacket,
@@ -52,7 +53,8 @@ const graphName = "fragment_story_graph";
 
 export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Promise<FragmentStoryGraphOutput> {
   const config = input.config || {};
-  const diagnostics = geminiDiagnostics();
+  const visionDiagnostics = geminiDiagnostics();
+  const textDiagnostics = textModelDiagnostics();
   const runContext = {
     sessionId: input.sessionId,
     fragmentId: input.fragmentId,
@@ -83,8 +85,8 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
       ...runContext,
       config,
       agentRuns,
-      provider: diagnostics.provider,
-      model: diagnostics.model
+      provider: visionDiagnostics.provider,
+      model: visionDiagnostics.model
     }
   );
 
@@ -178,8 +180,8 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
       ...runContext,
       config,
       agentRuns,
-      provider: diagnostics.provider,
-      model: diagnostics.model
+      provider: textDiagnostics.provider,
+      model: textDiagnostics.model
     }
   );
 
@@ -233,7 +235,7 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
           narrativeBlocks
         },
         async () =>
-          judgeNarrativeWithGemini({
+          judgeNarrativeWithTextModel({
             narratives,
             narrativeBlocks,
             evidencePacket,
@@ -245,8 +247,8 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
           ...runContext,
           config,
           agentRuns,
-          provider: diagnostics.provider,
-          model: diagnostics.model
+          provider: textDiagnostics.provider,
+          model: textDiagnostics.model
         }
       );
 
@@ -275,7 +277,7 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
         aiDecision: narrativeValidation.aiDecision
       },
       async () =>
-        repairNarrativeWithGemini({
+        repairNarrativeWithTextModel({
           narratives,
           narrativeBlocks,
           narrativeValidation,
@@ -288,8 +290,8 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
         ...runContext,
         config,
         agentRuns,
-        provider: diagnostics.provider,
-        model: diagnostics.model
+        provider: textDiagnostics.provider,
+        model: textDiagnostics.model
       }
     );
     narratives = reinforceConcreteFacts(narratives, evidencePacket, narrativeEvidenceView);
@@ -307,7 +309,7 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
         narrativeBlocks
       },
       async () =>
-        judgeNarrativeWithGemini({
+        judgeNarrativeWithTextModel({
           narratives,
           narrativeBlocks,
           evidencePacket,
@@ -319,8 +321,8 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
         ...runContext,
         config,
         agentRuns,
-        provider: diagnostics.provider,
-        model: diagnostics.model
+        provider: textDiagnostics.provider,
+        model: textDiagnostics.model
       }
     );
   }

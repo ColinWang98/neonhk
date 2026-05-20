@@ -469,7 +469,7 @@ export type NarrativeValidation = {
   status: "passed" | "warning" | "failed";
   warnings: string[];
   requiresRegeneration: boolean;
-  validator?: "system" | "gemini";
+  validator?: "system" | "gemini" | "deepseek";
   model?: string;
   deterministicWarnings?: string[];
   aiWarnings?: string[];

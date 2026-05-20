@@ -4,6 +4,7 @@ import { persistFragment } from "@/lib/fragments";
 import { geminiDiagnostics } from "@/lib/gemini";
 import { generatePersonas } from "@/lib/persona";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
+import { textModelDiagnostics } from "@/lib/textModel";
 import { analyzeSceneSnapshot } from "@/lib/vision";
 import type { GeneratedPersona, PlaceContext, SceneVisualDescription, StreetImage, VisionDescription } from "@/types";
 
@@ -51,14 +52,18 @@ export async function POST(request: NextRequest) {
     }
 
     const config = runtimeConfigFromHeaders(request.headers);
-    const aiDiagnostics = geminiDiagnostics();
+    const visionDiagnostics = geminiDiagnostics();
+    const personaDiagnostics = textModelDiagnostics();
 
     console.info("[persona.generate] started", {
       requestId,
       imageId: body.image.id,
       provider: body.image.provider,
       hasSnapshotUrl: Boolean(body.snapshotUrl),
-      ai: aiDiagnostics
+      ai: {
+        vision: visionDiagnostics,
+        text: personaDiagnostics
+      }
     });
 
     const warnings: string[] = [];
@@ -95,8 +100,8 @@ export async function POST(request: NextRequest) {
           {
             sessionId: body.sessionId,
             stage: "scene_analysis",
-            provider: aiDiagnostics.provider,
-            model: aiDiagnostics.model,
+            provider: visionDiagnostics.provider,
+            model: visionDiagnostics.model,
             status: "success",
             inputSummary: {
               imageId: body.image.id,
@@ -119,8 +124,8 @@ export async function POST(request: NextRequest) {
           {
             sessionId: body.sessionId,
             stage: "scene_analysis",
-            provider: aiDiagnostics.provider,
-            model: aiDiagnostics.model,
+            provider: visionDiagnostics.provider,
+            model: visionDiagnostics.model,
             status: "error",
             inputSummary: {
               imageId: body.image.id,
@@ -155,8 +160,8 @@ export async function POST(request: NextRequest) {
         {
           sessionId: body.sessionId,
           stage: "persona_generation",
-          provider: aiDiagnostics.provider,
-          model: aiDiagnostics.model,
+          provider: personaDiagnostics.provider,
+          model: personaDiagnostics.model,
           status: "success",
           inputSummary: {
             imageId: body.image.id,
@@ -188,8 +193,8 @@ export async function POST(request: NextRequest) {
         {
           sessionId: body.sessionId,
           stage: "persona_generation",
-          provider: aiDiagnostics.provider,
-          model: aiDiagnostics.model,
+          provider: personaDiagnostics.provider,
+          model: personaDiagnostics.model,
           status: "error",
           inputSummary: {
             imageId: body.image.id,

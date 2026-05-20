@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
-import { geminiDiagnostics } from "@/lib/gemini";
 import { generateSceneOpening } from "@/lib/sceneOpening";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import { upsertStorySession } from "@/lib/storySessions";
+import { textModelDiagnostics } from "@/lib/textModel";
 import type {
   GeneratedPersona,
   PlaceContext,
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const startedAt = performance.now();
-    const aiDiagnostics = geminiDiagnostics();
+    const aiDiagnostics = textModelDiagnostics();
     const opening = await generateSceneOpening({
       image: body.image,
       persona: body.persona,

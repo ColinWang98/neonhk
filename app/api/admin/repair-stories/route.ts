@@ -3,10 +3,10 @@ import https from "node:https";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
 import { runFragmentStoryGraph } from "@/lib/agentGraph/fragmentStoryGraph";
 import { listFragmentsForNarrativeRepair } from "@/lib/fragments";
-import { geminiDiagnostics } from "@/lib/gemini";
 import { narrativeCacheVersion } from "@/lib/narrativeCache";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import { getStorySession } from "@/lib/storySessions";
+import { textModelDiagnostics } from "@/lib/textModel";
 import type {
   GeneratedPersona,
   NarrativeGeneration,
@@ -217,7 +217,7 @@ async function repairOneStory(params: {
   }
 
   const startedAt = performance.now();
-  const diagnostics = geminiDiagnostics();
+  const diagnostics = textModelDiagnostics();
   const placeContext = params.fragment.placeContext || params.session.placeContext;
   const image = sessionToStreetImage(params.session);
   const graphResult = await runFragmentStoryGraph({

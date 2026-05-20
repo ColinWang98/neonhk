@@ -1,4 +1,4 @@
-import { generateGeminiJson, geminiModel } from "@/lib/gemini";
+import { generateTextJson, textModelName } from "@/lib/textModel";
 import type {
   EvidencePacket,
   GeneratedPersona,
@@ -65,18 +65,18 @@ Return strict JSON:
   "notes": string
 }`;
 
-export async function judgeNarrativeWithGemini(input: StoryJudgeInput): Promise<NarrativeValidation> {
-  const model = geminiModel();
-  const raw = await generateGeminiJson({
-    model,
+export async function judgeNarrativeWithTextModel(input: StoryJudgeInput): Promise<NarrativeValidation> {
+  const model = textModelName();
+  const raw = await generateTextJson({
     temperature: 0.1,
     maxOutputTokens: 900,
     timeoutMs: 30000,
-    errorPrefix: "Gemini story judge",
-    parts: [
-      { text: storyJudgePrompt },
+    errorPrefix: "DeepSeek story judge",
+    messages: [
+      { role: "system", content: storyJudgePrompt },
       {
-        text: JSON.stringify({
+        role: "user",
+        content: JSON.stringify({
           task: "Judge whether this generated street-view story is safe, grounded, natural, and persona-fit.",
           persona: input.persona,
           evidencePacket: compactEvidencePacket(input.evidencePacket),
@@ -103,7 +103,7 @@ export async function judgeNarrativeWithGemini(input: StoryJudgeInput): Promise<
     status,
     warnings,
     requiresRegeneration,
-    validator: "gemini",
+    validator: "deepseek",
     model,
     deterministicWarnings,
     aiWarnings,

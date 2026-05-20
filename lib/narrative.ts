@@ -1,5 +1,5 @@
-import { generateGeminiJson, geminiModel, prepareGeminiImagePart, type GeminiPart } from "@/lib/gemini";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
+import { generateTextJson } from "@/lib/textModel";
 import type {
   EvidencePacket,
   GeneratedPersona,
@@ -176,52 +176,42 @@ export async function generateNarratives(
   visualContext: NarrativeVisualContext = {}
 ): Promise<SchemaNarratives> {
   void _config;
-  const model = geminiModel();
   const wholeImageUrl = visualContext.image?.fullUrl || visualContext.image?.thumbUrl;
-  const parts: GeminiPart[] = [
-    { text: narrativePrompt },
-    {
-      text: JSON.stringify({
-        task: "Write fragment story segments from NarrativeEvidenceView and Persona Fragment Plan. Return the required JSON only.",
-        narrativeEvidenceView,
-        personaFragmentPlan,
-        visionDescription: evidencePacket ? undefined : visionDescription,
-        persona,
-        placeContext: evidencePacket ? undefined : placeContext,
-        visualContext: {
-          cropImageAttached: Boolean(visualContext.cropImageUrl),
-          wholePanoImageAttached: Boolean(wholeImageUrl),
-          panoId: visualContext.image?.panoId || visualContext.image?.id,
-          lat: visualContext.image?.lat,
-          lng: visualContext.image?.lng
-        },
-        languageStyle:
-          "Default to English. Write like plain street talk, not a literary voiceover. First-person, short, practical, slightly messy. Keep the schema logic and evidence limits hidden. Use only Evidence Packet claim ids and Persona Fragment Plan boundaries for factual claims, but use the persona freely for practical judgement, crowd-following, route-finding, and personal comparison. Each segment should be fact, personal judgement, then action. If candidate_verifier, a public institution, campus, station, hospital, museum, public building, landmark, mapped footprint match, or visible readable text supports a concrete name, mention that name early. Use concrete actions: stand, wait, pass, queue, check the sign, avoid the rain, do not block the door. Every narrator may compare with places or routines they know, but must say it as personal perspective, not a fact about this location. Local personas should use local habits and street manners; visitor or temporary-resident personas should use wayfinding, comparison, and what they have learned by staying here. Never say not enough evidence, not enough information, I cannot talk about, I will not guess, or I will not invent. Avoid poetic words such as traces, layers, resonance, threshold, memory, belonging, rhythm, atmosphere, or meaning. If a map candidate is close and view-aligned, mention it cautiously as a possible nearby match. Do not overstate it. Avoid repeating the same line across segments."
-      })
-    }
-  ];
-
-  if (visualContext.cropImageUrl) {
-    parts.push(await prepareGeminiImagePart(visualContext.cropImageUrl, "Gemini narrative generation"));
-  }
-  if (wholeImageUrl) {
-    parts.push(await prepareGeminiImagePart(wholeImageUrl, "Gemini narrative generation"));
-  }
-
-  const content = await generateGeminiJson({
-    parts,
-    model,
+  const content = await generateTextJson({
+    messages: [
+      { role: "system", content: narrativePrompt },
+      {
+        role: "user",
+        content: JSON.stringify({
+          task: "Write fragment story segments from NarrativeEvidenceView and Persona Fragment Plan. Return the required JSON only.",
+          narrativeEvidenceView,
+          personaFragmentPlan,
+          visionDescription: evidencePacket ? undefined : visionDescription,
+          persona,
+          placeContext: evidencePacket ? undefined : placeContext,
+          visualContext: {
+            cropImageProvidedToVisionStage: Boolean(visualContext.cropImageUrl),
+            wholePanoImageAvailableInSession: Boolean(wholeImageUrl),
+            panoId: visualContext.image?.panoId || visualContext.image?.id,
+            lat: visualContext.image?.lat,
+            lng: visualContext.image?.lng
+          },
+          languageStyle:
+            "Default to English. Write like plain street talk, not a literary voiceover. First-person, short, practical, slightly messy. Keep the schema logic and evidence limits hidden. Use only Evidence Packet claim ids and Persona Fragment Plan boundaries for factual claims, but use the persona freely for practical judgement, crowd-following, route-finding, and personal comparison. Each segment should be fact, personal judgement, then action. If candidate_verifier, a public institution, campus, station, hospital, museum, public building, landmark, mapped footprint match, or visible readable text supports a concrete name, mention that name early. Use concrete actions: stand, wait, pass, queue, check the sign, avoid the rain, do not block the door. Every narrator may compare with places or routines they know, but must say it as personal perspective, not a fact about this location. Local personas should use local habits and street manners; visitor or temporary-resident personas should use wayfinding, comparison, and what they have learned by staying here. Never say not enough evidence, not enough information, I cannot talk about, I will not guess, or I will not invent. Avoid poetic words such as traces, layers, resonance, threshold, memory, belonging, rhythm, atmosphere, or meaning. If a map candidate is close and view-aligned, mention it cautiously as a possible nearby match. Do not overstate it. Avoid repeating the same line across segments."
+        })
+      }
+    ],
     temperature: 0.35,
     maxOutputTokens: 3200,
     timeoutMs: 40000,
-    errorPrefix: "Gemini narrative generation"
+    errorPrefix: "DeepSeek narrative generation"
   });
 
   try {
     return normalizeNarratives(JSON.parse(content) as unknown);
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new Error("Gemini narrative generation returned invalid JSON.");
+      throw new Error("DeepSeek narrative generation returned invalid JSON.");
     }
     throw error;
   }

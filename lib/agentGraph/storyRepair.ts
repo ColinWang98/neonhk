@@ -1,5 +1,5 @@
-import { generateGeminiJson, geminiModel } from "@/lib/gemini";
 import { normalizeNarratives } from "@/lib/narrative";
+import { generateTextJson } from "@/lib/textModel";
 import type {
   EvidencePacket,
   GeneratedPersona,
@@ -44,17 +44,17 @@ Return strict JSON:
   "socialCulturalResonance": {"title": "Social-Cultural Resonance", "text": string}
 }`;
 
-export async function repairNarrativeWithGemini(input: StoryRepairInput): Promise<SchemaNarratives> {
-  const raw = await generateGeminiJson({
-    model: geminiModel(),
+export async function repairNarrativeWithTextModel(input: StoryRepairInput): Promise<SchemaNarratives> {
+  const raw = await generateTextJson({
     temperature: 0.25,
     maxOutputTokens: 3200,
     timeoutMs: 40000,
-    errorPrefix: "Gemini story repair",
-    parts: [
-      { text: repairPrompt },
+    errorPrefix: "DeepSeek story repair",
+    messages: [
+      { role: "system", content: repairPrompt },
       {
-        text: JSON.stringify({
+        role: "user",
+        content: JSON.stringify({
           task: "Repair this story so it passes the judge while remaining natural and persona-specific.",
           persona: input.persona,
           narrativeEvidenceView: input.narrativeEvidenceView,

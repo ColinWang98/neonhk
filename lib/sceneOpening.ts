@@ -1,4 +1,4 @@
-import { generateGeminiJson } from "@/lib/gemini";
+import { generateTextJson } from "@/lib/textModel";
 import type {
   GeneratedPersona,
   PlaceContext,
@@ -60,11 +60,12 @@ type SceneOpeningInput = {
 export async function generateSceneOpening(params: SceneOpeningInput): Promise<Omit<SceneOpeningGeneration, "personaId" | "createdAt">> {
   void params.config;
 
-  const raw = await generateGeminiJson({
-    parts: [
-      { text: sceneOpeningPrompt },
+  const raw = await generateTextJson({
+    messages: [
+      { role: "system", content: sceneOpeningPrompt },
       {
-        text: JSON.stringify({
+        role: "user",
+        content: JSON.stringify({
           image: {
             provider: params.image.provider,
             lat: params.image.lat,
@@ -84,7 +85,7 @@ export async function generateSceneOpening(params: SceneOpeningInput): Promise<O
     ],
     temperature: 0.35,
     maxOutputTokens: 1400,
-    errorPrefix: "Gemini scene opening"
+    errorPrefix: "DeepSeek scene opening"
   });
 
   const parsed = JSON.parse(extractJsonObject(raw)) as {

@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
 import { runFragmentStoryGraph } from "@/lib/agentGraph/fragmentStoryGraph";
 import { persistFragment } from "@/lib/fragments";
-import { geminiDiagnostics } from "@/lib/gemini";
 import { logEvent } from "@/lib/logger";
 import { narrativeCacheVersion } from "@/lib/narrativeCache";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
+import { textModelDiagnostics } from "@/lib/textModel";
 import type {
   GeneratedPersona,
   EvidencePacket,
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     const startedAt = performance.now();
-    const narrativeDiagnostics = geminiDiagnostics();
+    const narrativeDiagnostics = textModelDiagnostics();
     const graphResult = await runFragmentStoryGraph({
       fragmentId: body.fragmentId,
       sessionId: body.sessionId,

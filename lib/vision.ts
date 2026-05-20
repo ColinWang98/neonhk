@@ -1,5 +1,6 @@
 import { generateGeminiJson, prepareGeminiImagePart, type GeminiPart } from "@/lib/gemini";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
+import { generateTextJson } from "@/lib/textModel";
 import type { SceneVisualDescription, StreetImage, VisionDescription } from "@/types";
 
 const visionPrompt = `You are analyzing a user-selected crop from a street-level image.
@@ -141,10 +142,11 @@ async function normalizeVisibleTextForEvidence(
     };
   }
 
-  const raw = await generateGeminiJson({
-    parts: [
+  const raw = await generateTextJson({
+    messages: [
       {
-        text: JSON.stringify({
+        role: "user",
+        content: JSON.stringify({
           task: "Translate OCR text and public place/entity names into concise English for backend evidence only. Do not add facts. Preserve proper nouns where appropriate.",
           visibleText,
           publicEntityNames: entities.map((entity) => entity.name),
@@ -156,7 +158,7 @@ async function normalizeVisibleTextForEvidence(
       }
     ],
     temperature: 0,
-    errorPrefix: "Gemini OCR translation"
+    errorPrefix: "DeepSeek OCR translation"
   });
   const parsed = JSON.parse(extractJsonObject(raw)) as {
     visibleTextEnglish?: string[];
