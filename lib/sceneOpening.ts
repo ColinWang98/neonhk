@@ -83,6 +83,7 @@ export async function generateSceneOpening(params: SceneOpeningInput): Promise<O
       }
     ],
     temperature: 0.35,
+    maxOutputTokens: 1400,
     errorPrefix: "Gemini scene opening"
   });
 

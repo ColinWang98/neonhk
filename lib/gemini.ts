@@ -33,14 +33,16 @@ export function geminiDiagnostics() {
   };
 }
 
-export async function generateGeminiJson(params: {
+type GenerateGeminiJsonParams = {
   parts: GeminiPart[];
   model?: string;
   temperature?: number;
   maxOutputTokens?: number;
   timeoutMs?: number;
   errorPrefix: string;
-}) {
+};
+
+export async function generateGeminiJson(params: GenerateGeminiJsonParams) {
   const apiKey = geminiApiKey();
   if (!apiKey) {
     throw new Error(`${params.errorPrefix} requires GEMINI_API_KEY.`);
@@ -48,29 +50,53 @@ export async function generateGeminiJson(params: {
 
   const model = params.model || geminiModel();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-  const payload = JSON.stringify({
+  const timeoutMs = normalizeTimeoutMs(params.timeoutMs);
+  let invalidJson = false;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const payload = buildGeminiPayload(params, attempt);
+    const response = await postJson(url, payload, apiKey, timeoutMs, params.errorPrefix);
+    const data = parseGeminiResponse(response.body, params.errorPrefix);
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(data.error?.message || `${params.errorPrefix} failed: ${response.status}`);
+    }
+
+    const raw = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim();
+    if (!raw) {
+      throw new Error(`${params.errorPrefix} returned no content.`);
+    }
+
+    const json = stripJsonFence(raw);
+    if (isValidJson(json)) {
+      return json;
+    }
+    invalidJson = true;
+  }
+
+  throw new Error(
+    invalidJson
+      ? `${params.errorPrefix} returned invalid JSON after retry.`
+      : `${params.errorPrefix} returned invalid JSON.`
+  );
+}
+
+function buildGeminiPayload(params: GenerateGeminiJsonParams, attempt: number) {
+  return JSON.stringify({
     contents: [{ role: "user", parts: params.parts }],
     generationConfig: {
       responseMimeType: "application/json",
       temperature: params.temperature ?? 0.2,
-      ...(params.maxOutputTokens ? { maxOutputTokens: params.maxOutputTokens } : {})
+      ...(maxOutputTokensForAttempt(params.maxOutputTokens, attempt)
+        ? { maxOutputTokens: maxOutputTokensForAttempt(params.maxOutputTokens, attempt) }
+        : {})
     }
   });
-  const timeoutMs = normalizeTimeoutMs(params.timeoutMs);
-  const response = await postJson(url, payload, apiKey, timeoutMs, params.errorPrefix);
-  const data = parseGeminiResponse(response.body, params.errorPrefix);
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error(data.error?.message || `${params.errorPrefix} failed: ${response.status}`);
-  }
+}
 
-  const raw = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim();
-  if (!raw) {
-    throw new Error(`${params.errorPrefix} returned no content.`);
-  }
-
-  const json = stripJsonFence(raw);
-  assertJson(json, params.errorPrefix);
-  return json;
+function maxOutputTokensForAttempt(value: number | undefined, attempt: number) {
+  if (attempt === 0) return value;
+  const base = value || 2048;
+  return Math.min(Math.max(base * 2, 4096), 8192);
 }
 
 function postJson(
@@ -178,11 +204,12 @@ export function stripJsonFence(value: string) {
   return stripped;
 }
 
-function assertJson(value: string, errorPrefix: string) {
+function isValidJson(value: string) {
   try {
     JSON.parse(value);
+    return true;
   } catch {
-    throw new Error(`${errorPrefix} returned invalid JSON.`);
+    return false;
   }
 }
 

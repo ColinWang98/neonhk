@@ -74,6 +74,7 @@ export async function generatePersonas(params: {
       }
     ],
     temperature: 0.35,
+    maxOutputTokens: 2400,
     errorPrefix: "Gemini persona generation"
   });
 
