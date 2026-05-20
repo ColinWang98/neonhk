@@ -5,6 +5,7 @@ import type {
   NarrativeEvidenceView,
   NarrativeValidation,
   PersonaFragmentPlan,
+  SchemaName,
   SchemaNarratives
 } from "@/types";
 
@@ -24,7 +25,7 @@ export function buildNarrativeBlocks(
   const claimPool = evidenceView
     ? [...evidenceView.primaryClaims, ...evidenceView.optionalNearbyClaims]
     : evidencePacket.claims;
-  return plan.activeSchemas.map((schema) => {
+  return orderedSchemasForNarrative(plan, evidencePacket, evidenceView).map((schema) => {
     const key = schemaToKey[schema];
     const groundedIn = claimPool
       .filter((claim) => claim.allowedUse !== "do_not_use" && claim.relatedSchemas.includes(schema))
@@ -47,6 +48,75 @@ export function buildNarrativeBlocks(
       uncertaintyCue: requiresUncertainty(groundedIn, evidencePacket) ? "may" : undefined
     };
   });
+}
+
+function orderedSchemasForNarrative(
+  plan: PersonaFragmentPlan,
+  evidencePacket: EvidencePacket,
+  evidenceView?: NarrativeEvidenceView
+): SchemaName[] {
+  if (plan.narrativeMode === "disabled") return [];
+  const activeSchemas = plan.activeSchemas.length
+    ? plan.activeSchemas
+    : ([
+        "Functional-Use",
+        "Identity-Belonging",
+        "Memory-Temporality",
+        "Social-Cultural Resonance"
+      ] satisfies SchemaName[]);
+  const seed = `${plan.fragmentId}:${plan.personaId || "default"}:${plan.recommendedStance}`;
+  const claims = evidenceView
+    ? [...evidenceView.primaryClaims, ...evidenceView.optionalNearbyClaims]
+    : evidencePacket.claims;
+
+  return [...activeSchemas]
+    .sort((a, b) => schemaScore(b, claims, plan, evidencePacket, seed) - schemaScore(a, claims, plan, evidencePacket, seed))
+    .slice(0, 4);
+}
+
+function schemaScore(
+  schema: SchemaName,
+  claims: EvidencePacket["claims"],
+  plan: PersonaFragmentPlan,
+  evidencePacket: EvidencePacket,
+  seed: string
+) {
+  const claimSupport = claims
+    .filter((claim) => claim.allowedUse !== "do_not_use" && claim.relatedSchemas.includes(schema))
+    .reduce((sum, claim) => {
+      const useWeight = claim.allowedUse === "direct_fact" ? 0.34 : claim.allowedUse === "cautious_possible" ? 0.22 : 0.08;
+      const sourceWeight = claim.source === "candidate_verifier" ? 0.22 : claim.source === "vision_model" ? 0.16 : claim.source === "wikipedia" || claim.source === "wikidata" ? 0.12 : 0.06;
+      return sum + claim.confidence * 0.2 + useWeight + sourceWeight;
+    }, 0);
+  const affordanceSupport =
+    schema === "Functional-Use" && evidencePacket.storyAffordances.supportsFunctionalUse ? 0.16 :
+    schema === "Identity-Belonging" && evidencePacket.storyAffordances.supportsIdentityBelonging ? 0.16 :
+    schema === "Memory-Temporality" && evidencePacket.storyAffordances.supportsMemoryTemporality ? 0.16 :
+    schema === "Social-Cultural Resonance" && evidencePacket.storyAffordances.supportsSocialCulturalResonance ? 0.16 :
+    0;
+  return claimSupport + affordanceSupport + stanceSchemaWeight(schema, plan) + deterministicJitter(`${seed}:${schema}`);
+}
+
+function stanceSchemaWeight(schema: SchemaName, plan: PersonaFragmentPlan) {
+  const stance = plan.recommendedStance;
+  if (stance === "outsider_questioning") {
+    return schema === "Identity-Belonging" ? 0.23 : schema === "Functional-Use" ? 0.18 : schema === "Social-Cultural Resonance" ? 0.1 : 0.04;
+  }
+  if (stance === "practical_commentary") {
+    return schema === "Functional-Use" ? 0.23 : schema === "Social-Cultural Resonance" ? 0.2 : schema === "Memory-Temporality" ? 0.09 : 0.05;
+  }
+  if (stance === "public_context_explanation") {
+    return schema === "Functional-Use" ? 0.19 : schema === "Identity-Belonging" ? 0.18 : schema === "Memory-Temporality" ? 0.14 : 0.08;
+  }
+  return schema === "Memory-Temporality" ? 0.18 : schema === "Functional-Use" ? 0.14 : schema === "Identity-Belonging" ? 0.12 : 0.1;
+}
+
+function deterministicJitter(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return (hash % 1000) / 1000 * 0.08;
 }
 
 export function reinforceConcreteFacts(
@@ -191,7 +261,7 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
     (claim.allowedUse === "direct_fact" || claim.allowedUse === "cautious_possible") &&
     claim.visibilityStatus !== "nearby_not_confirmed_visible" &&
     claim.visibilityStatus !== "area_level_only" &&
-    claim.confidence >= 0.64
+    (claim.allowedUse === "direct_fact" || claim.confidence >= 0.78)
   );
   if (verifier) {
     const name = extractCandidateName(verifier.text);
@@ -207,7 +277,7 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
 
   const footprint = claims.find((claim) =>
     claim.allowedUse === "cautious_possible" &&
-    claim.confidence >= 0.72 &&
+    claim.confidence >= 0.82 &&
     /mapped building footprint intersects the selected sight line/i.test(claim.text)
   );
   if (footprint) {

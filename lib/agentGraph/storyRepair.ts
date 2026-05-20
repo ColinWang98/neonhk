@@ -30,6 +30,7 @@ Repair goals:
 5. Keep it natural, spoken, and first-person.
 6. Make the four segments feel like one small walk-through, not four checklist answers.
 7. Return the same four segment JSON shape.
+8. Direct and high-confidence facts are anchors. Medium-confidence facts are optional. Keep only the ones that make the story sound more specific and natural.
 
 Persona style:
 - Do not label the persona in the sentence. Never write "as a temporary-resident", "as a tourist", or "as a local resident".
@@ -38,10 +39,12 @@ Persona style:
 - Avoid role-play hypotheticals such as "if I were visiting", "if I were working nearby", and "if this were on my usual route".
 - Use direct action more than conditional language: "I slow down", "I use the sign", "I step aside", "I learned this after a few weeks here". Use "I would" only when the action is genuinely conditional.
 - Add one tiny everyday scene when possible: checking a sign, arriving from transport, holding a drink, keeping out of a doorway, leaving space for a delivery, waiting in rain, or comparing the place with a street near home.
+- Add light spoken turns when natural: "okay, so", "I mean", "honestly", "the thing is", "that is the bit I look for". Do not overuse one phrase.
 - Turn uncertainty into practical street judgement. Do not expose evidence mechanics.
 
 Do not add new factual claims beyond NarrativeEvidenceView.primaryClaims.
 NarrativeEvidenceView.optionalNearbyClaims are optional nearby context only. Omit them if they caused a warning.
+Medium-confidence primaryClaims are also optional for style. Omit them if they make the repaired story sound like a list.
 Do not turn nearby/background-only claims into directly visible facts.
 Do not mention forbiddenVisibleNames as visible, selected, or identical to the fragment.
 Do not make news or official notices explain the selected fragment.

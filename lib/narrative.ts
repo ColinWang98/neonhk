@@ -45,6 +45,8 @@ Important distinction:
 - If a nearby candidate is view-aligned, close, and marked cautious_possible in the Evidence Packet, you may mention it as a possible map match in plain words: "Maps puts X roughly this way, so it could be related, but I would not swear it is this exact frontage."
 - If an Evidence Packet claim comes from candidate_verifier, treat it as the visual-map reasoning result. Use its suggested wording or reason before falling back to generic phrases. This is stronger than ordinary nearby context, but still cautious unless allowedUse is direct_fact.
 - If an Evidence Packet claim says a mapped building footprint intersects the selected sight line, treat it as stronger spatial evidence than an ordinary nearby place. Say it plainly but cautiously: "The map footprint and this sight line point to X." Do not call it certain unless visual text also supports it.
+- Direct facts and high-confidence facts are anchors. Medium-confidence facts are optional. Use at most one or two medium-confidence facts across the whole story, only when they help the narrator's walk-through. Do not stuff every candidate name or public note into the narration.
+- When using a medium-confidence fact, make it sound casual: "I keep that name in mind", "that might be the useful landmark", "I would not build the whole story on it". If it feels awkward, skip it.
 - Do not expose evidence machinery in the spoken story. Avoid phrases like "the map and image make", "visual-map verifier", "candidate", "matchLevel", "Evidence Packet", "primary claims", or "possible match here".
 - Turn map uncertainty into normal street talk. Say "Maps puts X around this frontage", "I would treat X as a likely landmark", or "I would use that name carefully", not "the map and image make X a possible match".
 - If nearby place context is only background_only, you may say a named shop or address is nearby, but do not say it is the selected fragment.
@@ -73,6 +75,7 @@ Important distinction:
 - The persona should sound ordinary: mention walking to lunch, waiting for a minibus, buying tea, avoiding rain, carrying shopping, opening a shutter, checking a sign, or finding where to stand.
 - Keep it a little messy in a human way. It is fine to say "I mean", "you know", "maybe not", "to be honest", or "I would just..." when natural.
 - Add a few natural spoken fillers, but do not overdo it. Good options include "you know", "I mean", "honestly", "okay", "right", "maybe", "I suppose", "to be honest", "sort of", and "a little bit". Use at most two fillers per segment.
+- Use small spoken turns that a real person says while walking: "okay, so", "the thing is", "I normally", "I just", "that is the bit I look for", "I learned that pretty quickly", "I would not overthink it". Do not overuse any one phrase.
 - Avoid em dashes and long dash punctuation. Do not use "—" or "–". Use commas, periods, or short separate sentences instead.
 - Avoid long complex sentences. Most sentences should be under 16 words. Break one idea into two short sentences when possible.
 - Avoid semicolons and heavy clauses. The story should be easy to subtitle and easy to speak aloud.
@@ -101,6 +104,7 @@ Evidence boundary:
 - The model input includes a NarrativeEvidenceView and a Persona Fragment Plan.
 - Treat NarrativeEvidenceView.primaryClaims as the only source of factual claims about the selected fragment.
 - NarrativeEvidenceView.optionalNearbyClaims are optional. Use them only as "nearby" or "around here" context, and omit them if awkward.
+- Medium-confidence primaryClaims are also optional for style. Stronger facts should shape the story, but medium facts can be skipped when they make the speech sound like a list.
 - Never describe optionalNearbyClaims as visible in, selected by, or identical to the fragment.
 - Do not mention NarrativeEvidenceView.forbiddenVisibleNames as visible in the selected fragment.
 - Every segment must be grounded in primaryClaims, optional nearby context, and activeSchemas.
@@ -114,7 +118,7 @@ Evidence boundary:
 - If the plan fitLevel is low or not_applicable, still write useful spoken observations unless the plan narrativeMode is disabled. Keep them modest and comparative.
 - If the plan narrativeMode is disabled, return very brief privacy-safe text only. Do not invent a story.
 
-Generate four spoken story segments, each 55-90 words. They should connect into a small, everyday story rather than four versions of the same point.
+Generate four spoken story segments, each 55-90 words. They should connect into a small, everyday story rather than four versions of the same point. The backend will reorder the segments, so do not write phrases like "first", "second", "finally", or "in this section".
 
 Loose story shape:
 - Segment 1: the first useful clue, then the narrator's immediate street action.
@@ -125,16 +129,16 @@ Loose story shape:
 
 Do not start more than one segment with "This looks like", "I would", or "Maybe". Use different openings.
 
-1. Functional-Use:
+Functional-Use:
 From the persona's viewpoint, say what a person would do here: enter, wait, pass, queue, check a sign, avoid blocking, or move on.
 
-2. Identity-Belonging:
+Identity-Belonging:
 From the persona's viewpoint, say whether this detail makes the place easy to read, easy to approach, awkward, familiar, or closed.
 
-3. Memory-Temporality:
+Memory-Temporality:
 From the persona's viewpoint, mention simple routine: opening, closing, cleaning, repairing, rain, lunch break, delivery, or people passing. Do not sound nostalgic unless there is real evidence.
 
-4. Social-Cultural Resonance:
+Social-Cultural Resonance:
 From the persona's viewpoint, say how people avoid bumping into each other, queue, give way, keep moving, or know where not to stand.
 
 Style example to imitate. Do not copy the exact objects or facts:
@@ -211,7 +215,7 @@ export async function generateNarratives(
             lng: visualContext.image?.lng
           },
           languageStyle:
-            "Default to English. Write like plain street talk, not a literary voiceover. First-person, short, practical, slightly messy. Keep the schema logic and evidence limits hidden. Use only Evidence Packet claim ids and Persona Fragment Plan boundaries for factual claims, but use the persona freely for practical judgement, crowd-following, route-finding, and personal comparison. Make the four segments feel like one small walk-through: first clue, approach, daily timing, social rule. If candidate_verifier, a public institution, campus, station, hospital, museum, public building, landmark, mapped footprint match, or visible readable text supports a concrete name, mention that name early. Turn that name into normal street talk, not evidence language. Use concrete actions: stand, wait, pass, queue, check the sign, avoid the rain, do not block the door. Give the narrator a tiny scene: arriving from the MTR, slowing near an entrance, checking a sign with a drink in hand, letting a delivery worker pass, choosing where to wait in rain, or comparing the frontage with a street near home. Every narrator may compare with places or routines they know, but must say it as personal perspective, not a fact about this location. Local personas should use local habits and street manners; visitor or temporary-resident personas should use wayfinding, comparison, and what they have learned by staying here. The persona is a fictional role-play speaker, so their own habits can be direct: I usually, I learned, after staying here, when I visit, on my usual route. Keep uncertainty only for real-world claims about the place. Never say not enough evidence, not enough information, I cannot talk about, I will not guess, or I will not invent. Never write as a temporary-resident, as a tourist, or as a local resident. Avoid poetic words such as traces, layers, resonance, threshold, memory, belonging, rhythm, atmosphere, or meaning. Avoid evidence phrases such as the map and image make, possible match here, or keep the reading modest. Avoid role-play hypotheticals like if I were visiting or if this were on my route. Use I would sparingly. Prefer direct action: I slow down, I use the sign, I step aside, I learned this after a few weeks here. If a map candidate is close and view-aligned, mention it cautiously as a nearby landmark. Do not overstate it. Avoid repeating the same line across segments."
+            "Default to English. Write like plain street talk, not a literary voiceover. First-person, short, practical, slightly messy. Keep the schema logic and evidence limits hidden. Use only Evidence Packet claim ids and Persona Fragment Plan boundaries for factual claims, but use the persona freely for practical judgement, crowd-following, route-finding, and personal comparison. Make the four segments feel like one small walk-through, but do not number the parts or say first, second, finally. If candidate_verifier, a public institution, campus, station, hospital, museum, public building, landmark, mapped footprint match, or visible readable text supports a concrete name, mention that name early. Turn that name into normal street talk, not evidence language. Direct and high-confidence facts are anchors. Medium-confidence facts are optional. Use at most one or two medium-confidence facts across the whole story, only when they help the narrator. Do not stuff every candidate name or public note into the narration. Use concrete actions: stand, wait, pass, queue, check the sign, avoid the rain, do not block the door. Give the narrator a tiny scene: arriving from the MTR, slowing near an entrance, checking a sign with a drink in hand, letting a delivery worker pass, choosing where to wait in rain, or comparing the frontage with a street near home. Add oral turns such as okay, so; the thing is; I mean; honestly; I learned that pretty quickly. Do not overuse one phrase. Every narrator may compare with places or routines they know, but must say it as personal perspective, not a fact about this location. Local personas should use local habits and street manners; visitor or temporary-resident personas should use wayfinding, comparison, and what they have learned by staying here. The persona is a fictional role-play speaker, so their own habits can be direct: I usually, I learned, after staying here, when I visit, on my usual route. Keep uncertainty only for real-world claims about the place. Never say not enough evidence, not enough information, I cannot talk about, I will not guess, or I will not invent. Never write as a temporary-resident, as a tourist, or as a local resident. Avoid poetic words such as traces, layers, resonance, threshold, memory, belonging, rhythm, atmosphere, or meaning. Avoid evidence phrases such as the map and image make, possible match here, or keep the reading modest. Avoid role-play hypotheticals like if I were visiting or if this were on my route. Use I would sparingly. Prefer direct action: I slow down, I use the sign, I step aside, I learned this after a few weeks here. If a map candidate is close and view-aligned, mention it cautiously as a nearby landmark. Do not overstate it. Avoid repeating the same line across segments."
         })
       }
     ],

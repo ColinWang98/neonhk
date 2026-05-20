@@ -1492,16 +1492,25 @@ function LiveCaption({
   );
 }
 
-const storyKeys = [
-  "functionalUse",
-  "identityBelonging",
-  "memoryTemporality",
-  "socialCulturalResonance"
-] as const;
-
 const storyLabels = {
-  en: ["Everyday use", "Feeling of entry", "Time and routine", "Shared space"],
-  zh: ["日常使用", "进入感", "时间与惯常", "共享空间"]
+  en: {
+    "Functional-Use": "How I use it",
+    "Identity-Belonging": "First impression",
+    "Memory-Temporality": "Street timing",
+    "Social-Cultural Resonance": "Street manners"
+  },
+  zh: {
+    "Functional-Use": "怎么用它",
+    "Identity-Belonging": "第一感觉",
+    "Memory-Temporality": "街上的时间",
+    "Social-Cultural Resonance": "街道规矩"
+  }
+} as const;
+const schemaNarrativeKey = {
+  "Functional-Use": "functionalUse",
+  "Identity-Belonging": "identityBelonging",
+  "Memory-Temporality": "memoryTemporality",
+  "Social-Cultural Resonance": "socialCulturalResonance"
 } as const;
 const openingCacheVersion = 3;
 
@@ -1611,12 +1620,12 @@ function StoryArchiveDrawer({
               {activeStory?.narratives ? (
                 <div className="space-y-3 border-t border-ink/10 pt-4">
                   <GroundingSummaryCard fragment={activeStory} language={language} compact />
-                  {storyKeys.map((key, index) => (
-                    <article key={key} className="cozy-card p-4">
+                  {storyCardsForFragment(activeStory).map((card) => (
+                    <article key={card.id} className="cozy-card p-4">
                       <h3 className="text-xs font-semibold text-brass">
-                        {zh ? storyLabels.zh[index] : storyLabels.en[index]}
+                        {zh ? storyLabels.zh[card.schema] : storyLabels.en[card.schema]}
                       </h3>
-                      <p className="mt-2 text-sm leading-6 text-ink/74">{activeStory.narratives![key].text}</p>
+                      <p className="mt-2 text-sm leading-6 text-ink/74">{card.text}</p>
                     </article>
                   ))}
                 </div>
@@ -1627,6 +1636,29 @@ function StoryArchiveDrawer({
       </aside>
     </>
   );
+}
+
+function storyCardsForFragment(fragment: SelectedFragment) {
+  if (fragment.narrativeBlocks?.length) {
+    return fragment.narrativeBlocks
+      .map((block, index) => ({
+        id: `${block.schema}:${index}`,
+        schema: block.schema,
+        text: block.text.trim()
+      }))
+      .filter((card) => card.text);
+  }
+  if (!fragment.narratives) return [];
+  return (Object.keys(schemaNarrativeKey) as Array<keyof typeof schemaNarrativeKey>)
+    .map((schema) => {
+      const key = schemaNarrativeKey[schema];
+      return {
+        id: schema,
+        schema,
+        text: fragment.narratives?.[key]?.text?.trim() || ""
+      };
+    })
+    .filter((card) => card.text);
 }
 
 async function fetchPlaceContext(
