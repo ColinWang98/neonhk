@@ -68,7 +68,9 @@ export async function generateGeminiJson(params: {
     throw new Error(`${params.errorPrefix} returned no content.`);
   }
 
-  return stripJsonFence(raw);
+  const json = stripJsonFence(raw);
+  assertJson(json, params.errorPrefix);
+  return json;
 }
 
 function postJson(
@@ -174,6 +176,14 @@ export function stripJsonFence(value: string) {
     return stripped.slice(firstBrace, lastBrace + 1);
   }
   return stripped;
+}
+
+function assertJson(value: string, errorPrefix: string) {
+  try {
+    JSON.parse(value);
+  } catch {
+    throw new Error(`${errorPrefix} returned invalid JSON.`);
+  }
 }
 
 async function prepareImageUrl(imageUrl: string) {

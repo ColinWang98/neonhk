@@ -144,16 +144,16 @@ export default function StoryPage() {
 
   useEffect(() => {
     if (!selectedImage) {
-      const savedImage = sessionStorage.getItem(selectedImageStorageKey);
+      const savedImage = readSessionJson<StreetImage>(selectedImageStorageKey);
       if (savedImage) {
-        setSelectedImage(JSON.parse(savedImage) as StreetImage);
+        setSelectedImage(savedImage);
       }
     }
 
     if (!storySession) {
-      const savedSession = sessionStorage.getItem(storySessionStorageKey);
+      const savedSession = readSessionJson<StorySession>(storySessionStorageKey);
       if (savedSession) {
-        setStorySession(JSON.parse(savedSession) as StorySession);
+        setStorySession(savedSession);
       }
     }
 
@@ -1767,6 +1767,17 @@ function normalizeTtsProvider(provider?: string): TtsProvider {
     return provider;
   }
   return "minimax";
+}
+
+function readSessionJson<T>(key: string): T | undefined {
+  const raw = sessionStorage.getItem(key);
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    sessionStorage.removeItem(key);
+    return undefined;
+  }
 }
 
 async function logClientEvent(
