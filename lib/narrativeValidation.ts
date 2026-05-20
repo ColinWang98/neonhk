@@ -1,6 +1,7 @@
 import type {
   EvidencePacket,
   NarrativeBlock,
+  NarrativeEvidenceView,
   NarrativeValidation,
   PersonaFragmentPlan,
   SchemaNarratives
@@ -16,11 +17,15 @@ const schemaToKey = {
 export function buildNarrativeBlocks(
   narratives: SchemaNarratives,
   evidencePacket: EvidencePacket,
-  plan: PersonaFragmentPlan
+  plan: PersonaFragmentPlan,
+  evidenceView?: NarrativeEvidenceView
 ): NarrativeBlock[] {
+  const claimPool = evidenceView
+    ? [...evidenceView.primaryClaims, ...evidenceView.optionalNearbyClaims]
+    : evidencePacket.claims;
   return plan.activeSchemas.map((schema) => {
     const key = schemaToKey[schema];
-    const groundedIn = evidencePacket.claims
+    const groundedIn = claimPool
       .filter((claim) => claim.allowedUse !== "do_not_use" && claim.relatedSchemas.includes(schema))
       .slice(0, 3)
       .map((claim) => claim.id);
@@ -32,7 +37,11 @@ export function buildNarrativeBlocks(
       schema,
       text: narratives[key].text,
       claimType: hasBackground ? "background_context" : "persona_interpretation",
-      groundedIn: groundedIn.length ? groundedIn : plan.sourceClaimIds.slice(0, 2),
+      groundedIn: groundedIn.length
+        ? groundedIn
+        : evidenceView
+          ? evidenceView.primaryClaims.slice(0, 2).map((claim) => claim.id)
+          : plan.sourceClaimIds.slice(0, 2),
       confidence: confidenceForPlan(plan),
       uncertaintyCue: requiresUncertainty(groundedIn, evidencePacket) ? "may" : undefined
     };
@@ -41,9 +50,10 @@ export function buildNarrativeBlocks(
 
 export function reinforceConcreteFacts(
   narratives: SchemaNarratives,
-  evidencePacket: EvidencePacket
+  evidencePacket: EvidencePacket,
+  evidenceView?: NarrativeEvidenceView
 ): SchemaNarratives {
-  const fact = topConcreteFact(evidencePacket);
+  const fact = topConcreteFact(evidencePacket, evidenceView);
   if (!fact) return narratives;
   const allText = Object.values(narratives).map((item) => item.text).join(" ").toLowerCase();
   if (allText.includes(fact.name.toLowerCase())) return narratives;
@@ -104,7 +114,7 @@ export function validateNarrative(params: {
   for (const claim of backgroundOnlyClaims) {
     const candidate = extractCandidateName(claim.text);
     if (candidate && strongerCandidateNames.has(candidate.toLowerCase())) continue;
-    if (candidate && allText.includes(candidate.toLowerCase()) && /this is|this shop is|this place is|the selected|the visible/.test(allText)) {
+    if (candidate && sentenceOverstatesBackground(candidate, allText)) {
       warnings.push(`A background-only claim may be overstated as visible: ${candidate}.`);
     }
   }
@@ -137,9 +147,43 @@ export function validateNarrative(params: {
   };
 }
 
-function topConcreteFact(evidencePacket: EvidencePacket): { name: string; sentence: string } | undefined {
-  const verifier = evidencePacket.claims.find((claim) =>
-    claim.id.startsWith("cv") && claim.allowedUse !== "do_not_use" && claim.confidence >= 0.62
+export function buildSafeNarratives(params: {
+  evidencePacket: EvidencePacket;
+  evidenceView: NarrativeEvidenceView;
+  personaRole?: string;
+}): SchemaNarratives {
+  const mainFact = topConcreteFact(params.evidencePacket, params.evidenceView);
+  const visual = params.evidenceView.primaryClaims.find((claim) => claim.claimType === "visual_observation");
+  const feature = mainFact?.name || params.evidencePacket.fragment.mainFeature || visualName(visual) || "this detail";
+  const role = params.personaRole ? `as ${article(params.personaRole)} ${params.personaRole}` : "from here";
+  return {
+    functionalUse: {
+      title: "Functional-Use",
+      text: `${mainFact?.sentence || `This looks like ${feature}.`} ${role}, I would use it as a quick street cue. I would keep moving, check the sign, and stand to the side if I needed a second look.`
+    },
+    identityBelonging: {
+      title: "Identity-Belonging",
+      text: `${feature} gives the frontage a simple identity, but I would keep the reading modest. It helps me orient myself without pretending I know the whole place. I would compare it with streets I already know and copy the local pace.`
+    },
+    memoryTemporality: {
+      title: "Memory-Temporality",
+      text: `The useful thing here is the everyday timing, not a big history lesson. People pass, shops open or close, and the pavement has to keep working. I would read this through small routines: errands, waiting, rain, and lunch-hour movement.`
+    },
+    socialCulturalResonance: {
+      title: "Social-Cultural Resonance",
+      text: `The social rule is practical: do not block the frontage, and do not stop in the flow. I would step aside before checking my phone. That small habit says more here than forcing a story from something merely nearby.`
+    }
+  };
+}
+
+function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: NarrativeEvidenceView): { name: string; sentence: string } | undefined {
+  const claims = evidenceView?.primaryClaims || evidencePacket.claims;
+  const verifier = claims.find((claim) =>
+    claim.id.startsWith("cv") &&
+    (claim.allowedUse === "direct_fact" || claim.allowedUse === "cautious_possible") &&
+    claim.visibilityStatus !== "nearby_not_confirmed_visible" &&
+    claim.visibilityStatus !== "area_level_only" &&
+    claim.confidence >= 0.64
   );
   if (verifier) {
     const name = extractCandidateName(verifier.text);
@@ -147,13 +191,15 @@ function topConcreteFact(evidencePacket: EvidencePacket): { name: string; senten
       return {
         name,
         sentence: verifier.allowedUse === "direct_fact"
-          ? `The visible details point to ${name}.`
-          : `The map and the visible details seem to point to ${name}.`
+          ? `The visible details identify ${name}.`
+          : `The map and image make ${name} a possible match here.`
       };
     }
   }
 
-  const footprint = evidencePacket.claims.find((claim) =>
+  const footprint = claims.find((claim) =>
+    claim.allowedUse === "cautious_possible" &&
+    claim.confidence >= 0.72 &&
     /mapped building footprint intersects the selected sight line/i.test(claim.text)
   );
   if (footprint) {
@@ -214,8 +260,28 @@ function hasMetaRefusal(text: string) {
 }
 
 function extractCandidateName(text: string) {
-  const match = text.match(/^(.+?) (is listed|is a Wikidata entity|is a visual-map verifier|near|around|reported)/i);
+  const match = text.match(/^(.+?) (is listed|is a Wikidata entity|is a visual-map verifier|is retrieved|near|around|reported)/i);
   return match?.[1]?.trim();
+}
+
+function sentenceOverstatesBackground(candidate: string, lowerText: string) {
+  const normalizedCandidate = escapeRegExp(candidate.toLowerCase());
+  const sentences = lowerText.split(/(?<=[.!?。！？])\s+|\n+/).filter(Boolean);
+  const binding = /\b(this is|this shop is|this place is|this storefront is|this frontage is|the selected|the visible|visible storefront|visible shop|visible sign|is the selected|is the visible)\b|(?:这个|這個|这家|這家|可见|可見|框选|框選|选中|選中).{0,24}(就是|是|指向|对应|對應)/i;
+  return sentences.some((sentence) => new RegExp(normalizedCandidate, "i").test(sentence) && binding.test(sentence));
+}
+
+function visualName(claim?: { text: string }) {
+  const match = claim?.text.match(/"([^"]+)"/);
+  return match?.[1]?.trim();
+}
+
+function article(value: string) {
+  return /^[aeiou]/i.test(value.trim()) ? "an" : "a";
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function hasTimeCue(text: string) {

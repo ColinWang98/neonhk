@@ -410,6 +410,15 @@ export type EvidencePacket = {
   };
 };
 
+export type NarrativeEvidenceView = {
+  fragment: EvidencePacket["fragment"];
+  primaryClaims: EvidenceClaim[];
+  optionalNearbyClaims: EvidenceClaim[];
+  suppressedClaimIds: string[];
+  forbiddenVisibleNames: string[];
+  guidance: string[];
+};
+
 export type FragmentAffordance =
   | "commercial"
   | "residential"

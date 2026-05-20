@@ -4,6 +4,7 @@ import type {
   EvidencePacket,
   GeneratedPersona,
   NarrativeBlock,
+  NarrativeEvidenceView,
   NarrativeValidation,
   PersonaFragmentPlan,
   SchemaNarratives
@@ -14,6 +15,7 @@ type StoryRepairInput = {
   narrativeBlocks: NarrativeBlock[];
   narrativeValidation: NarrativeValidation;
   evidencePacket: EvidencePacket;
+  narrativeEvidenceView: NarrativeEvidenceView;
   personaFragmentPlan: PersonaFragmentPlan;
   persona?: GeneratedPersona;
 };
@@ -28,8 +30,10 @@ Repair goals:
 5. Keep it natural, spoken, and first-person.
 6. Return the same four segment JSON shape.
 
-Do not add new factual claims beyond the Evidence Packet.
+Do not add new factual claims beyond NarrativeEvidenceView.primaryClaims.
+NarrativeEvidenceView.optionalNearbyClaims are optional nearby context only. Omit them if they caused a warning.
 Do not turn nearby/background-only claims into directly visible facts.
+Do not mention forbiddenVisibleNames as visible, selected, or identical to the fragment.
 Do not make news or official notices explain the selected fragment.
 
 Return strict JSON:
@@ -53,9 +57,9 @@ export async function repairNarrativeWithGemini(input: StoryRepairInput): Promis
         text: JSON.stringify({
           task: "Repair this story so it passes the judge while remaining natural and persona-specific.",
           persona: input.persona,
-          evidencePacket: {
+          narrativeEvidenceView: input.narrativeEvidenceView,
+          evidencePacketForReferenceOnly: {
             fragment: input.evidencePacket.fragment,
-            claims: input.evidencePacket.claims,
             globalRules: input.evidencePacket.globalRules,
             blockedTopics: input.evidencePacket.blockedTopics
           },

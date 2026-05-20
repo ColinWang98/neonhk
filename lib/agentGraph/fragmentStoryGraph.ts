@@ -3,7 +3,8 @@ import { verifyCandidateMatches } from "@/lib/candidateVerification";
 import { buildEvidencePacket } from "@/lib/evidence";
 import { geminiDiagnostics } from "@/lib/gemini";
 import { generateNarratives } from "@/lib/narrative";
-import { buildNarrativeBlocks, reinforceConcreteFacts, validateNarrative } from "@/lib/narrativeValidation";
+import { buildNarrativeBlocks, buildSafeNarratives, reinforceConcreteFacts, validateNarrative } from "@/lib/narrativeValidation";
+import { buildNarrativeEvidenceView } from "@/lib/narrativeEvidenceView";
 import { buildPersonaFragmentPlan } from "@/lib/personaFragment";
 import { judgeNarrativeWithGemini } from "@/lib/agentGraph/storyJudge";
 import { repairNarrativeWithGemini } from "@/lib/agentGraph/storyRepair";
@@ -136,6 +137,22 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
     }
   );
 
+  let narrativeEvidenceView = await runAgent(
+    "NarrativeEvidenceViewAgent",
+    {
+      claimCount: evidencePacket.claims.length,
+      mode: "initial"
+    },
+    async () => buildNarrativeEvidenceView(evidencePacket),
+    {
+      ...runContext,
+      config,
+      agentRuns,
+      provider: "system",
+      model: "narrative-evidence-view-v1"
+    }
+  );
+
   const generatedNarratives = await runAgent(
     "StoryWriterAgent",
     {
@@ -151,6 +168,7 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
         input.placeContext,
         evidencePacket,
         personaFragmentPlan,
+        narrativeEvidenceView,
         {
           cropImageUrl: input.cropImageUrl,
           image: input.image
@@ -170,7 +188,7 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
     {
       claimCount: evidencePacket.claims.length
     },
-    async () => reinforceConcreteFacts(generatedNarratives, evidencePacket),
+    async () => reinforceConcreteFacts(generatedNarratives, evidencePacket, narrativeEvidenceView),
     {
       ...runContext,
       config,
@@ -180,7 +198,7 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
     }
   );
 
-  let narrativeBlocks = buildNarrativeBlocks(narratives, evidencePacket, personaFragmentPlan);
+  let narrativeBlocks = buildNarrativeBlocks(narratives, evidencePacket, personaFragmentPlan, narrativeEvidenceView);
   let deterministicValidation = validateNarrative({
     narratives,
     narrativeBlocks,
@@ -235,6 +253,21 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
   let repaired = false;
   if (!input.skipAiJudge && narrativeValidation.requiresRegeneration) {
     repaired = true;
+    narrativeEvidenceView = await runAgent(
+      "NarrativeEvidenceDemotionAgent",
+      {
+        warnings: narrativeValidation.warnings,
+        mode: "repair"
+      },
+      async () => buildNarrativeEvidenceView(evidencePacket, { warnings: narrativeValidation.warnings }),
+      {
+        ...runContext,
+        config,
+        agentRuns,
+        provider: "system",
+        model: "narrative-evidence-view-v1"
+      }
+    );
     narratives = await runAgent(
       "StoryRepairAgent",
       {
@@ -247,6 +280,7 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
           narrativeBlocks,
           narrativeValidation,
           evidencePacket,
+          narrativeEvidenceView,
           personaFragmentPlan,
           persona: input.persona
         }),
@@ -258,8 +292,8 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
         model: diagnostics.model
       }
     );
-    narratives = reinforceConcreteFacts(narratives, evidencePacket);
-    narrativeBlocks = buildNarrativeBlocks(narratives, evidencePacket, personaFragmentPlan);
+    narratives = reinforceConcreteFacts(narratives, evidencePacket, narrativeEvidenceView);
+    narrativeBlocks = buildNarrativeBlocks(narratives, evidencePacket, personaFragmentPlan, narrativeEvidenceView);
     deterministicValidation = validateNarrative({
       narratives,
       narrativeBlocks,
@@ -292,7 +326,61 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
   }
 
   if (narrativeValidation.requiresRegeneration) {
-    throw new Error(`Story judge failed after repair: ${narrativeValidation.warnings.join(" | ")}`);
+    repaired = true;
+    narrativeEvidenceView = await runAgent(
+      "SafeEvidenceViewAgent",
+      {
+        warnings: narrativeValidation.warnings,
+        mode: "safe"
+      },
+      async () => buildNarrativeEvidenceView(evidencePacket, { warnings: narrativeValidation.warnings, safeMode: true }),
+      {
+        ...runContext,
+        config,
+        agentRuns,
+        provider: "system",
+        model: "narrative-evidence-view-v1"
+      }
+    );
+    narratives = await runAgent(
+      "SafeNarrationAgent",
+      {
+        warnings: narrativeValidation.warnings,
+        primaryClaimCount: narrativeEvidenceView.primaryClaims.length
+      },
+      async () =>
+        buildSafeNarratives({
+          evidencePacket,
+          evidenceView: narrativeEvidenceView,
+          personaRole: input.persona?.role
+        }),
+      {
+        ...runContext,
+        config,
+        agentRuns,
+        provider: "system",
+        model: "safe-narration-v1"
+      }
+    );
+    narrativeBlocks = buildNarrativeBlocks(narratives, evidencePacket, personaFragmentPlan, narrativeEvidenceView);
+    deterministicValidation = validateNarrative({
+      narratives,
+      narrativeBlocks,
+      evidencePacket,
+      plan: personaFragmentPlan
+    });
+    narrativeValidation = {
+      ...deterministicValidation,
+      status: deterministicValidation.requiresRegeneration ? "warning" : deterministicValidation.status,
+      requiresRegeneration: false,
+      validator: "system",
+      deterministicWarnings: deterministicValidation.warnings,
+      aiWarnings: narrativeValidation.aiWarnings || [],
+      aiDecision: {
+        previousFailure: narrativeValidation.aiDecision,
+        safeNarrationApplied: true
+      }
+    };
   }
 
   return {

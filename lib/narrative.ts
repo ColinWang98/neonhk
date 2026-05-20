@@ -3,6 +3,7 @@ import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type {
   EvidencePacket,
   GeneratedPersona,
+  NarrativeEvidenceView,
   PersonaFragmentPlan,
   PlaceContext,
   SchemaNarratives,
@@ -83,10 +84,12 @@ Use cautious language such as:
 - "I would not treat it as certain"
 
 Evidence boundary:
-- The model input includes an Evidence Packet and a Persona Fragment Plan.
-- Treat the Evidence Packet as the only source of factual claims.
-- Every segment must be grounded in the plan's sourceClaimIds and activeSchemas.
-- If a claim allowedUse is background_only, do not describe it as visible in the selected fragment.
+- The model input includes a NarrativeEvidenceView and a Persona Fragment Plan.
+- Treat NarrativeEvidenceView.primaryClaims as the only source of factual claims about the selected fragment.
+- NarrativeEvidenceView.optionalNearbyClaims are optional. Use them only as "nearby" or "around here" context, and omit them if awkward.
+- Never describe optionalNearbyClaims as visible in, selected by, or identical to the fragment.
+- Do not mention NarrativeEvidenceView.forbiddenVisibleNames as visible in the selected fragment.
+- Every segment must be grounded in primaryClaims, optional nearby context, and activeSchemas.
 - If a claim uncertaintyCueRequired is true, use cautious wording.
 - If the plan narrativeMode is brief_comment, make each segment shorter and more modest.
 - If the plan narrativeMode is question_or_observation, phrase the segment as a small observation or question.
@@ -169,6 +172,7 @@ export async function generateNarratives(
   placeContext?: PlaceContext,
   evidencePacket?: EvidencePacket,
   personaFragmentPlan?: PersonaFragmentPlan,
+  narrativeEvidenceView?: NarrativeEvidenceView,
   visualContext: NarrativeVisualContext = {}
 ): Promise<SchemaNarratives> {
   void _config;
@@ -178,8 +182,8 @@ export async function generateNarratives(
     { text: narrativePrompt },
     {
       text: JSON.stringify({
-        task: "Write fragment story segments from Evidence Packet and Persona Fragment Plan. Return the required JSON only.",
-        evidencePacket,
+        task: "Write fragment story segments from NarrativeEvidenceView and Persona Fragment Plan. Return the required JSON only.",
+        narrativeEvidenceView,
         personaFragmentPlan,
         visionDescription: evidencePacket ? undefined : visionDescription,
         persona,
