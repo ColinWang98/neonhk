@@ -88,7 +88,6 @@ export function TtsControls({
   const previewText = speechText || storyText || introText || "";
   const showMergedPreview = Boolean(includeIntro && introText && storyText);
   const selectedProvider = normalizeFrontendTtsProvider(config.ttsProvider);
-  const voiceGenerationPaused = !cachedAudio?.audioUrl && (!selectedProvider || selectedProvider === "minimax");
 
   const stop = useCallback(() => {
     requestIdRef.current += 1;
@@ -101,14 +100,6 @@ export function TtsControls({
 
   const play = useCallback(async () => {
     if (!speechText) return;
-    if (voiceGenerationPaused) {
-      setMessage(
-        zh
-          ? "语音生成已暂时暂停，先调整好故事内容后再开启。"
-          : "Voice generation is paused while the story text is being tuned."
-      );
-      return;
-    }
     stop();
     const requestId = requestIdRef.current;
     setMessage(null);
@@ -147,7 +138,7 @@ export function TtsControls({
       const data = await res.json();
       if (requestId !== requestIdRef.current) return;
       if (!res.ok || !data.audioUrl) {
-        throw new Error("Narration is temporarily unavailable.");
+        throw new Error(data.error || "Narration is temporarily unavailable.");
       }
       setMessage(null);
       onAudioGenerated?.({
@@ -173,17 +164,19 @@ export function TtsControls({
         setDurationLabel
       );
       if (includeIntro) onIntroPlayed?.();
-    } catch {
+    } catch (error) {
       if (requestId !== requestIdRef.current) return;
       setStatus("error");
       setMessage(
-        zh
-          ? "旁白暂时不可用，故事文字仍可阅读。"
-          : "Narration is temporarily unavailable. The story remains readable."
+        error instanceof Error
+          ? error.message
+          : zh
+            ? "旁白暂时不可用，故事文字仍可阅读。"
+            : "Narration is temporarily unavailable. The story remains readable."
       );
       onCaptionChange?.(null);
     }
-  }, [cachedAudio, captionSegments, config, fragmentId, includeIntro, onAudioGenerated, onCaptionChange, onIntroPlayed, persona, selectedProvider, speechText, stop, voiceGenerationPaused, zh]);
+  }, [cachedAudio, captionSegments, config, fragmentId, includeIntro, onAudioGenerated, onCaptionChange, onIntroPlayed, persona, selectedProvider, speechText, stop, zh]);
 
   useEffect(() => {
     stop();
@@ -203,7 +196,7 @@ export function TtsControls({
         <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
           <button
             type="button"
-            disabled={!speechText || status === "loading" || voiceGenerationPaused}
+            disabled={!speechText || status === "loading"}
             onClick={() => play()}
             className="soft-button-primary inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-semibold"
           >
@@ -227,8 +220,6 @@ export function TtsControls({
               ? zh ? "播放中" : "Playing"
               : status === "loading"
                 ? zh ? "准备中" : "Preparing"
-                : voiceGenerationPaused
-                  ? zh ? "已暂停" : "Paused"
                 : zh ? "就绪" : "Ready"}
           </span>
           <span>{durationLabel}</span>
@@ -257,13 +248,7 @@ export function TtsControls({
           </p>
         )}
       </div>
-      {voiceGenerationPaused ? (
-        <p className="mt-3 text-xs leading-5 text-amber-800">
-          {zh
-            ? "语音生成已暂时暂停。已有缓存音频仍可播放。"
-            : "Voice generation is paused for now. Existing cached audio can still be played."}
-        </p>
-      ) : message ? <p className="mt-3 text-xs leading-5 text-amber-800">{message}</p> : null}
+      {message ? <p className="mt-3 text-xs leading-5 text-amber-800">{message}</p> : null}
     </div>
   );
 }
@@ -272,7 +257,7 @@ function normalizeFrontendTtsProvider(provider?: string) {
   if (provider === "local-open-source" || provider === "elevenlabs" || provider === "minimax") {
     return provider;
   }
-  return undefined;
+  return "minimax";
 }
 
 async function playAudioUrl(

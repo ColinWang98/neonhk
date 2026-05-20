@@ -15,6 +15,8 @@ type Props = {
   targetPov?: PanoramaPov;
   fragments?: SelectedFragment[];
   activeFragmentId?: string;
+  selectionEnabled?: boolean;
+  selectionDisabledReason?: string;
   onFragmentClick?: (fragment: SelectedFragment) => void;
   onFragmentSelected: (
     screenBox: ScreenBox,
@@ -77,6 +79,8 @@ export function StreetImageViewer({
   targetPov,
   fragments = [],
   activeFragmentId,
+  selectionEnabled = true,
+  selectionDisabledReason,
   onFragmentClick,
   onFragmentSelected
 }: Props) {
@@ -95,6 +99,12 @@ export function StreetImageViewer({
   useEffect(() => {
     setGoogleSelecting(false);
   }, [image?.id]);
+
+  useEffect(() => {
+    if (!selectionEnabled) {
+      setGoogleSelecting(false);
+    }
+  }, [selectionEnabled]);
 
   useEffect(() => {
     targetPovRef.current = targetPov;
@@ -230,13 +240,19 @@ export function StreetImageViewer({
           {image?.provider === "google" && googleMapsApiKey ? (
             <button
               type="button"
-              disabled={busy || googleStatus !== "ready"}
+              disabled={busy || googleStatus !== "ready" || !selectionEnabled}
               onClick={() => setGoogleSelecting((value) => !value)}
+              title={!selectionEnabled ? selectionDisabledReason : undefined}
               className="soft-button-primary inline-flex h-10 items-center gap-2 px-3 text-sm font-semibold sm:px-4"
             >
               <Crosshair className="h-4 w-4" />
               {googleSelecting ? (zh ? "退出框选" : "Exit selection") : zh ? "开始框选" : "Select fragment"}
             </button>
+          ) : null}
+          {image && !selectionEnabled && selectionDisabledReason ? (
+            <p className="basis-full text-xs font-medium text-ink/55 sm:basis-auto">
+              {selectionDisabledReason}
+            </p>
           ) : null}
         </div>
       </div>
@@ -256,7 +272,7 @@ export function StreetImageViewer({
                 />
                 {googleSelecting ? (
                   <BoxSelectionLayer
-                    disabled={busy || googleStatus !== "ready"}
+                    disabled={busy || googleStatus !== "ready" || !selectionEnabled}
                     onSelect={(screenBox) => {
                       if (!panoRef.current || !image) return;
                       const rect = panoRef.current.getBoundingClientRect();
@@ -339,7 +355,7 @@ export function StreetImageViewer({
               }
             />
             <BoxSelectionLayer
-              disabled={busy}
+              disabled={busy || !selectionEnabled}
               onSelect={(screenBox) => {
                 const img = imgRef.current;
                 if (!img || naturalSize.width === 0 || naturalSize.height === 0) return;

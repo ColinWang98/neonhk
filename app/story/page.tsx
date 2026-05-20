@@ -725,6 +725,10 @@ export default function StoryPage() {
     selectionMeta?: FragmentSelectionMeta
   ) {
     if (!selectedImage) return;
+    if (!selectedPersona) {
+      setError(uiLanguage === "zh" ? "请先选择讲述人，再框选片段。" : "Choose a narrator before selecting a fragment.");
+      return;
+    }
 
     setProcessing(true);
     setError(null);
@@ -892,6 +896,8 @@ export default function StoryPage() {
               busy={processing}
               googleMapsApiKey={apiConfig.googleMapsApiKey}
               language={uiLanguage}
+              selectionEnabled={Boolean(selectedPersona)}
+              selectionDisabledReason={uiLanguage === "zh" ? "先选择讲述人" : "Choose a narrator first"}
               targetPov={activeFragment?.panoramaPov}
               fragments={fragments.filter((fragment) => fragment.imageId === selectedImage.id)}
               activeFragmentId={activeFragment?.id}
@@ -922,6 +928,7 @@ export default function StoryPage() {
                   language={uiLanguage}
                   fragment={activeFragment}
                   processing={processing}
+                  hasNarrator={Boolean(selectedPersona)}
                   storyStatus={openingPendingForStory ? "loading" : openingFailedForStory ? "error" : storyStatus}
                 />
             ) : (
@@ -1158,15 +1165,17 @@ function FragmentFirstPanel({
   language,
   fragment,
   processing,
+  hasNarrator,
   storyStatus
 }: {
   language: "en" | "zh";
   fragment?: SelectedFragment;
   processing: boolean;
+  hasNarrator: boolean;
   storyStatus: "idle" | "loading" | "ready" | "error";
 }) {
   const zh = language === "zh";
-  const flow = fragmentFlowState(fragment, processing, storyStatus, zh);
+  const flow = fragmentFlowState(fragment, processing, storyStatus, zh, hasNarrator);
   return (
     <div className="surface-panel p-4">
       <p className="fine-label">{zh ? "第二步" : "Step 2"}</p>
@@ -1174,9 +1183,13 @@ function FragmentFirstPanel({
         {zh ? "框选一个片段" : "Select a fragment"}
       </h2>
       <p className="mt-3 text-sm leading-6 text-ink/62">
-        {zh
-          ? "选择讲述人后，旋转全景图，点“开始框选”，在你想继续听的位置拖出一个框。"
-          : "After choosing a narrator, rotate the panorama, press Select fragment, and drag over one detail."}
+        {hasNarrator
+          ? zh
+            ? "现在可以旋转全景图，点“开始框选”，在你想继续听的位置拖出一个框。"
+            : "Now rotate the panorama, press Select fragment, and drag over one detail."
+          : zh
+            ? "先选择一个讲述人。之后“开始框选”按钮才会打开。"
+            : "Choose a narrator first. The Select fragment button will unlock after that."}
       </p>
       <div className="cozy-card mt-4 p-3">
         <div className="flex items-start gap-3">
@@ -1201,8 +1214,19 @@ function fragmentFlowState(
   fragment: SelectedFragment | undefined,
   processing: boolean,
   storyStatus: "idle" | "loading" | "ready" | "error",
-  zh: boolean
+  zh: boolean,
+  hasNarrator: boolean
 ) {
+  if (!hasNarrator) {
+    return {
+      title: zh ? "先选择讲述人" : "Choose a narrator first",
+      detail: zh
+        ? "这个讲述人的身份会决定接下来怎样理解你框选的细节。"
+        : "The narrator's relationship to this place shapes how the selected detail is read.",
+      loading: false,
+      done: false
+    };
+  }
   if (!fragment) {
     return {
       title: zh ? "等待框选" : "Waiting for a fragment",
