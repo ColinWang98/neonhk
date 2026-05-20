@@ -41,7 +41,7 @@ Return strict JSON:
       "interpretiveLens": string,
       "voiceHint": string,
       "voiceProfile": {
-        "accent": "hong-kong-english" | "cantonese-leaning" | "neutral-british" | "neutral",
+        "accent": "hong-kong-english" | "cantonese-leaning" | "shanxi" | "neutral-british" | "neutral",
         "englishFluency": "limited" | "conversational" | "fluent",
         "gender": "male" | "female",
         "age": "young" | "middle" | "older",
@@ -139,7 +139,7 @@ function cleanUserIntro(intro?: string) {
 
 function normalizeVoiceProfile(profile: GeneratedPersona["voiceProfile"]) {
   return {
-    accent: normalizeEnum(profile?.accent, ["hong-kong-english", "cantonese-leaning", "neutral-british", "neutral"], "neutral"),
+    accent: normalizeEnum(profile?.accent, ["hong-kong-english", "cantonese-leaning", "shanxi", "neutral-british", "neutral"], "neutral"),
     englishFluency: normalizeEnum(profile?.englishFluency, ["limited", "conversational", "fluent"], "conversational"),
     gender: normalizeEnum(profile?.gender, ["male", "female"], "female"),
     age: normalizeEnum(profile?.age === "young" ? "middle" : profile?.age, ["middle", "older"], "middle"),

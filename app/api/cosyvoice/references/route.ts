@@ -15,12 +15,20 @@ type ReferenceFile = {
 const AUDIO_EXTENSIONS = new Set([".wav", ".flac", ".mp3"]);
 
 export async function GET() {
-  const root = path.join(process.cwd(), "tts_sidecar", "reference", "open-source");
-  const sources = ["common-voice", "common-voice-zh-HK", "reference-pool", "clean-english", "crema-d"];
+  const referenceRoot = path.join(process.cwd(), "tts_sidecar", "reference");
+  const openSourceRoot = path.join(referenceRoot, "open-source");
+  const sources: Array<{ root: string; source: string }> = [
+    { root: referenceRoot, source: "shanxi" },
+    { root: openSourceRoot, source: "common-voice" },
+    { root: openSourceRoot, source: "common-voice-zh-HK" },
+    { root: openSourceRoot, source: "reference-pool" },
+    { root: openSourceRoot, source: "clean-english" },
+    { root: openSourceRoot, source: "crema-d" }
+  ];
 
   try {
-    const references = (await Promise.all(sources.map((source) => readSource(root, source)))).flat();
-    return NextResponse.json({ root, references });
+    const references = (await Promise.all(sources.map(({ root, source }) => readSource(root, source)))).flat();
+    return NextResponse.json({ root: referenceRoot, references });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to read reference audio files." },

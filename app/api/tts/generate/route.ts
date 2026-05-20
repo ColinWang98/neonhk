@@ -94,17 +94,14 @@ export async function POST(request: NextRequest) {
     }
 
     const endpoint = config.localTtsEndpoint || process.env.LOCAL_TTS_ENDPOINT || "http://127.0.0.1:7860/tts";
+    const localProfile = localVoiceProfile(body.persona, config);
     const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text: speech.speechText,
-        voiceProfile: body.persona?.voiceProfile,
-        voiceHint:
-          body.persona?.voiceHint ||
-          config.voiceAccentPreset ||
-          process.env.VOICE_ACCENT_PRESET ||
-          "Hong Kong bilingual",
+        voiceProfile: localProfile,
+        voiceHint: localVoiceHint(body.persona, config, localProfile),
         language: body.language || "zh-HK-en-mixed",
         format: body.format || "wav"
       })
@@ -486,6 +483,9 @@ function minimaxEmotion(tone?: string) {
 
 function minimaxLanguageBoost(persona?: GeneratedPersona) {
   const profile = persona?.voiceProfile;
+  if (profile?.accent === "shanxi") {
+    return "Chinese";
+  }
   if (profile?.accent === "cantonese-leaning" || (profile?.cantoneseRatio || 0) > 0.2) {
     return "Chinese,Yue";
   }
@@ -493,4 +493,40 @@ function minimaxLanguageBoost(persona?: GeneratedPersona) {
     return "English";
   }
   return "auto";
+}
+
+function localVoiceProfile(
+  persona: GeneratedPersona | undefined,
+  config: ReturnType<typeof runtimeConfigFromHeaders>
+) {
+  const preset = (config.voiceAccentPreset || process.env.VOICE_ACCENT_PRESET || "").toLowerCase();
+  const profile = persona?.voiceProfile;
+  if (/\b(shanxi|山西|jin|晋)\b/i.test(preset)) {
+    return {
+      accent: "shanxi" as const,
+      englishFluency: profile?.englishFluency || "conversational",
+      gender: profile?.gender || "female",
+      age: profile?.age || "middle",
+      pace: profile?.pace || "normal",
+      tone: profile?.tone || "casual",
+      cantoneseRatio: 0
+    };
+  }
+  return profile;
+}
+
+function localVoiceHint(
+  persona: GeneratedPersona | undefined,
+  config: ReturnType<typeof runtimeConfigFromHeaders>,
+  profile: GeneratedPersona["voiceProfile"] | undefined
+) {
+  if (profile?.accent === "shanxi") {
+    return "Use natural Shanxi Mandarin / 山西话 influenced speech. Keep it grounded, conversational, and not exaggerated.";
+  }
+  return (
+    persona?.voiceHint ||
+    config.voiceAccentPreset ||
+    process.env.VOICE_ACCENT_PRESET ||
+    "Hong Kong bilingual"
+  );
 }

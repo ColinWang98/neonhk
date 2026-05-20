@@ -44,10 +44,10 @@ type GeneratedAudio = {
 };
 
 const defaultText =
-  "这个街角像是一个短暂停留的地方。行人走到这里，可能会稍微放慢脚步，看清路面、栏杆和入口的方向，然后再决定继续往哪里走。";
+  "哎呀，这个街角我一看就晓得咋走。先看清楚招牌，再往边上一站，别挡住后头的人。";
 
 const defaultProfile: VoiceProfile = {
-  accent: "neutral",
+  accent: "shanxi",
   englishFluency: "conversational",
   gender: "female",
   age: "middle",
@@ -68,6 +68,7 @@ const genderOptions = [
 ] as const;
 
 const accentOptions = [
+  { value: "shanxi", label: "Shanxi dialect" },
   { value: "neutral", label: "Neutral" },
   { value: "hong-kong-english", label: "HK English" },
   { value: "cantonese-leaning", label: "Cantonese leaning" },

@@ -58,6 +58,7 @@ export function buildElevenLabsVoicePrompt(persona?: GeneratedPersona, config?: 
   const accentDirection = {
     "hong-kong-english": "clear English with a subtle Hong Kong English rhythm, never caricatured",
     "cantonese-leaning": "English-first narration with a light Hong Kong bilingual cadence; avoid heavy Cantonese pronunciation unless text requires it",
+    shanxi: "Mandarin-first narration with a natural Shanxi local rhythm; avoid turning it into a comic accent",
     "neutral-british": "neutral British-leaning English, polished but not formal",
     neutral: "neutral international English, clean articulation"
   }[profile.accent];

@@ -23,7 +23,7 @@ export type GeneratedPersona = {
 };
 
 export type VoiceProfile = {
-  accent: "hong-kong-english" | "cantonese-leaning" | "neutral-british" | "neutral";
+  accent: "hong-kong-english" | "cantonese-leaning" | "shanxi" | "neutral-british" | "neutral";
   englishFluency: "limited" | "conversational" | "fluent";
   gender: "male" | "female";
   age: "young" | "middle" | "older";
