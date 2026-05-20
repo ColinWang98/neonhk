@@ -45,6 +45,8 @@ Important distinction:
 - If a nearby candidate is view-aligned, close, and marked cautious_possible in the Evidence Packet, you may mention it as a possible map match in plain words: "Maps puts X roughly this way, so it could be related, but I would not swear it is this exact frontage."
 - If an Evidence Packet claim comes from candidate_verifier, treat it as the visual-map reasoning result. Use its suggested wording or reason before falling back to generic phrases. This is stronger than ordinary nearby context, but still cautious unless allowedUse is direct_fact.
 - If an Evidence Packet claim says a mapped building footprint intersects the selected sight line, treat it as stronger spatial evidence than an ordinary nearby place. Say it plainly but cautiously: "The map footprint and this sight line point to X." Do not call it certain unless visual text also supports it.
+- Do not expose evidence machinery in the spoken story. Avoid phrases like "the map and image make", "visual-map verifier", "candidate", "matchLevel", "Evidence Packet", "primary claims", or "possible match here".
+- Turn map uncertainty into normal street talk. Say "Maps puts X around this frontage", "I would treat X as a likely landmark", or "I would use that name carefully", not "the map and image make X a possible match".
 - If nearby place context is only background_only, you may say a named shop or address is nearby, but do not say it is the selected fragment.
 - If the Evidence Packet has direct_fact or cautious_possible claims for readable text, a publicEntityCandidate, a university, school, station, hospital, museum, public building, or named landmark, use that concrete name early. Do not hide it behind generic phrases like "this building" or "the place".
 - If the crop or map strongly indicates a public building such as The Hong Kong Polytechnic University, say it plainly but cautiously when needed: "This looks like part of PolyU" or "The map and signage point to PolyU here." This is allowed for public institutions, not private people or private homes.
@@ -57,6 +59,11 @@ Important distinction:
 - Old news must sound old. Use phrases like "older reports", "in 2024", or "some past coverage", not present-tense certainty.
 - Never invent news, events, ownership, former shop uses, or community history from a nearby entity name alone.
 - Use first-person persona perspective by default. The writing should feel like the narrator is standing here, speaking to one visitor beside them.
+- Do not label the persona in the sentence. Never write "as a temporary-resident", "as a tourist", or "as a local resident". Let the role show through habits and comparison.
+- Use the persona's background, userIntro, role, and voiceHint. Each segment should contain one small clue that only this narrator would say: a work habit, local routine, visitor comparison, short-term resident learning curve, age-related pace, or ordinary preference.
+- If the persona is a temporary resident, use phrases like "after staying here a while", "I am still learning which signs matter", or "compared with where I lived before".
+- If the persona is a visitor, use route-finding, hesitation, and comparison with travel habits.
+- If the persona is local or a worker, use errands, shortcuts, queue manners, shop opening rhythms, rain, delivery, lunch, transport timing, and where people stand.
 - Make it oral and practical: short sentences, small reactions, concrete actions, and ordinary street judgement.
 - Avoid academic or report-like language. Do not sound like an image caption, urban studies abstract, or museum label.
 - Avoid literary language. Avoid phrases like "the city remembers", "traces of time", "layers of meaning", "sense of belonging", "resonance", "threshold", "ritual", "quiet poetry", or "the street tells us".
@@ -68,6 +75,7 @@ Important distinction:
 - Avoid long complex sentences. Most sentences should be under 16 words. Break one idea into two short sentences when possible.
 - Avoid semicolons and heavy clauses. The story should be easy to subtitle and easy to speak aloud.
 - Avoid repeated formula phrases such as "the visible cues", "this fragment may suggest", "can be read as", "spatial context", "I would notice", and "I cannot know".
+- Avoid stiff evidence phrases such as "this frontage has a simple identity", "I would keep the reading modest", "without pretending I know the whole place", "the map and image", "possible match here", and "as a temporary-resident".
 - Avoid meta-refusal phrases such as "there is not enough evidence", "not enough information", "I cannot describe", "I cannot talk about", "I will not speculate", "I will not invent", "I don't know enough", and "no detailed story can be provided".
 - Never use evidence policy as spoken content. The user should hear a careful person, not a compliance note.
 - Do not repeat the same safety sentence in all four segments. Each segment must add one new concrete thing: a named place, a sign, an entrance, a route, a material detail, a public use, or a small action.
@@ -104,7 +112,7 @@ Generate four spoken story segments, each 45-75 words. They should not sound lik
 
 Hard structure for each segment:
 - Sentence 1: one concrete fact or cautious map match, preferably with a name if evidence supports it.
-- Sentence 2: the narrator's personal street-level judgement.
+- Sentence 2: the narrator's personal street-level judgement, using their role without naming it as a label.
 - Sentence 3: one action, habit, or small social rule.
 - Sentence 4: one grounded detail from the wider street, district, campus edge, entrance, pavement, queue, nearby public context, or daily timing. Keep it ordinary.
 - Every persona should turn uncertainty into a lived angle. Use one or two light personal comparisons across the full story, matched to the persona. Examples: "where I lived before...", "after staying here a while...", "when I worked nearby...", "as a visitor I would...", "as a local I would just...". Keep it practical, not sentimental.
@@ -127,19 +135,19 @@ Style example to imitate. Do not copy the exact objects or facts:
 {
   "functionalUse": {
     "title": "Functional-Use",
-    "text": "The big sign gives me the first useful anchor, and the map puts the named building in this direction. After staying here a while, I trust those big building names more than small street numbers. I would follow the crowd, but keep to the side."
+    "text": "Maps puts the named shop around this frontage, so I would use the sign carefully, not like proof. After staying here a while, I trust big shop names more than tiny street numbers. I would glance up, move aside, and let the queue breathe."
   },
   "identityBelonging": {
     "title": "Identity-Belonging",
-    "text": "This kind of frontage feels public, but not fully open. Back home I might look for a clearer door sign. Here I read the building name, check where people enter, and copy the local pace."
+    "text": "The shop name gives me a quick handle. Back home I might wait for a clearer doorway, but here people read fast and keep walking. I would copy that pace, check whether anyone is ordering, and not hover in front."
   },
   "memoryTemporality": {
     "title": "Memory-Temporality",
-    "text": "At this time of day, the street feels like it is running on schedules. Buses, shoppers, and people crossing all set the rhythm. I would avoid stopping in the middle, especially when the pavement gets tight."
+    "text": "This feels like the kind of place that changes by the hour. Maybe busy after school, quieter before lunch, wet and cramped when it rains. I would remember it by when people stop briefly, buy something, and move on."
   },
   "socialCulturalResonance": {
     "title": "Social-Cultural Resonance",
-    "text": "The social rule here is simple: keep moving unless you know exactly where to stand. I learned that quickly in Hong Kong. If I need to check my phone, I step aside and let the flow pass."
+    "text": "The small rule is simple: do not block the shopfront. I learned that quickly in Hong Kong. If I need to check my phone or decide whether to buy, I step sideways first and let the faster people pass."
   }
 }
 
@@ -197,7 +205,7 @@ export async function generateNarratives(
             lng: visualContext.image?.lng
           },
           languageStyle:
-            "Default to English. Write like plain street talk, not a literary voiceover. First-person, short, practical, slightly messy. Keep the schema logic and evidence limits hidden. Use only Evidence Packet claim ids and Persona Fragment Plan boundaries for factual claims, but use the persona freely for practical judgement, crowd-following, route-finding, and personal comparison. Each segment should be fact, personal judgement, then action. If candidate_verifier, a public institution, campus, station, hospital, museum, public building, landmark, mapped footprint match, or visible readable text supports a concrete name, mention that name early. Use concrete actions: stand, wait, pass, queue, check the sign, avoid the rain, do not block the door. Every narrator may compare with places or routines they know, but must say it as personal perspective, not a fact about this location. Local personas should use local habits and street manners; visitor or temporary-resident personas should use wayfinding, comparison, and what they have learned by staying here. Never say not enough evidence, not enough information, I cannot talk about, I will not guess, or I will not invent. Avoid poetic words such as traces, layers, resonance, threshold, memory, belonging, rhythm, atmosphere, or meaning. If a map candidate is close and view-aligned, mention it cautiously as a possible nearby match. Do not overstate it. Avoid repeating the same line across segments."
+            "Default to English. Write like plain street talk, not a literary voiceover. First-person, short, practical, slightly messy. Keep the schema logic and evidence limits hidden. Use only Evidence Packet claim ids and Persona Fragment Plan boundaries for factual claims, but use the persona freely for practical judgement, crowd-following, route-finding, and personal comparison. Each segment should be fact, personal judgement, then action. If candidate_verifier, a public institution, campus, station, hospital, museum, public building, landmark, mapped footprint match, or visible readable text supports a concrete name, mention that name early. Turn that name into normal street talk, not evidence language. Use concrete actions: stand, wait, pass, queue, check the sign, avoid the rain, do not block the door. Every narrator may compare with places or routines they know, but must say it as personal perspective, not a fact about this location. Local personas should use local habits and street manners; visitor or temporary-resident personas should use wayfinding, comparison, and what they have learned by staying here. Never say not enough evidence, not enough information, I cannot talk about, I will not guess, or I will not invent. Never write as a temporary-resident, as a tourist, or as a local resident. Avoid poetic words such as traces, layers, resonance, threshold, memory, belonging, rhythm, atmosphere, or meaning. Avoid evidence phrases such as the map and image make, possible match here, or keep the reading modest. If a map candidate is close and view-aligned, mention it cautiously as a nearby landmark. Do not overstate it. Avoid repeating the same line across segments."
         })
       }
     ],

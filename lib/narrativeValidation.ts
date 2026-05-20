@@ -1,5 +1,6 @@
 import type {
   EvidencePacket,
+  GeneratedPersona,
   NarrativeBlock,
   NarrativeEvidenceView,
   NarrativeValidation,
@@ -105,6 +106,9 @@ export function validateNarrative(params: {
   if (hasMetaRefusal(allText)) {
     warnings.push("Narrative exposes evidence limits instead of turning uncertainty into a grounded persona perspective.");
   }
+  if (hasStiffEvidenceLanguage(allText)) {
+    warnings.push("Narrative exposes backend evidence language instead of everyday persona speech.");
+  }
   const strongerCandidateNames = new Set(
     params.evidencePacket.claims
       .filter((claim) => claim.allowedUse !== "background_only" && claim.allowedUse !== "do_not_use")
@@ -137,6 +141,7 @@ export function validateNarrative(params: {
     warning.includes("do_not_use") ||
     warning.includes("disabled") ||
     warning.includes("evidence limits") ||
+    warning.includes("backend evidence language") ||
     warning.includes("overstated as visible") ||
     warning.includes("direct cause")
   );
@@ -150,28 +155,30 @@ export function validateNarrative(params: {
 export function buildSafeNarratives(params: {
   evidencePacket: EvidencePacket;
   evidenceView: NarrativeEvidenceView;
+  persona?: GeneratedPersona;
   personaRole?: string;
 }): SchemaNarratives {
   const mainFact = topConcreteFact(params.evidencePacket, params.evidenceView);
   const visual = params.evidenceView.primaryClaims.find((claim) => claim.claimType === "visual_observation");
   const feature = mainFact?.name || params.evidencePacket.fragment.mainFeature || visualName(visual) || "this detail";
-  const role = params.personaRole ? `as ${article(params.personaRole)} ${params.personaRole}` : "from here";
+  const persona = personaStreetAngle(params.persona, params.personaRole);
+  const factLine = mainFact?.sentence || `This detail looks like ${feature}.`;
   return {
     functionalUse: {
       title: "Functional-Use",
-      text: `${mainFact?.sentence || `This looks like ${feature}.`} ${role}, I would use it as a quick street cue. I would keep moving, check the sign, and stand to the side if I needed a second look.`
+      text: `${factLine} ${persona.anchor} I would use it as a quick street cue, honestly. I would not stop in the doorway. I would check the sign, step to one side, and let people behind me keep moving.`
     },
     identityBelonging: {
       title: "Identity-Belonging",
-      text: `${feature} gives the frontage a simple identity, but I would keep the reading modest. It helps me orient myself without pretending I know the whole place. I would compare it with streets I already know and copy the local pace.`
+      text: `${feature} gives this frontage a simple handle. ${persona.comparison} That is enough for me to feel less lost. I would read the name, watch where people pause, and copy the local pace.`
     },
     memoryTemporality: {
       title: "Memory-Temporality",
-      text: `The useful thing here is the everyday timing, not a big history lesson. People pass, shops open or close, and the pavement has to keep working. I would read this through small routines: errands, waiting, rain, and lunch-hour movement.`
+      text: `The useful thing here is the daily timing. ${persona.routine} Shops open, people pass, someone slows down, then the pavement has to work again. I would read it through errands, lunch time, rain, and small waiting habits.`
     },
     socialCulturalResonance: {
       title: "Social-Cultural Resonance",
-      text: `The social rule is practical: do not block the frontage, and do not stop in the flow. I would step aside before checking my phone. That small habit says more here than forcing a story from something merely nearby.`
+      text: `The social rule is simple here: do not block the frontage. ${persona.socialRule} If I need to check my phone, I step aside first. Small moves like that matter when the pavement is busy.`
     }
   };
 }
@@ -191,8 +198,8 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
       return {
         name,
         sentence: verifier.allowedUse === "direct_fact"
-          ? `The visible details identify ${name}.`
-          : `The map and image make ${name} a possible match here.`
+          ? `${name} is the clearest name to use for this frontage.`
+          : `Maps puts ${name} around this frontage, so I would treat it as a possible landmark here.`
       };
     }
   }
@@ -207,7 +214,7 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
     if (name) {
       return {
         name,
-        sentence: `The map footprint and this sight line seem to point to ${name} here.`
+        sentence: `The map footprint and this sight line seem to point toward ${name}.`
       };
     }
   }
@@ -220,8 +227,8 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
       return {
         name,
         sentence: entity.allowedUse === "direct_fact"
-          ? `The visible sign points to ${name}.`
-          : `The visible sign seems to point to ${name}.`
+          ? `The sign gives me ${name} as the clearest name here.`
+          : `The sign seems to point to ${name}.`
       };
     }
   }
@@ -246,6 +253,48 @@ function confidenceForPlan(plan: PersonaFragmentPlan): NarrativeBlock["confidenc
   return "low";
 }
 
+function personaStreetAngle(persona?: GeneratedPersona, role?: string) {
+  const text = [persona?.role, persona?.userIntro, persona?.background, role].filter(Boolean).join(" ").toLowerCase();
+  if (/tourist|visitor|first-time|travell?er|overseas/.test(text)) {
+    return {
+      anchor: "If I were visiting, I would keep it simple and use it to find my bearings.",
+      comparison: "I would compare it with the kind of snack-shop or small frontage I use for directions when I travel.",
+      routine: "I would notice when people buy quickly and move away quickly.",
+      socialRule: "Visitors learn fast that the middle of the pavement is not a good place to hesitate."
+    };
+  }
+  if (/temporary|short-term|recent arrival|newcomer|staying|migrant/.test(text)) {
+    return {
+      anchor: "Since I am only settled here for a while, I read places by practical cues first.",
+      comparison: "I would compare it with streets I already know from home, then adjust to Hong Kong's faster pace.",
+      routine: "After staying here a bit, I notice the small rushes: lunch, school time, rain, and people buying something fast.",
+      socialRule: "For someone still learning the city, the safest move is to pause at the edge, not in the flow."
+    };
+  }
+  if (/shop|stall|worker|security|driver|teacher|local worker/.test(text)) {
+    return {
+      anchor: "If I were working nearby, I would read it by how people move past it.",
+      comparison: "That feels familiar in Hong Kong: a place can be useful even when you only catch the sign quickly.",
+      routine: "A worker notices the practical rhythm first: deliveries, lunch breaks, shutters, and who is blocking the way.",
+      socialRule: "People give way when they can, because everyone is trying to get one small thing done."
+    };
+  }
+  if (/local|resident|neighbour|neighbor|retired|long-term/.test(text)) {
+    return {
+      anchor: "If this were on my usual route, I would read it very practically.",
+      comparison: "On a familiar street, a shop name is often just how you remember the corner.",
+      routine: "On a normal day, I would notice whether it looks busy, whether the queue spills out, and whether rain changes where people stand.",
+      socialRule: "People know to leave a narrow lane open, even when they are waiting or looking at the sign."
+    };
+  }
+  return {
+    anchor: "I would keep the reading practical and small.",
+    comparison: "It helps me orient myself without pretending I know everything about the place.",
+    routine: "The useful clues are ordinary ones: errands, waiting, rain, lunch time, and people passing.",
+    socialRule: "The safest rule is to stand aside before stopping."
+  };
+}
+
 function requiresUncertainty(ids: string[], packet: EvidencePacket) {
   return packet.claims.some((claim) => ids.includes(claim.id) && claim.uncertaintyCueRequired);
 }
@@ -257,6 +306,10 @@ function hasUncertaintyCue(text: string) {
 function hasMetaRefusal(text: string) {
   return /\b(not enough evidence|not enough information|insufficient evidence|i cannot know|i can't know|i cannot describe|i cannot talk about|i can't talk about|i will not speculate|i won't speculate|i will not guess|i won't guess|i will not invent|i won't invent|i don't know enough|no detailed story can be provided)\b/i.test(text) ||
     /(没有足够|证据不足|信息不足|我无法|我不能描述|不能描述|不愿猜测|不会编造|不能提供更详细)/.test(text);
+}
+
+function hasStiffEvidenceLanguage(text: string) {
+  return /\b(the map and image make|visual-map verifier|candidate verifier|evidence packet|primary claims|possible match here|as a temporary-resident|as a tourist|as a local resident|frontage has a simple identity|keep the reading modest|without pretending i know the whole place)\b/i.test(text);
 }
 
 function extractCandidateName(text: string) {
@@ -274,10 +327,6 @@ function sentenceOverstatesBackground(candidate: string, lowerText: string) {
 function visualName(claim?: { text: string }) {
   const match = claim?.text.match(/"([^"]+)"/);
   return match?.[1]?.trim();
-}
-
-function article(value: string) {
-  return /^[aeiou]/i.test(value.trim()) ? "an" : "a";
 }
 
 function escapeRegExp(value: string) {

@@ -30,11 +30,17 @@ Repair goals:
 5. Keep it natural, spoken, and first-person.
 6. Return the same four segment JSON shape.
 
+Persona style:
+- Do not label the persona in the sentence. Never write "as a temporary-resident", "as a tourist", or "as a local resident".
+- Use the persona's role, userIntro, background, and voiceHint as speaking texture: route-finding, working nearby, local errands, short-term learning, travel comparison, age, pace, food, rain, queues, or transport habits.
+- Turn uncertainty into practical street judgement. Do not expose evidence mechanics.
+
 Do not add new factual claims beyond NarrativeEvidenceView.primaryClaims.
 NarrativeEvidenceView.optionalNearbyClaims are optional nearby context only. Omit them if they caused a warning.
 Do not turn nearby/background-only claims into directly visible facts.
 Do not mention forbiddenVisibleNames as visible, selected, or identical to the fragment.
 Do not make news or official notices explain the selected fragment.
+Avoid stiff evidence phrases such as "the map and image make", "possible match here", "visual-map verifier", "candidate", "keep the reading modest", "frontage has a simple identity", and "without pretending I know the whole place".
 
 Return strict JSON:
 {

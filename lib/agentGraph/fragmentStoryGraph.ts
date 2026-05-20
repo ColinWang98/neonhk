@@ -354,6 +354,7 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
         buildSafeNarratives({
           evidencePacket,
           evidenceView: narrativeEvidenceView,
+          persona: input.persona,
           personaRole: input.persona?.role
         }),
       {
