@@ -4,9 +4,11 @@ import type {
   EvidencePacket,
   GeneratedPersona,
   NarrativeEvidenceView,
+  NarrativeBlock,
   PersonaFragmentPlan,
   PlaceContext,
   SchemaNarratives,
+  StoryFactPlan,
   StreetImage,
   VisionDescription
 } from "@/types";
@@ -86,7 +88,7 @@ Important distinction:
 - Never use evidence policy as spoken content. The user should hear a careful person, not a compliance note.
 - Do not repeat the same safety sentence in all four segments. Each segment must add one new concrete thing: a named place, a sign, an entrance, a route, a material detail, a public use, or a small action.
 - Prefer phrases like "I would look at...", "I would stand...", "I would not block...", "this looks like...", "Maps puts X nearby...", "from what I can see...", and "I would read it as...".
-- Make the four segments feel like one small walk-through with the narrator. Start with what catches their eye, then what they do with that clue, then what it reminds them of, then how they move with other people. Do not make four separate mini reports.
+- Make the story beats feel like one small walk-through with the narrator. Start with what catches their eye, then what they do with that clue, then what it reminds them of, then how they move with other people. Do not make separate mini reports.
 - Give the narrator a tiny scene, not just an opinion. Examples: arriving from the MTR, slowing near a doorway, checking a sign while holding a drink, letting a delivery worker pass, comparing the shopfront with a street near home, or choosing where to wait in rain.
 - The persona's lived action should be direct: "I slow down", "I use the sign", "I step to the side", "I learned this after a few weeks here". Use "I would" only when the action is genuinely conditional.
 
@@ -101,8 +103,11 @@ Use cautious language such as:
 - "I would not treat it as certain"
 
 Evidence boundary:
-- The model input includes a NarrativeEvidenceView and a Persona Fragment Plan.
+- The model input includes a NarrativeEvidenceView, a StoryFactPlan, and a Persona Fragment Plan.
 - Treat NarrativeEvidenceView.primaryClaims as the only source of factual claims about the selected fragment.
+- Treat StoryFactPlan.anchorFacts as the facts that should shape the opening of the story.
+- Treat StoryFactPlan.supportingFacts as optional. Use them only if they make the narrator more concrete.
+- Treat StoryFactPlan.avoidFacts as names or facts that should not be described as visible or selected.
 - NarrativeEvidenceView.optionalNearbyClaims are optional. Use them only as "nearby" or "around here" context, and omit them if awkward.
 - Medium-confidence primaryClaims are also optional for style. Stronger facts should shape the story, but medium facts can be skipped when they make the speech sound like a list.
 - Never describe optionalNearbyClaims as visible in, selected by, or identical to the fragment.
@@ -118,7 +123,7 @@ Evidence boundary:
 - If the plan fitLevel is low or not_applicable, still write useful spoken observations unless the plan narrativeMode is disabled. Keep them modest and comparative.
 - If the plan narrativeMode is disabled, return very brief privacy-safe text only. Do not invent a story.
 
-Generate four spoken story segments, each 55-90 words. They should connect into a small, everyday story rather than four versions of the same point. The backend will reorder the segments, so do not write phrases like "first", "second", "finally", or "in this section".
+Generate 3 to 5 spoken story beats, each 45-85 words. They should connect into a small, everyday story rather than four versions of the same point. The backend may reorder or display these beats directly, so do not write phrases like "first", "second", "finally", or "in this section".
 
 Loose story shape:
 - Segment 1: the first useful clue, then the narrator's immediate street action.
@@ -129,19 +134,13 @@ Loose story shape:
 
 Do not start more than one segment with "This looks like", "I would", or "Maybe". Use different openings.
 
-Functional-Use:
-From the persona's viewpoint, say what a person would do here: enter, wait, pass, queue, check a sign, avoid blocking, or move on.
+Use schemas only as hidden tags for each beat:
+- Functional-Use: entering, waiting, passing, queueing, checking a sign, avoiding blocking, or moving on.
+- Identity-Belonging: whether the detail feels readable, approachable, awkward, familiar, or closed.
+- Memory-Temporality: routine timing such as opening, closing, rain, lunch, delivery, campus flow, station flow, or people passing.
+- Social-Cultural Resonance: street manners, giving way, where not to stand, how people share tight pavement.
 
-Identity-Belonging:
-From the persona's viewpoint, say whether this detail makes the place easy to read, easy to approach, awkward, familiar, or closed.
-
-Memory-Temporality:
-From the persona's viewpoint, mention simple routine: opening, closing, cleaning, repairing, rain, lunch break, delivery, or people passing. Do not sound nostalgic unless there is real evidence.
-
-Social-Cultural Resonance:
-From the persona's viewpoint, say how people avoid bumping into each other, queue, give way, keep moving, or know where not to stand.
-
-Style example to imitate. Do not copy the exact objects or facts:
+Voice example to imitate. Do not copy the exact objects or facts. This example is only for tone; the real response must follow the final JSON shape with storyBeats:
 {
   "functionalUse": {
     "title": "Functional-Use",
@@ -161,8 +160,18 @@ Style example to imitate. Do not copy the exact objects or facts:
   }
 }
 
-Return strict JSON with this shape:
+Return strict JSON with this shape. storyBeats is the user-facing story. The four schema fields are only fallback compatibility and should summarize the beats without adding new facts:
 {
+  "storyBeats": [
+    {
+      "title": string,
+      "schema": "Functional-Use" | "Identity-Belonging" | "Memory-Temporality" | "Social-Cultural Resonance",
+      "text": string,
+      "groundedIn": [claim id strings],
+      "confidence": "low" | "medium" | "high",
+      "claimType": "direct_observation" | "cautious_interpretation" | "persona_interpretation" | "background_context"
+    }
+  ],
   "functionalUse": {
     "title": "Functional-Use",
     "text": string
@@ -191,6 +200,7 @@ export async function generateNarratives(
   evidencePacket?: EvidencePacket,
   personaFragmentPlan?: PersonaFragmentPlan,
   narrativeEvidenceView?: NarrativeEvidenceView,
+  storyFactPlan?: StoryFactPlan,
   visualContext: NarrativeVisualContext = {}
 ): Promise<SchemaNarratives> {
   void _config;
@@ -203,6 +213,7 @@ export async function generateNarratives(
         content: JSON.stringify({
           task: "Write fragment story segments from NarrativeEvidenceView and Persona Fragment Plan. Return the required JSON only.",
           narrativeEvidenceView,
+          storyFactPlan,
           personaFragmentPlan,
           visionDescription: evidencePacket ? undefined : visionDescription,
           persona,
@@ -226,7 +237,7 @@ export async function generateNarratives(
   });
 
   try {
-    return normalizeNarratives(JSON.parse(content) as unknown);
+    return normalizeNarratives(JSON.parse(content) as unknown, narrativeEvidenceView, personaFragmentPlan);
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new Error("DeepSeek narrative generation returned invalid JSON.");
@@ -235,14 +246,21 @@ export async function generateNarratives(
   }
 }
 
-export function normalizeNarratives(value: unknown): SchemaNarratives {
+export function normalizeNarratives(
+  value: unknown,
+  evidenceView?: NarrativeEvidenceView,
+  plan?: PersonaFragmentPlan
+): SchemaNarratives {
+  const root = asRecord(value);
   const source = unwrapNarrativeSource(value);
+  const storyBeats = normalizeStoryBeats(root, source, evidenceView, plan);
   const fromBlocks = narrativesFromBlocks(source);
+  const fromBeats = narrativesFromStoryBeats(storyBeats);
   const next = {
-    functionalUse: segmentFrom(source, "functionalUse", "functional_use", "Functional-Use", "Functional Use", "functional", fromBlocks.functionalUse),
-    identityBelonging: segmentFrom(source, "identityBelonging", "identity_belonging", "Identity-Belonging", "Identity Belonging", "identity", fromBlocks.identityBelonging),
-    memoryTemporality: segmentFrom(source, "memoryTemporality", "memory_temporality", "Memory-Temporality", "Memory Temporality", "memory", fromBlocks.memoryTemporality),
-    socialCulturalResonance: segmentFrom(source, "socialCulturalResonance", "social_cultural_resonance", "Social-Cultural Resonance", "Social Cultural Resonance", "social", fromBlocks.socialCulturalResonance)
+    functionalUse: segmentFrom(source, "functionalUse", "functional_use", "Functional-Use", "Functional Use", "functional", fromBlocks.functionalUse, fromBeats.functionalUse),
+    identityBelonging: segmentFrom(source, "identityBelonging", "identity_belonging", "Identity-Belonging", "Identity Belonging", "identity", fromBlocks.identityBelonging, fromBeats.identityBelonging),
+    memoryTemporality: segmentFrom(source, "memoryTemporality", "memory_temporality", "Memory-Temporality", "Memory Temporality", "memory", fromBlocks.memoryTemporality, fromBeats.memoryTemporality),
+    socialCulturalResonance: segmentFrom(source, "socialCulturalResonance", "social_cultural_resonance", "Social-Cultural Resonance", "Social Cultural Resonance", "social", fromBlocks.socialCulturalResonance, fromBeats.socialCulturalResonance)
   };
   const missing = [
     ["functionalUse.text", next.functionalUse?.text],
@@ -253,7 +271,7 @@ export function normalizeNarratives(value: unknown): SchemaNarratives {
   if (missing.length) {
     throw new Error(`Narrative model returned incomplete segments: ${missing.map(([key]) => key).join(", ")}.`);
   }
-  return {
+  const normalized: SchemaNarratives = {
     functionalUse: {
       title: "Functional-Use",
       text: next.functionalUse!.text
@@ -271,6 +289,10 @@ export function normalizeNarratives(value: unknown): SchemaNarratives {
       text: next.socialCulturalResonance!.text
     }
   };
+  if (storyBeats.length) {
+    normalized.storyBeats = storyBeats;
+  }
+  return normalized;
 }
 
 function unwrapNarrativeSource(value: unknown): Record<string, unknown> {
@@ -289,6 +311,106 @@ function unwrapNarrativeSource(value: unknown): Record<string, unknown> {
     if (Object.keys(next).length) return next;
   }
   return object;
+}
+
+function normalizeStoryBeats(
+  root: Record<string, unknown>,
+  source: Record<string, unknown>,
+  evidenceView?: NarrativeEvidenceView,
+  plan?: PersonaFragmentPlan
+): NarrativeBlock[] {
+  const blocks =
+    arrayFromUnknown(root.storyBeats) ||
+    arrayFromUnknown(root.story_beats) ||
+    arrayFromUnknown(source.storyBeats) ||
+    arrayFromUnknown(source.story_beats);
+  if (!blocks?.length) return [];
+
+  const fallbackClaimIds = evidenceView?.primaryClaims.slice(0, 2).map((claim) => claim.id) || plan?.sourceClaimIds.slice(0, 2) || [];
+  const nextBlocks: Array<NarrativeBlock | undefined> = blocks
+    .map((block, index) => {
+      const item = asRecord(block);
+      const text = cleanText(item.text || item.content || item.narrative);
+      if (!text) return undefined;
+      const schema = normalizeSchema(item.schema || item.title || item.name, index);
+      return {
+        schema,
+        title: cleanText(item.title || item.name) || defaultBeatTitle(schema, index),
+        text,
+        claimType: normalizeClaimType(item.claimType || item.claim_type),
+        groundedIn: normalizeGroundedIn(item.groundedIn || item.grounded_in, fallbackClaimIds),
+        confidence: normalizeConfidence(item.confidence, plan),
+        uncertaintyCue: cleanText(item.uncertaintyCue || item.uncertainty_cue) || undefined
+      } satisfies NarrativeBlock;
+    });
+  return nextBlocks
+    .filter((block): block is NarrativeBlock => Boolean(block))
+    .slice(0, 5);
+}
+
+function narrativesFromStoryBeats(storyBeats: NarrativeBlock[]) {
+  const result: Partial<Record<keyof SchemaNarratives, { text: string }>> = {};
+  for (const schema of ["Functional-Use", "Identity-Belonging", "Memory-Temporality", "Social-Cultural Resonance"] as const) {
+    const key = schemaKey(schema);
+    const text = storyBeats
+      .filter((beat) => beat.schema === schema)
+      .map((beat) => beat.text)
+      .join(" ");
+    if (text) result[key] = { text };
+  }
+  const allBeatText = storyBeats.map((beat) => beat.text).join(" ");
+  for (const schema of ["Functional-Use", "Identity-Belonging", "Memory-Temporality", "Social-Cultural Resonance"] as const) {
+    const key = schemaKey(schema);
+    if (!result[key] && allBeatText) result[key] = { text: allBeatText };
+  }
+  return result;
+}
+
+function normalizeSchema(value: unknown, index: number): NarrativeBlock["schema"] {
+  const text = String(value || "").toLowerCase();
+  if (text.includes("identity") || text.includes("belong") || text.includes("impression")) return "Identity-Belonging";
+  if (text.includes("memory") || text.includes("tempor") || text.includes("timing") || text.includes("routine")) return "Memory-Temporality";
+  if (text.includes("social") || text.includes("cultural") || text.includes("manner") || text.includes("shared")) return "Social-Cultural Resonance";
+  if (text.includes("functional") || text.includes("use") || text.includes("action")) return "Functional-Use";
+  return (["Functional-Use", "Identity-Belonging", "Memory-Temporality", "Social-Cultural Resonance"] as const)[index % 4];
+}
+
+function normalizeClaimType(value: unknown): NarrativeBlock["claimType"] {
+  const text = String(value || "").toLowerCase();
+  if (text.includes("direct")) return "direct_observation";
+  if (text.includes("background")) return "background_context";
+  if (text.includes("cautious")) return "cautious_interpretation";
+  return "persona_interpretation";
+}
+
+function normalizeGroundedIn(value: unknown, fallbackClaimIds: string[]) {
+  const ids = Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean) : [];
+  return ids.length ? ids.slice(0, 4) : fallbackClaimIds;
+}
+
+function normalizeConfidence(value: unknown, plan?: PersonaFragmentPlan): NarrativeBlock["confidence"] {
+  const text = String(value || "").toLowerCase();
+  if (text === "high" || text === "medium" || text === "low") return text;
+  if (plan?.fitLevel === "high") return "high";
+  if (plan?.fitLevel === "medium") return "medium";
+  return "low";
+}
+
+function defaultBeatTitle(schema: NarrativeBlock["schema"], index: number) {
+  const fallback = {
+    "Functional-Use": "What I do here",
+    "Identity-Belonging": "How it feels to approach",
+    "Memory-Temporality": "When this place changes",
+    "Social-Cultural Resonance": "How people share the space"
+  } as const;
+  return fallback[schema] || `Beat ${index + 1}`;
+}
+
+function schemaKey(schema: NarrativeBlock["schema"]): keyof SchemaNarratives {
+  if (schema === "Identity-Belonging") return "identityBelonging";
+  if (schema === "Memory-Temporality") return "memoryTemporality";
+  if (schema === "Social-Cultural Resonance") return "socialCulturalResonance";
+  return "functionalUse";
 }
 
 function narrativesFromBlocks(source: Record<string, unknown>) {

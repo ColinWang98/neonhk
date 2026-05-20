@@ -22,6 +22,17 @@ export function buildNarrativeBlocks(
   plan: PersonaFragmentPlan,
   evidenceView?: NarrativeEvidenceView
 ): NarrativeBlock[] {
+  if (narratives.storyBeats?.length) {
+    return narratives.storyBeats.map((block) => ({
+      ...block,
+      groundedIn: block.groundedIn.length
+        ? block.groundedIn
+        : evidenceView
+          ? evidenceView.primaryClaims.slice(0, 2).map((claim) => claim.id)
+          : plan.sourceClaimIds.slice(0, 2),
+      confidence: block.confidence || confidenceForPlan(plan)
+    }));
+  }
   const claimPool = evidenceView
     ? [...evidenceView.primaryClaims, ...evidenceView.optionalNearbyClaims]
     : evidencePacket.claims;
@@ -126,8 +137,26 @@ export function reinforceConcreteFacts(
 ): SchemaNarratives {
   const fact = topConcreteFact(evidencePacket, evidenceView);
   if (!fact) return narratives;
-  const allText = Object.values(narratives).map((item) => item.text).join(" ").toLowerCase();
+  const allText = narrativeText(narratives).toLowerCase();
   if (allText.includes(fact.name.toLowerCase())) return narratives;
+  if (narratives.storyBeats?.length) {
+    const [first, ...rest] = narratives.storyBeats;
+    return {
+      ...narratives,
+      storyBeats: [
+        {
+          ...first,
+          text: `${fact.sentence} ${first.text}`.replace(/\s+/g, " ").trim(),
+          groundedIn: Array.from(new Set([...first.groundedIn, ...(evidenceView?.primaryClaims.slice(0, 1).map((claim) => claim.id) || [])]))
+        },
+        ...rest
+      ],
+      functionalUse: {
+        ...narratives.functionalUse,
+        text: `${fact.sentence} ${narratives.functionalUse.text}`.replace(/\s+/g, " ").trim()
+      }
+    };
+  }
   return {
     ...narratives,
     functionalUse: {
@@ -170,9 +199,7 @@ export function validateNarrative(params: {
     }
   }
 
-  const allText = Object.values(params.narratives)
-    .map((item) => item.text.toLowerCase())
-    .join(" ");
+  const allText = narrativeText(params.narratives).toLowerCase();
   if (hasMetaRefusal(allText)) {
     warnings.push("Narrative exposes evidence limits instead of turning uncertainty into a grounded persona perspective.");
   }
@@ -220,6 +247,17 @@ export function validateNarrative(params: {
     warnings,
     requiresRegeneration: failed
   };
+}
+
+function narrativeText(narratives: SchemaNarratives) {
+  const schemaText = [
+    narratives.functionalUse.text,
+    narratives.identityBelonging.text,
+    narratives.memoryTemporality.text,
+    narratives.socialCulturalResonance.text
+  ];
+  const beatText = narratives.storyBeats?.map((block) => block.text) || [];
+  return [...schemaText, ...beatText].join(" ");
 }
 
 export function buildSafeNarratives(params: {

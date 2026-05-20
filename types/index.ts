@@ -302,6 +302,7 @@ export type SchemaNarratives = {
     title: "Social-Cultural Resonance";
     text: string;
   };
+  storyBeats?: NarrativeBlock[];
 };
 
 export type SchemaName =
@@ -419,6 +420,31 @@ export type NarrativeEvidenceView = {
   guidance: string[];
 };
 
+export type StoryFactPlan = {
+  likelyVisibleIdentity?: {
+    label: string;
+    confidence: "high" | "medium-high" | "medium";
+    claimId: string;
+    wording: string;
+  };
+  anchorFacts: Array<{
+    claimId: string;
+    text: string;
+    priority: "must_use" | "should_use";
+  }>;
+  supportingFacts: Array<{
+    claimId: string;
+    text: string;
+    priority: "optional";
+  }>;
+  avoidFacts: Array<{
+    claimId?: string;
+    label: string;
+    reason: string;
+  }>;
+  guidance: string[];
+};
+
 export type FragmentAffordance =
   | "commercial"
   | "residential"
@@ -458,6 +484,7 @@ export type PersonaFragmentPlan = {
 
 export type NarrativeBlock = {
   schema: SchemaName;
+  title?: string;
   text: string;
   claimType: "direct_observation" | "cautious_interpretation" | "persona_interpretation" | "background_context";
   groundedIn: string[];

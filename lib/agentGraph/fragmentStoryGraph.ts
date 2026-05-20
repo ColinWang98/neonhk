@@ -6,6 +6,7 @@ import { generateNarratives } from "@/lib/narrative";
 import { buildNarrativeBlocks, buildSafeNarratives, reinforceConcreteFacts, validateNarrative } from "@/lib/narrativeValidation";
 import { buildNarrativeEvidenceView } from "@/lib/narrativeEvidenceView";
 import { buildPersonaFragmentPlan } from "@/lib/personaFragment";
+import { buildStoryFactPlan } from "@/lib/storyFactPlan";
 import { judgeNarrativeWithTextModel } from "@/lib/agentGraph/storyJudge";
 import { repairNarrativeWithTextModel } from "@/lib/agentGraph/storyRepair";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
@@ -155,6 +156,22 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
     }
   );
 
+  const storyFactPlan = await runAgent(
+    "StoryFactPlanAgent",
+    {
+      primaryClaimCount: narrativeEvidenceView.primaryClaims.length,
+      optionalNearbyClaimCount: narrativeEvidenceView.optionalNearbyClaims.length
+    },
+    async () => buildStoryFactPlan(evidencePacket, narrativeEvidenceView),
+    {
+      ...runContext,
+      config,
+      agentRuns,
+      provider: "system",
+      model: "story-fact-plan-v1"
+    }
+  );
+
   const generatedNarratives = await runAgent(
     "StoryWriterAgent",
     {
@@ -171,6 +188,7 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
         evidencePacket,
         personaFragmentPlan,
         narrativeEvidenceView,
+        storyFactPlan,
         {
           cropImageUrl: input.cropImageUrl,
           image: input.image

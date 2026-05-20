@@ -28,8 +28,8 @@ Repair goals:
 3. If evidence is weak, use smaller grounded observations and practical persona judgement.
 4. Do not say "not enough evidence", "I cannot know", "I will not guess", or similar policy language.
 5. Keep it natural, spoken, and first-person.
-6. Make the four segments feel like one small walk-through, not four checklist answers.
-7. Return the same four segment JSON shape.
+6. Make the story beats feel like one small walk-through, not checklist answers.
+7. Return storyBeats plus the same four fallback segment fields.
 8. Direct and high-confidence facts are anchors. Medium-confidence facts are optional. Keep only the ones that make the story sound more specific and natural.
 
 Persona style:
@@ -50,8 +50,18 @@ Do not mention forbiddenVisibleNames as visible, selected, or identical to the f
 Do not make news or official notices explain the selected fragment.
 Avoid stiff evidence phrases such as "the map and image make", "possible match here", "visual-map verifier", "candidate", "keep the reading modest", "frontage has a simple identity", and "without pretending I know the whole place".
 
-Return strict JSON:
+Return strict JSON. storyBeats is the user-facing story; the four schema fields are fallback compatibility and should summarize the beats:
 {
+  "storyBeats": [
+    {
+      "title": string,
+      "schema": "Functional-Use" | "Identity-Belonging" | "Memory-Temporality" | "Social-Cultural Resonance",
+      "text": string,
+      "groundedIn": [claim id strings],
+      "confidence": "low" | "medium" | "high",
+      "claimType": "direct_observation" | "cautious_interpretation" | "persona_interpretation" | "background_context"
+    }
+  ],
   "functionalUse": {"title": "Functional-Use", "text": string},
   "identityBelonging": {"title": "Identity-Belonging", "text": string},
   "memoryTemporality": {"title": "Memory-Temporality", "text": string},
@@ -87,5 +97,5 @@ export async function repairNarrativeWithTextModel(input: StoryRepairInput): Pro
     ]
   });
 
-  return normalizeNarratives(JSON.parse(raw) as unknown);
+  return normalizeNarratives(JSON.parse(raw) as unknown, input.narrativeEvidenceView, input.personaFragmentPlan);
 }

@@ -926,6 +926,13 @@ export default function StoryPage() {
               language={uiLanguage}
               onSelect={choosePersona}
             />
+            {selectedPersona ? (
+              <SceneOpeningPreview
+                status={openingStatus}
+                opening={activeOpening}
+                language={uiLanguage}
+              />
+            ) : null}
             {readyFragment ? (
               <GroundingSummaryCard fragment={readyFragment} language={uiLanguage} />
             ) : null}
@@ -1083,6 +1090,53 @@ function PersonaSwitcher({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function SceneOpeningPreview({
+  status,
+  opening,
+  language
+}: {
+  status: "idle" | "loading" | "ready" | "error";
+  opening?: SceneOpeningGeneration;
+  language: "en" | "zh";
+}) {
+  const zh = language === "zh";
+  if (status === "idle" && !opening) return null;
+  return (
+    <div className="surface-panel p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="fine-label">{zh ? "进入语" : "Opening"}</p>
+          <h2 className="mt-1 text-sm font-semibold text-ink">
+            {zh ? "先看这一带" : "Before the detail"}
+          </h2>
+        </div>
+        {status === "loading" ? <Loader2 className="mt-1 h-4 w-4 animate-spin text-ink/45" /> : null}
+      </div>
+      {status === "loading" && !opening ? (
+        <p className="mt-3 text-sm leading-6 text-ink/60">
+          {zh ? "正在准备这个讲述人的整体开场。" : "Preparing this narrator's wider opening."}
+        </p>
+      ) : null}
+      {status === "error" && !opening ? (
+        <p className="mt-3 text-sm leading-6 text-red-800">
+          {zh ? "开场暂时没有准备好，但仍可框选细节。" : "The opening is not ready yet, but you can still select a detail."}
+        </p>
+      ) : null}
+      {opening ? (
+        <div className="mt-3 space-y-2">
+          {(opening.openingBlocks?.length ? opening.openingBlocks : [{ text: opening.openingText, groundedIn: [] }])
+            .slice(0, 3)
+            .map((block, index) => (
+              <p key={index} className="text-sm leading-6 text-ink/72">
+                {block.text}
+              </p>
+            ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1623,7 +1677,7 @@ function StoryArchiveDrawer({
                   {storyCardsForFragment(activeStory).map((card) => (
                     <article key={card.id} className="cozy-card p-4">
                       <h3 className="text-xs font-semibold text-brass">
-                        {zh ? storyLabels.zh[card.schema] : storyLabels.en[card.schema]}
+                        {card.title || (zh ? storyLabels.zh[card.schema] : storyLabels.en[card.schema])}
                       </h3>
                       <p className="mt-2 text-sm leading-6 text-ink/74">{card.text}</p>
                     </article>
@@ -1644,6 +1698,7 @@ function storyCardsForFragment(fragment: SelectedFragment) {
       .map((block, index) => ({
         id: `${block.schema}:${index}`,
         schema: block.schema,
+        title: block.title,
         text: block.text.trim()
       }))
       .filter((card) => card.text);
@@ -1655,6 +1710,7 @@ function storyCardsForFragment(fragment: SelectedFragment) {
       return {
         id: schema,
         schema,
+        title: undefined,
         text: fragment.narratives?.[key]?.text?.trim() || ""
       };
     })
@@ -1853,7 +1909,8 @@ function pickSchemaNarratives(narratives: SchemaNarratives): SchemaNarratives {
     functionalUse: narratives.functionalUse,
     identityBelonging: narratives.identityBelonging,
     memoryTemporality: narratives.memoryTemporality,
-    socialCulturalResonance: narratives.socialCulturalResonance
+    socialCulturalResonance: narratives.socialCulturalResonance,
+    storyBeats: narratives.storyBeats
   };
 }
 
