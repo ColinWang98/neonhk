@@ -81,8 +81,17 @@ export async function generateGeminiJson(params: GenerateGeminiJsonParams) {
 }
 
 function buildGeminiPayload(params: GenerateGeminiJsonParams, attempt: number) {
+  const parts = attempt
+    ? [
+        ...params.parts,
+        {
+          text:
+            "The previous response was not valid JSON. Return exactly one valid JSON object now. Do not include markdown, comments, explanations, or trailing text."
+        }
+      ]
+    : params.parts;
   return JSON.stringify({
-    contents: [{ role: "user", parts: params.parts }],
+    contents: [{ role: "user", parts }],
     generationConfig: {
       responseMimeType: "application/json",
       temperature: params.temperature ?? 0.2,

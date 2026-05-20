@@ -47,6 +47,9 @@ Use:
 
 Rules:
 - Return JSON only.
+- Return at most 4 matches.
+- If no candidate is plausible, return {"matches":[],"warnings":["No visual-map match."]}.
+- Do not list every rejected candidate. Only include a reject if it is important to prevent confusion with a nearby name.
 - Prefer concrete public-place names when visual and map evidence support them.
 - Do not require OCR. Building type, scale, facade, campus/station/hospital cues, direction, footprint, and distance can support a cautious match.
 - Do not overclaim. If there is no readable sign, use likely or possible, not certain.
@@ -91,7 +94,15 @@ export async function verifyCandidateMatches(params: VerifyParams): Promise<Cand
     return skipped("Visual-map verification skipped because the fragment has no strong public-place or sign/building cues.");
   }
 
-  return verifyWithGemini(params, candidates);
+  try {
+    return await verifyWithGemini(params, candidates);
+  } catch (error) {
+    if (isRecoverableVerifierFormatError(error)) {
+      const message = error instanceof Error ? error.message : "Candidate verifier returned malformed output.";
+      return skipped(`Visual-map verification skipped after malformed Gemini output: ${message}`, "gemini", geminiModel());
+    }
+    throw error;
+  }
 }
 
 async function verifyWithGemini(params: VerifyParams, candidates: CandidateInput[]): Promise<CandidateVerification> {
@@ -133,7 +144,7 @@ async function verifyWithGemini(params: VerifyParams, candidates: CandidateInput
     parts,
     model,
     temperature: 0.1,
-    maxOutputTokens: 900,
+    maxOutputTokens: 1600,
     timeoutMs: 30000,
     errorPrefix: "Gemini candidate verification"
   });
@@ -162,6 +173,11 @@ function normalizeVerificationOutput(
     warnings: normalizeStringArray(parsed.warnings).slice(0, 5),
     createdAt: new Date().toISOString()
   };
+}
+
+function isRecoverableVerifierFormatError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return /invalid JSON|returned no content|malformed output/i.test(message);
 }
 
 function collectCandidates(placeContext?: PlaceContext): CandidateInput[] {
@@ -340,9 +356,11 @@ function clampConfidence(value: unknown) {
   return Math.max(0, Math.min(1, num));
 }
 
-function skipped(reason: string): CandidateVerification {
+function skipped(reason: string, provider?: string, model?: string): CandidateVerification {
   return {
     status: "skipped",
+    provider,
+    model,
     matches: [],
     rejected: [],
     warnings: [reason],
