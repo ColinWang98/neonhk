@@ -14,16 +14,17 @@ type AnalyzeRequest = {
 };
 
 export async function POST(request: NextRequest) {
+  let body: Partial<AnalyzeRequest> = {};
+  const startedAt = performance.now();
+  const config = runtimeConfigFromHeaders(request.headers);
+  const aiDiagnostics = geminiDiagnostics();
   try {
-    const body = (await request.json()) as AnalyzeRequest;
-    const config = runtimeConfigFromHeaders(request.headers);
+    body = (await request.json()) as AnalyzeRequest;
 
     if (!body.fragmentId || !body.cropImageUrl) {
       return NextResponse.json({ error: "fragmentId and cropImageUrl are required." }, { status: 400 });
     }
 
-    const startedAt = performance.now();
-    const aiDiagnostics = geminiDiagnostics();
     const visionDescription = await analyzeFragment(body.cropImageUrl, config);
     const blocked = shouldBlockFragment(visionDescription.privacyRisk);
     await logAiGeneration(
@@ -64,8 +65,25 @@ export async function POST(request: NextRequest) {
       blocked
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Analysis failed.";
+    await logAiGeneration(
+      {
+        sessionId: body.sessionId,
+        fragmentId: body.fragmentId,
+        stage: "fragment_analysis",
+        provider: aiDiagnostics.provider,
+        model: aiDiagnostics.model,
+        status: "error",
+        inputSummary: {
+          cropImageUrl: body.cropImageUrl
+        },
+        errorMessage: message,
+        durationMs: Math.round(performance.now() - startedAt)
+      },
+      config
+    );
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Analysis failed." },
+      { error: message },
       { status: 500 }
     );
   }

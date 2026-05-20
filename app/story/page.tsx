@@ -789,7 +789,10 @@ export default function StoryPage() {
         })
       });
       const analyzeData = await analyzeRes.json();
-      if (!analyzeRes.ok) throw new Error("Fragment could not be read. Please try another area.");
+      if (!analyzeRes.ok) {
+        const detail = typeof analyzeData?.error === "string" ? analyzeData.error : undefined;
+        throw new Error(detail || "Fragment could not be read. Please try another area.");
+      }
 
       const { blocked, ...visionDescription } = analyzeData as VisionDescription & { blocked?: boolean };
       if (blocked) {
