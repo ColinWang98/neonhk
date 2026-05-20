@@ -1,5 +1,9 @@
 import { getGooglePlaceContext } from "@/lib/googlePlaceContext";
-import { getHongKongLocationSearchCandidates, getNearbyHongKongPublicDataCandidates } from "@/lib/hkPublicData";
+import {
+  getHongKongLocationSearchCandidates,
+  getNearbyHongKongPublicDataCandidates,
+  getNearbyHongKongRegistryCandidates
+} from "@/lib/hkPublicData";
 import { getNearbyOsmCandidates } from "@/lib/osm";
 import { getPublicNewsContext } from "@/lib/publicNews";
 import { buildSpatialRagContext } from "@/lib/spatialRag";
@@ -11,6 +15,7 @@ import type { NearbyPlace, PlaceContext, PublicDataCandidate, SourceNote } from 
 const localContextLimits = {
   osmCandidates: 10,
   publicDataCandidates: 8,
+  registryCandidates: 8,
   locationSearchCandidates: 6,
   wikidataEntities: 6,
   wikidataArticles: 3,
@@ -32,7 +37,7 @@ export async function getLocalContext(params: {
   const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const [googleContext, osmCandidates, landsdCandidates, wikidataEntities] = await Promise.all([
+    const [googleContext, osmCandidates, landsdCandidates, registryCandidates, wikidataEntities] = await Promise.all([
       getGooglePlaceContext(params).catch(() => undefined),
       getNearbyOsmCandidates({
         lat: params.lat,
@@ -50,6 +55,15 @@ export async function getLocalContext(params: {
         headingHalfAngle: params.headingHalfAngle,
         radius: params.radius,
         limit: localContextLimits.publicDataCandidates,
+        signal: controller.signal
+      }).catch(() => []),
+      getNearbyHongKongRegistryCandidates({
+        lat: params.lat,
+        lng: params.lng,
+        heading: params.heading,
+        headingHalfAngle: params.headingHalfAngle,
+        radius: params.radius,
+        limit: localContextLimits.registryCandidates,
         signal: controller.signal
       }).catch(() => []),
       getNearbyWikidataEntities({
@@ -73,7 +87,7 @@ export async function getLocalContext(params: {
       queries: locationSearchQueries(googleContext, params.queries),
       signal: controller.signal
     }).catch(() => []);
-    const publicDataCandidates = rankPublicCandidates([...osmCandidates, ...landsdCandidates, ...locationSearchCandidates])
+    const publicDataCandidates = rankPublicCandidates([...osmCandidates, ...landsdCandidates, ...registryCandidates, ...locationSearchCandidates])
       .slice(0, localContextLimits.publicCandidateTotal);
     const publicPlaces = publicDataCandidates.slice(0, localContextLimits.publicPlaces).map(publicCandidateToNearbyPlace);
     const [sourceNotes, publicNewsContext] = await Promise.all([
@@ -115,7 +129,7 @@ export async function getLocalContext(params: {
       sourceNotes,
       ...spatialRag,
       uncertainty:
-        "Google Maps places, OpenStreetMap features, Hong Kong CSDI public-data candidates, Wikidata entities, Wikipedia notes, and nearby public news are approximate context around the panorama coordinate. They may be near the street view point rather than inside the selected crop, so stories must connect them cautiously."
+        "Google Maps places, OpenStreetMap features, Hong Kong CSDI/LandsD public-data candidates, FEHD licence records, AMO heritage records, Wikidata entities, Wikipedia notes, and nearby public news are approximate context around the panorama coordinate. They may be near the street view point rather than inside the selected crop, so stories must connect them cautiously."
     };
   } finally {
     clearTimeout(timeout);
@@ -140,7 +154,7 @@ function rankPublicCandidates(candidates: PublicDataCandidate[]) {
 
 function scoreCandidate(candidate: PublicDataCandidate) {
   const relationScore = candidate.relation === "visible-candidate" ? 40 : 0;
-  const sourceScore = candidate.source === "hk_landsd" ? 8 : 6;
+  const sourceScore = candidate.source === "hk_amo" ? 16 : candidate.source === "hk_fehd" ? 12 : candidate.source === "hk_landsd" ? 8 : 6;
   const distanceScore = Math.max(0, 30 - Math.min(candidate.distanceMeters || 300, 300) / 10);
   const directionScore =
     candidate.spatialMatch === "footprint_intersection"

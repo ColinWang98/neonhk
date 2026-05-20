@@ -54,7 +54,7 @@ export type NearbyPlace = {
   viewAlignment?: "inside_fragment_view" | "near_fragment_view" | "outside_fragment_view" | "unknown";
   spatialMatch?: "footprint_intersection" | "view_cone" | "centroid" | "nearby";
   relativeDirection?: "ahead" | "left" | "right" | "behind" | "nearby";
-  source?: "google_places" | "osm" | "hk_landsd";
+  source?: "google_places" | "osm" | "hk_landsd" | "hk_fehd" | "hk_amo";
 };
 
 export type PublicDataCandidate = {
@@ -70,7 +70,10 @@ export type PublicDataCandidate = {
   viewAlignment?: "inside_fragment_view" | "near_fragment_view" | "outside_fragment_view" | "unknown";
   spatialMatch?: "footprint_intersection" | "view_cone" | "centroid" | "nearby";
   relativeDirection?: "ahead" | "left" | "right" | "behind" | "nearby";
-  source: "osm" | "hk_landsd";
+  url?: string;
+  sourceTitle?: string;
+  sourceTier?: SourceTier;
+  source: "osm" | "hk_landsd" | "hk_fehd" | "hk_amo";
   relation: "nearby" | "visible-candidate";
 };
 
@@ -102,6 +105,8 @@ export type ContextCandidate = {
     | "google_places"
     | "osm"
     | "hk_landsd"
+    | "hk_fehd"
+    | "hk_amo"
     | "wikidata"
     | "wikipedia"
     | "gov_press_release"
@@ -119,6 +124,8 @@ export type CandidateVerificationMatch = {
     | "google_places"
     | "osm"
     | "hk_landsd"
+    | "hk_fehd"
+    | "hk_amo"
     | "wikidata"
     | "wikipedia";
   category?: string;
@@ -165,7 +172,7 @@ export type NearbyContinuationRecommendation = {
   distanceMeters?: number;
   category?: string;
   recommendedSchema?: SchemaName;
-  evidenceSources: Array<"wikipedia" | "wikidata" | "google_places" | "osm" | "hk_landsd" | "street_view" | "news">;
+  evidenceSources: Array<"wikipedia" | "wikidata" | "google_places" | "osm" | "hk_landsd" | "hk_fehd" | "hk_amo" | "street_view" | "news">;
   evidenceScore: number;
   thematicRelevance: number;
   streetViewAvailable: boolean;
@@ -339,6 +346,8 @@ export type EvidenceClaim = {
     | "wikipedia"
     | "osm"
     | "hk_landsd"
+    | "hk_fehd"
+    | "hk_amo"
     | "gov_press_release"
     | "rthk"
     | "gdelt"

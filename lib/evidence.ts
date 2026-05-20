@@ -404,6 +404,7 @@ function spatialRagClaims(placeContext?: PlaceContext): EvidenceClaim[] {
     .slice(0, evidenceLimits.spatialRag)
     .map((candidate, index) => {
       const isNews = candidate.source === "gov_press_release" || candidate.source === "rthk" || candidate.source === "gdelt";
+      const isPublicRecord = candidate.source === "hk_fehd" || candidate.source === "hk_amo";
       const visiblePhrase =
         candidate.visibilityConfidence === "visible_likely"
           ? "a strong spatial candidate for the selected view"
@@ -418,7 +419,7 @@ function spatialRagClaims(placeContext?: PlaceContext): EvidenceClaim[] {
         source: candidate.source,
         claimType: isNews
           ? candidate.source === "gov_press_release" ? "official_notice" : "news_context"
-          : candidate.source === "wikipedia" || candidate.source === "wikidata" ? "retrieved_area_context" : "nearby_candidate",
+          : candidate.source === "wikipedia" || candidate.source === "wikidata" || isPublicRecord ? "retrieved_area_context" : "nearby_candidate",
         confidence: confidenceForRagCandidate(candidate),
         visibilityStatus: visibilityStatusForRagCandidate(candidate),
         allowedUse: candidate.allowedUse,
@@ -451,7 +452,7 @@ function visibilityStatusForRagCandidate(candidate: NonNullable<PlaceContext["ra
 }
 
 function schemasForRagCandidate(candidate: NonNullable<PlaceContext["ragCandidates"]>[number]): EvidenceClaim["relatedSchemas"] {
-  if (candidate.source === "gov_press_release" || candidate.source === "rthk" || candidate.source === "gdelt" || candidate.source === "wikipedia" || candidate.source === "wikidata") {
+  if (candidate.source === "gov_press_release" || candidate.source === "rthk" || candidate.source === "gdelt" || candidate.source === "wikipedia" || candidate.source === "wikidata" || candidate.source === "hk_amo") {
     return ["Memory-Temporality", "Social-Cultural Resonance"];
   }
   const text = `${candidate.label} ${candidate.category || ""}`.toLowerCase();
@@ -532,6 +533,8 @@ function sourceLabel(source: string) {
   if (source === "google_places") return "Google Places";
   if (source === "osm") return "OpenStreetMap";
   if (source === "hk_landsd") return "Hong Kong public open data";
+  if (source === "hk_fehd") return "FEHD licence records";
+  if (source === "hk_amo") return "AMO heritage records";
   if (source === "wikidata") return "Wikidata";
   if (source === "wikipedia") return "Wikipedia";
   if (source === "gov_press_release") return "A Hong Kong Government notice";

@@ -1384,6 +1384,10 @@ function evidenceSourceLabel(source: NearbyContinuationRecommendation["evidenceS
       return "Google Places";
     case "hk_landsd":
       return "Public records";
+    case "hk_fehd":
+      return "Food licence";
+    case "hk_amo":
+      return "Heritage record";
     case "osm":
       return "OSM";
     case "wikidata":

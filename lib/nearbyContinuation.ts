@@ -101,7 +101,9 @@ function buildCandidates(placeContext: PlaceContext, originLat: number, originLn
       lng: place.lng,
       distanceMeters: place.distanceMeters,
       category: place.type,
-      source: place.source === "osm" ? "osm" : place.source === "hk_landsd" ? "hk_landsd" : "google_places",
+      source: place.source === "osm" || place.source === "hk_landsd" || place.source === "hk_fehd" || place.source === "hk_amo"
+        ? place.source
+        : "google_places",
       originLat,
       originLng
     });
@@ -226,6 +228,8 @@ function scoreEvidence(candidate: ContinuationCandidate) {
   if (candidate.evidenceSources.has("google_places")) score += 0.16;
   if (candidate.evidenceSources.has("osm")) score += 0.13;
   if (candidate.evidenceSources.has("hk_landsd")) score += 0.13;
+  if (candidate.evidenceSources.has("hk_fehd")) score += 0.14;
+  if (candidate.evidenceSources.has("hk_amo")) score += 0.22;
   if (candidate.evidenceSources.has("street_view")) score += 0.1;
   return clamp01(score);
 }
@@ -241,7 +245,7 @@ function scoreTheme(candidate: ContinuationCandidate, activeSchemas: SchemaName[
   if (themes.has("Identity-Belonging") && /(community|school|temple|church|mosque|market|estate|park|centre|center|hall|library)/i.test(text)) {
     score += 0.2;
   }
-  if (themes.has("Memory-Temporality") && (candidate.evidenceSources.has("wikipedia") || candidate.evidenceSources.has("wikidata") || /(historic|heritage|market|old|former|monument|building)/i.test(text))) {
+  if (themes.has("Memory-Temporality") && (candidate.evidenceSources.has("wikipedia") || candidate.evidenceSources.has("wikidata") || candidate.evidenceSources.has("hk_amo") || /(historic|heritage|market|old|former|monument|building)/i.test(text))) {
     score += 0.25;
   }
   if (themes.has("Social-Cultural Resonance") && /(market|temple|church|mosque|restaurant|cafe|park|hall|museum|gallery|theatre|community|shop)/i.test(text)) {
@@ -271,7 +275,7 @@ async function hasNearbyStreetView(candidate: ContinuationCandidate, config?: Ru
 }
 
 function chooseRecommendedSchema(candidate: ContinuationCandidate, activeSchemas: SchemaName[]) {
-  if (activeSchemas.includes("Memory-Temporality") && (candidate.evidenceSources.has("wikipedia") || candidate.evidenceSources.has("wikidata"))) {
+  if (activeSchemas.includes("Memory-Temporality") && (candidate.evidenceSources.has("wikipedia") || candidate.evidenceSources.has("wikidata") || candidate.evidenceSources.has("hk_amo"))) {
     return "Memory-Temporality";
   }
   if (activeSchemas.includes("Social-Cultural Resonance") && scoreEverydayRelevance(candidate) > 0.6) {
@@ -290,7 +294,7 @@ function buildReason(candidate: ContinuationCandidate, schema: SchemaName) {
         : schema === "Identity-Belonging"
           ? "how people recognize and belong to this area"
           : "how people move through and use the street";
-  const sourceText = candidate.evidenceSources.has("wikipedia") || candidate.evidenceSources.has("wikidata")
+  const sourceText = candidate.evidenceSources.has("wikipedia") || candidate.evidenceSources.has("wikidata") || candidate.evidenceSources.has("hk_amo")
     ? "It has richer public records"
     : "It has useful map and street-level context";
   return `${sourceText}, and it can extend the current reading toward ${schemaText} without treating nearby context as proof of the selected detail.`;

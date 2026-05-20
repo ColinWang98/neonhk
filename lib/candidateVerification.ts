@@ -67,7 +67,7 @@ Return this JSON shape:
     {
       "candidateId": string,
       "label": string,
-      "source": "google_places" | "osm" | "hk_landsd" | "wikidata" | "wikipedia",
+      "source": "google_places" | "osm" | "hk_landsd" | "hk_fehd" | "hk_amo" | "wikidata" | "wikipedia",
       "category": string,
       "matchLevel": "likely" | "possible" | "nearby_only" | "reject",
       "confidence": number,
@@ -189,7 +189,7 @@ function candidateFromPlace(place: NearbyPlace, candidateId: string): CandidateI
   return {
     candidateId,
     label: place.name,
-    source: place.source === "osm" || place.source === "hk_landsd" ? place.source : "google_places",
+    source: place.source === "osm" || place.source === "hk_landsd" || place.source === "hk_fehd" || place.source === "hk_amo" ? place.source : "google_places",
     category: place.type,
     address: place.address,
     distanceMeters: place.distanceMeters,
