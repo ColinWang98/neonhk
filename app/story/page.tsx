@@ -1546,20 +1546,6 @@ function LiveCaption({
   );
 }
 
-const storyLabels = {
-  en: {
-    "Functional-Use": "What catches my eye",
-    "Identity-Belonging": "What it brings up",
-    "Memory-Temporality": "A time of day",
-    "Social-Cultural Resonance": "How people move here"
-  },
-  zh: {
-    "Functional-Use": "我先看到什么",
-    "Identity-Belonging": "它让我想到什么",
-    "Memory-Temporality": "这里的某个时段",
-    "Social-Cultural Resonance": "人们怎么经过这里"
-  }
-} as const;
 const schemaNarrativeKey = {
   "Functional-Use": "functionalUse",
   "Identity-Belonging": "identityBelonging",
@@ -1674,14 +1660,12 @@ function StoryArchiveDrawer({
               {activeStory?.narratives ? (
                 <div className="space-y-3 border-t border-ink/10 pt-4">
                   <GroundingSummaryCard fragment={activeStory} language={language} compact />
-                  {storyCardsForFragment(activeStory).map((card) => (
-                    <article key={card.id} className="cozy-card p-4">
-                      <h3 className="text-xs font-semibold text-brass">
-                        {card.title || (zh ? storyLabels.zh[card.schema] : storyLabels.en[card.schema])}
-                      </h3>
-                      <p className="mt-2 text-sm leading-6 text-ink/74">{card.text}</p>
-                    </article>
-                  ))}
+                  <article className="cozy-card p-4">
+                    <h3 className="text-xs font-semibold text-brass">{zh ? "故事" : "Story"}</h3>
+                    <p className="mt-2 whitespace-pre-line text-sm leading-6 text-ink/74">
+                      {storyTextForFragment(activeStory)}
+                    </p>
+                  </article>
                 </div>
               ) : null}
             </div>
@@ -1692,29 +1676,21 @@ function StoryArchiveDrawer({
   );
 }
 
-function storyCardsForFragment(fragment: SelectedFragment) {
+function storyTextForFragment(fragment: SelectedFragment) {
+  if (fragment.narratives?.spokenStory?.trim()) {
+    return fragment.narratives.spokenStory.trim();
+  }
   if (fragment.narrativeBlocks?.length) {
     return fragment.narrativeBlocks
-      .map((block, index) => ({
-        id: `${block.schema}:${index}`,
-        schema: block.schema,
-        title: block.title,
-        text: block.text.trim()
-      }))
-      .filter((card) => card.text);
+      .map((block) => block.text.trim())
+      .filter(Boolean)
+      .join(" ");
   }
-  if (!fragment.narratives) return [];
+  if (!fragment.narratives) return "";
   return (Object.keys(schemaNarrativeKey) as Array<keyof typeof schemaNarrativeKey>)
-    .map((schema) => {
-      const key = schemaNarrativeKey[schema];
-      return {
-        id: schema,
-        schema,
-        title: undefined,
-        text: fragment.narratives?.[key]?.text?.trim() || ""
-      };
-    })
-    .filter((card) => card.text);
+    .map((schema) => fragment.narratives?.[schemaNarrativeKey[schema]]?.text?.trim() || "")
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 async function fetchPlaceContext(

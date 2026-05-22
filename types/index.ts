@@ -306,6 +306,8 @@ export type VisionDescription = {
 };
 
 export type SchemaNarratives = {
+  spokenStory?: string;
+  subtitleBlocks?: NarrativeBlock[];
   functionalUse: {
     title: "Functional-Use";
     text: string;

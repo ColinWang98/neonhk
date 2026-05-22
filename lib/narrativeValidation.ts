@@ -22,9 +22,22 @@ export function buildNarrativeBlocks(
   plan: PersonaFragmentPlan,
   evidenceView?: NarrativeEvidenceView
 ): NarrativeBlock[] {
+  if (narratives.subtitleBlocks?.length) {
+    return narratives.subtitleBlocks.map((block) => ({
+      ...block,
+      title: undefined,
+      groundedIn: block.groundedIn.length
+        ? block.groundedIn
+        : evidenceView
+          ? evidenceView.primaryClaims.slice(0, 2).map((claim) => claim.id)
+          : plan.sourceClaimIds.slice(0, 2),
+      confidence: block.confidence || confidenceForPlan(plan)
+    }));
+  }
   if (narratives.storyBeats?.length) {
     return narratives.storyBeats.map((block) => ({
       ...block,
+      title: undefined,
       groundedIn: block.groundedIn.length
         ? block.groundedIn
         : evidenceView
@@ -206,6 +219,9 @@ export function validateNarrative(params: {
   if (hasStiffEvidenceLanguage(allText)) {
     warnings.push("Narrative exposes backend evidence language instead of everyday persona speech.");
   }
+  if (hasTemplatedOrFormalStoryVoice(allText)) {
+    warnings.push("Narrative sounds too formal, explanatory, or card-like for spoken story mode.");
+  }
   const strongerCandidateNames = new Set(
     params.evidencePacket.claims
       .filter((claim) => claim.allowedUse !== "background_only" && claim.allowedUse !== "do_not_use")
@@ -239,6 +255,7 @@ export function validateNarrative(params: {
     warning.includes("disabled") ||
     warning.includes("evidence limits") ||
     warning.includes("backend evidence language") ||
+    warning.includes("too formal") ||
     warning.includes("overstated as visible") ||
     warning.includes("direct cause")
   );
@@ -251,12 +268,13 @@ export function validateNarrative(params: {
 
 function narrativeText(narratives: SchemaNarratives) {
   const schemaText = [
+    narratives.spokenStory,
     narratives.functionalUse.text,
     narratives.identityBelonging.text,
     narratives.memoryTemporality.text,
     narratives.socialCulturalResonance.text
   ];
-  const beatText = narratives.storyBeats?.map((block) => block.text) || [];
+  const beatText = (narratives.subtitleBlocks || narratives.storyBeats)?.map((block) => block.text) || [];
   return [...schemaText, ...beatText].join(" ");
 }
 
@@ -271,25 +289,59 @@ export function buildSafeNarratives(params: {
   const feature = mainFact?.name || params.evidencePacket.fragment.mainFeature || visualName(visual) || "this detail";
   const persona = personaStreetAngle(params.persona, params.personaRole);
   const detail = feature === "this detail" ? "this selected detail" : feature;
-  const factLine = mainFact?.sentence || `From the crop, ${detail} is the clearest street cue.`;
+  const factLine = mainFact?.sentence || `Okay, ${detail} is the clue I use first here.`;
+  const story = [
+    `${factLine} ${persona.anchor}`,
+    `${persona.connection(detail)} ${persona.comparison}`,
+    `${persona.routine} ${persona.socialRule}`
+  ].join(" ");
+  const subtitleBlocks = safeSubtitleBlocks(story, params.evidenceView, mainFact?.name ? "medium" : "low");
   return {
+    spokenStory: story,
+    subtitleBlocks,
+    storyBeats: subtitleBlocks,
     functionalUse: {
       title: "Functional-Use",
-      text: `${factLine} ${persona.anchor} I use it first for orientation, then I look for the edge of the flow. Honestly, I check the sign, step to one side, and let the faster people pass before I decide what to do next.`
+      text: subtitleBlocks[0]?.text || story
     },
     identityBelonging: {
       title: "Identity-Belonging",
-      text: `${detail} gives me a handle on this little patch of street. ${persona.comparison} It is not a grand story. It is the ordinary way I stop feeling lost: one sign, one corner, one place where I know not to stand too long.`
+      text: subtitleBlocks[1]?.text || story
     },
     memoryTemporality: {
       title: "Memory-Temporality",
-      text: `The timing matters more than the history here. ${persona.routine} I remember places like this by the hour: lunch rush, rain, a quick stop, someone checking a phone, then the pavement clears again. That daily rhythm is the part I trust.`
+      text: subtitleBlocks[2]?.text || story
     },
     socialCulturalResonance: {
       title: "Social-Cultural Resonance",
-      text: `The small rule is simple: keep the passage open. ${persona.socialRule} I pause at the side first, then decide. That is the street manner I notice here, quick, practical, and a little unforgiving when everyone is trying to get through.`
+      text: subtitleBlocks[3]?.text || story
     }
   };
+}
+
+function safeSubtitleBlocks(
+  story: string,
+  evidenceView: NarrativeEvidenceView,
+  confidence: NarrativeBlock["confidence"]
+): NarrativeBlock[] {
+  const claimIds = evidenceView.primaryClaims.slice(0, 2).map((claim) => claim.id);
+  const schemas = [
+    "Functional-Use",
+    "Identity-Belonging",
+    "Memory-Temporality",
+    "Social-Cultural Resonance"
+  ] as const;
+  return story
+    .split(/(?<=[.!?。！？])\s+/)
+    .map((text) => text.trim())
+    .filter(Boolean)
+    .map((text, index) => ({
+      schema: schemas[index % schemas.length],
+      text,
+      claimType: index === 0 ? "cautious_interpretation" : "persona_interpretation",
+      groundedIn: claimIds,
+      confidence
+    }));
 }
 
 function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: NarrativeEvidenceView): { name: string; sentence: string } | undefined {
@@ -307,8 +359,8 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
       return {
         name,
         sentence: verifier.allowedUse === "direct_fact"
-          ? `The clearest name here is ${name}.`
-          : `The map puts ${name} around this spot, so I treat the name as a useful landmark.`
+          ? `Okay, ${name} is the name I hold onto here.`
+          : `Maps puts ${name} around here, so I use that name carefully.`
       };
     }
   }
@@ -323,7 +375,7 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
     if (name) {
       return {
         name,
-        sentence: `The map footprint seems to line this view up with ${name}.`
+        sentence: `The map footprint points me toward ${name}, so I keep that in mind.`
       };
     }
   }
@@ -336,8 +388,8 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
       return {
         name,
         sentence: entity.allowedUse === "direct_fact"
-          ? `The sign gives me ${name} as the clearest name here.`
-          : `The sign seems to point to ${name}.`
+          ? `The sign gives me ${name} as the name to follow.`
+          : `The sign seems to point toward ${name}.`
       };
     }
   }
@@ -349,7 +401,7 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
     if (name && name.length <= 80) {
       return {
         name,
-        sentence: `The readable text here says "${name}".`
+        sentence: `The readable text here says "${name}", so that is what I notice first.`
       };
     }
   }
@@ -366,38 +418,43 @@ function personaStreetAngle(persona?: GeneratedPersona, role?: string) {
   const text = [persona?.role, persona?.userIntro, persona?.background, role].filter(Boolean).join(" ").toLowerCase();
   if (/tourist|visitor|first-time|travell?er|overseas/.test(text)) {
     return {
-      anchor: "When I visit a street like this, I use big signs first and slow down at the edge.",
-      comparison: "It reminds me of how I travel in dense cities: I trust signs, queues, and where locals pause.",
+      anchor: "I use big signs first, then I slow down at the edge.",
+      connection: (detail: string) => `A name like ${detail} is the kind of thing I text to a friend when we are trying to meet.`,
+      comparison: "Back home I might use street numbers, but here I trust shop signs, campus names, and where people pause.",
       routine: "I notice the small bursts first, people buying quickly, checking directions, then moving away.",
-      socialRule: "Visitors learn fast that the middle of the pavement is a bad place to hesitate."
+      socialRule: "I have learned not to stop in the middle of the pavement."
     };
   }
   if (/temporary|short-term|recent arrival|newcomer|staying|migrant/.test(text)) {
     return {
       anchor: "After staying here a while, I read places by practical cues first.",
-      comparison: "I compare it with streets I already know from home, then adjust to Hong Kong's faster pace.",
-      routine: "After staying here a bit, I notice the small rushes: lunch, school time, rain, and people buying something fast.",
-      socialRule: "For someone still learning the city, the safest move is to pause at the edge, not in the flow."
+      connection: (detail: string) => `A place like ${detail} becomes part of my small map, where to wait, where to duck in, where not to stand.`,
+      comparison: "I compare it with streets I knew before, then adjust to Hong Kong's faster pace.",
+      routine: "After a few weeks, I start noticing lunch, school time, rain, and people buying something fast.",
+      socialRule: "I pause at the edge first. That is the safest move while I am still learning the city."
     };
   }
   if (/shop|stall|worker|security|driver|teacher|local worker/.test(text)) {
     return {
       anchor: "When I work near streets like this, I read them by how people move past.",
-      comparison: "That feels familiar in Hong Kong: a place can be useful even when you only catch the sign quickly.",
-      routine: "A worker notices the practical rhythm first: deliveries, lunch breaks, shutters, and who is blocking the way.",
+      connection: (detail: string) => `${detail} is useful in a very normal way: someone says meet me there, pick this up, wait near that sign.`,
+      comparison: "That feels familiar in Hong Kong. A place can be useful even when you only catch the sign quickly.",
+      routine: "I notice deliveries, lunch breaks, shutters, and who is blocking the way.",
       socialRule: "People give way when they can, because everyone is trying to get one small thing done."
     };
   }
   if (/local|resident|neighbour|neighbor|retired|long-term/.test(text)) {
     return {
       anchor: "On my usual route, I read a frontage like this very practically.",
+      connection: (detail: string) => `${detail} is the sort of name I use when giving directions to family, not the full address.`,
       comparison: "On a familiar street, a shop name is often just how you remember the corner.",
-      routine: "On a normal day, I would notice whether it looks busy, whether the queue spills out, and whether rain changes where people stand.",
+      routine: "On a normal day, I notice whether it is busy, whether a queue spills out, and where people stand when it rains.",
       socialRule: "People know to leave a narrow lane open, even when they are waiting or looking at the sign."
     };
   }
   return {
     anchor: "I keep my reading practical and small.",
+    connection: (detail: string) => `${detail} gives me one simple thing to hold onto before I decide where to stand.`,
     comparison: "It helps me orient myself before I try to understand the wider place.",
     routine: "The useful clues are ordinary ones: errands, waiting, rain, lunch time, and people passing.",
     socialRule: "The safest rule is to stand aside before stopping."
@@ -419,6 +476,14 @@ function hasMetaRefusal(text: string) {
 
 function hasStiffEvidenceLanguage(text: string) {
   return /\b(the map and image make|visual-map verifier|candidate verifier|evidence packet|primary claims|possible match here|as a temporary-resident|as a tourist|as a local resident|frontage has a simple identity|keep the reading modest|without pretending i know the whole place|if i were visiting|if i were working nearby|if this were on my usual route|i would keep it simple)\b/i.test(text);
+}
+
+function hasTemplatedOrFormalStoryVoice(text: string) {
+  const repeatedWould = (text.match(/\bi would\b/gi) || []).length >= 4;
+  const cardHeading = /\b(what catches my eye|what it brings up|a time of day|how people move here|how i use it|first impression|street timing|street manners|everyday use|shared space)\b/i.test(text);
+  const abstractLanguage = /\b(identity|rhythm|social meaning|urban texture|public-facing environment|resonance|threshold|sense of belonging|layers of meaning|spatial context)\b/i.test(text);
+  const stiffPhrases = /\b(the timing matters more than the history|it is not a grand story|daily rhythm is the part i trust|gives me a handle on this little patch|the small rule is simple)\b/i.test(text);
+  return repeatedWould || cardHeading || abstractLanguage || stiffPhrases;
 }
 
 function extractCandidateName(text: string) {

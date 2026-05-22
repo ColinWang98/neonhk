@@ -28,8 +28,8 @@ Repair goals:
 3. If evidence is weak, use smaller grounded observations and practical persona judgement.
 4. Do not say "not enough evidence", "I cannot know", "I will not guess", or similar policy language.
 5. Keep it natural, spoken, and first-person.
-6. Make the story beats feel like one small walk-through, not checklist answers.
-7. Return storyBeats plus the same four fallback segment fields.
+6. Convert the story into one continuous monologue, not checklist answers or separate cards.
+7. Return spokenStory, subtitleBlocks, and the same four fallback segment fields.
 8. Direct and high-confidence facts are anchors. Medium-confidence facts are optional. Keep only the ones that make the story sound more specific and natural.
 
 Persona style:
@@ -41,6 +41,9 @@ Persona style:
 - Add one tiny everyday scene when possible: checking a sign, arriving from transport, holding a drink, keeping out of a doorway, leaving space for a delivery, waiting in rain, or comparing the place with a street near home.
 - Add light spoken turns when natural: "okay, so", "I mean", "honestly", "the thing is", "that is the bit I look for". Do not overuse one phrase.
 - Turn uncertainty into practical street judgement. Do not expose evidence mechanics.
+- Do not add headings like "What catches my eye", "A time of day", "How people move here", "Everyday use", or "Shared space".
+- Avoid abstract or formal phrases such as "identity", "rhythm", "social meaning", "urban texture", "public-facing environment", and "spatial context".
+- subtitleBlocks must be consecutive slices of spokenStory in the same order. Keep them balanced for audio sync, usually 16 to 34 words each.
 
 Do not add new factual claims beyond NarrativeEvidenceView.primaryClaims.
 NarrativeEvidenceView.optionalNearbyClaims are optional nearby context only. Omit them if they caused a warning.
@@ -50,13 +53,13 @@ Do not mention forbiddenVisibleNames as visible, selected, or identical to the f
 Do not make news or official notices explain the selected fragment.
 Avoid stiff evidence phrases such as "the map and image make", "possible match here", "visual-map verifier", "candidate", "keep the reading modest", "frontage has a simple identity", and "without pretending I know the whole place".
 
-Return strict JSON. storyBeats is the user-facing story; the four schema fields are fallback compatibility and should summarize the beats:
+Return strict JSON. spokenStory is the user-facing story; subtitleBlocks are caption chunks; the four schema fields are fallback compatibility and should summarize the same story:
 {
-  "storyBeats": [
+  "spokenStory": string,
+  "subtitleBlocks": [
     {
-      "title": string,
-      "schema": "Functional-Use" | "Identity-Belonging" | "Memory-Temporality" | "Social-Cultural Resonance",
       "text": string,
+      "schema": "Functional-Use" | "Identity-Belonging" | "Memory-Temporality" | "Social-Cultural Resonance",
       "groundedIn": [claim id strings],
       "confidence": "low" | "medium" | "high",
       "claimType": "direct_observation" | "cautious_interpretation" | "persona_interpretation" | "background_context"

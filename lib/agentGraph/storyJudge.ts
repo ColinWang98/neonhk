@@ -41,16 +41,17 @@ You must check:
 3. News boundaries: news or official notices must not explain the selected fragment unless exact evidence supports that.
 4. Persona fit: the story should sound like the selected persona can reasonably say it.
 5. Naturalness: the story should sound like everyday speech. It must not repeat "not enough evidence", "I cannot know", "I will not guess", or similar meta-refusals.
-6. Product quality: avoid template-like repetition, academic labels, and four segments saying the same thing.
+6. Product quality: avoid template-like repetition, academic labels, headings, and card-like sections.
 7. Role-play voice: the narrator's own fictional habits and experiences should sound direct, not hypothetical. Repeated phrases like "if I were visiting", "if I were working nearby", or "if this were on my usual route" are unnatural.
-8. Story quality: the four segments should feel like a small walk-through with one or two everyday actions or comparisons, not a bare list of cautious facts.
+8. Story quality: the narration should feel like one continuous small walk-through with one or two everyday actions or comparisons, not a bare list of cautious facts.
+9. Spoken style: fail if it sounds like a written explanation, repeats "I would", uses headings such as "What catches my eye", or uses abstract terms such as identity, rhythm, social meaning, urban texture, or public-facing environment.
 
 Important:
 - A persona may make practical, cautious, first-person comparisons.
 - A tourist, newcomer, or temporary resident may compare with places they know.
 - A local or worker may use practical routine and street manners.
 - Do not fail a story only because it is cautious.
-- Fail only when the story is misleading, exposes internal evidence policy, is badly unnatural, or violates clear evidence boundaries.
+- Fail when the story is misleading, exposes internal evidence policy, is badly unnatural, too formal/card-like, or violates clear evidence boundaries.
 
 Return strict JSON:
 {
@@ -124,7 +125,7 @@ function normalizeJudgeDecision(value: StoryJudgeDecision): Required<Pick<StoryJ
     typeof value.scores?.factualGrounding === "number" && value.scores.factualGrounding < 0.45 ||
     typeof value.scores?.evidenceBoundaries === "number" && value.scores.evidenceBoundaries < 0.45 ||
     typeof value.scores?.personaFit === "number" && value.scores.personaFit < 0.4 ||
-    typeof value.scores?.naturalness === "number" && value.scores.naturalness < 0.4 ||
+    typeof value.scores?.naturalness === "number" && value.scores.naturalness < 0.55 ||
     typeof value.scores?.overclaimRisk === "number" && value.scores.overclaimRisk > 0.7;
   return {
     ...value,
