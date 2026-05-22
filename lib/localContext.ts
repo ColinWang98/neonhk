@@ -5,6 +5,7 @@ import {
   getNearbyHongKongRegistryCandidates
 } from "@/lib/hkPublicData";
 import { getNearbyOsmCandidates } from "@/lib/osm";
+import { retrievePlaceMemoryCandidates } from "@/lib/placeMemory";
 import { getPublicNewsContext } from "@/lib/publicNews";
 import { buildSpatialRagContext } from "@/lib/spatialRag";
 import { getNearbyWikidataEntities } from "@/lib/wikidata";
@@ -108,6 +109,23 @@ export async function getLocalContext(params: {
       }).catch(() => [])
     ]);
 
+    const memoryCandidates = await retrievePlaceMemoryCandidates({
+      lat: params.lat,
+      lng: params.lng,
+      heading: params.heading,
+      radius: Math.max(params.radius || 150, 300),
+      queryTerms: memoryQueryTerms({
+        address: googleContext?.address,
+        queries: params.queries,
+        places: [...(googleContext?.places || []), ...publicPlaces],
+        publicDataCandidates,
+        sourceNotes,
+        reviewContext: []
+      }),
+      config: params.config,
+      limit: 8
+    }).catch(() => []);
+
     const spatialRag = buildSpatialRagContext({
       lat: params.lat,
       lng: params.lng,
@@ -116,7 +134,8 @@ export async function getLocalContext(params: {
       publicDataCandidates,
       wikidataEntities,
       sourceNotes,
-      publicNewsContext
+      publicNewsContext,
+      memoryCandidates
     });
 
     return {
@@ -129,11 +148,29 @@ export async function getLocalContext(params: {
       sourceNotes,
       ...spatialRag,
       uncertainty:
-        "Google Maps places, OpenStreetMap features, Hong Kong CSDI/LandsD public-data candidates, FEHD licence records, AMO heritage records, Wikidata entities, Wikipedia notes, and nearby public news are approximate context around the panorama coordinate. They may be near the street view point rather than inside the selected crop, so stories must connect them cautiously."
+        "Google Maps places, selected Google Places review summaries, OpenStreetMap features, Hong Kong CSDI/LandsD public-data candidates, FEHD licence records, AMO heritage records, Wikidata entities, Wikipedia notes, nearby public news, and place-memory items are approximate context around the panorama coordinate. They may be near the street view point rather than inside the selected crop, so stories must connect them cautiously."
     };
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function memoryQueryTerms(params: {
+  address?: string;
+  queries?: string[];
+  places: NearbyPlace[];
+  publicDataCandidates: PublicDataCandidate[];
+  sourceNotes: SourceNote[];
+  reviewContext: NonNullable<PlaceContext["placeReviewContext"]>;
+}) {
+  return [
+    ...(params.queries || []),
+    params.address,
+    ...params.places.slice(0, 5).map((place) => `${place.name} ${place.type || ""}`),
+    ...params.publicDataCandidates.slice(0, 5).map((candidate) => `${candidate.label} ${candidate.category || ""}`),
+    ...params.sourceNotes.slice(0, 3).map((note) => `${note.title} ${note.extract}`),
+    ...params.reviewContext.slice(0, 4).map((review) => `${review.placeName} ${review.summary}`)
+  ].filter((item): item is string => Boolean(item?.trim()));
 }
 
 function normalizeDegrees(value: number) {

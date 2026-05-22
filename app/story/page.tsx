@@ -1548,16 +1548,16 @@ function LiveCaption({
 
 const storyLabels = {
   en: {
-    "Functional-Use": "How I use it",
-    "Identity-Belonging": "First impression",
-    "Memory-Temporality": "Street timing",
-    "Social-Cultural Resonance": "Street manners"
+    "Functional-Use": "What catches my eye",
+    "Identity-Belonging": "What it brings up",
+    "Memory-Temporality": "A time of day",
+    "Social-Cultural Resonance": "How people move here"
   },
   zh: {
-    "Functional-Use": "怎么用它",
-    "Identity-Belonging": "第一感觉",
-    "Memory-Temporality": "街上的时间",
-    "Social-Cultural Resonance": "街道规矩"
+    "Functional-Use": "我先看到什么",
+    "Identity-Belonging": "它让我想到什么",
+    "Memory-Temporality": "这里的某个时段",
+    "Social-Cultural Resonance": "人们怎么经过这里"
   }
 } as const;
 const schemaNarrativeKey = {

@@ -404,7 +404,8 @@ function spatialRagClaims(placeContext?: PlaceContext): EvidenceClaim[] {
     .slice(0, evidenceLimits.spatialRag)
     .map((candidate, index) => {
       const isNews = candidate.source === "gov_press_release" || candidate.source === "rthk" || candidate.source === "gdelt";
-      const isPublicRecord = candidate.source === "hk_fehd" || candidate.source === "hk_amo";
+      const isSocial = candidate.source === "social" || candidate.source === "google_reviews";
+      const isPublicRecord = candidate.source === "hk_fehd" || candidate.source === "hk_amo" || candidate.source === "place_memory";
       const visiblePhrase =
         candidate.visibilityConfidence === "visible_likely"
           ? "a strong spatial candidate for the selected view"
@@ -419,6 +420,7 @@ function spatialRagClaims(placeContext?: PlaceContext): EvidenceClaim[] {
         source: candidate.source,
         claimType: isNews
           ? candidate.source === "gov_press_release" ? "official_notice" : "news_context"
+          : isSocial ? "social_context"
           : candidate.source === "wikipedia" || candidate.source === "wikidata" || isPublicRecord ? "retrieved_area_context" : "nearby_candidate",
         confidence: confidenceForRagCandidate(candidate),
         visibilityStatus: visibilityStatusForRagCandidate(candidate),
@@ -452,7 +454,10 @@ function visibilityStatusForRagCandidate(candidate: NonNullable<PlaceContext["ra
 }
 
 function schemasForRagCandidate(candidate: NonNullable<PlaceContext["ragCandidates"]>[number]): EvidenceClaim["relatedSchemas"] {
-  if (candidate.source === "gov_press_release" || candidate.source === "rthk" || candidate.source === "gdelt" || candidate.source === "wikipedia" || candidate.source === "wikidata" || candidate.source === "hk_amo") {
+  if (candidate.source === "google_reviews") {
+    return ["Identity-Belonging", "Memory-Temporality", "Social-Cultural Resonance"];
+  }
+  if (candidate.source === "gov_press_release" || candidate.source === "rthk" || candidate.source === "gdelt" || candidate.source === "wikipedia" || candidate.source === "wikidata" || candidate.source === "hk_amo" || candidate.source === "place_memory") {
     return ["Memory-Temporality", "Social-Cultural Resonance"];
   }
   const text = `${candidate.label} ${candidate.category || ""}`.toLowerCase();
@@ -540,6 +545,8 @@ function sourceLabel(source: string) {
   if (source === "gov_press_release") return "A Hong Kong Government notice";
   if (source === "rthk") return "RTHK local news";
   if (source === "gdelt") return "A news index";
+  if (source === "google_reviews") return "Google Places reviews";
+  if (source === "place_memory") return "Place memory";
   return "A public source";
 }
 

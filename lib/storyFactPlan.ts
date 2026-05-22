@@ -18,10 +18,13 @@ export function buildStoryFactPlan(
 
   const likelyVisibleIdentity = pickLikelyVisibleIdentity(evidenceView.primaryClaims);
   const anchors = pickAnchorClaims(evidenceView.primaryClaims, likelyVisibleIdentity?.claimId);
-  const supporting = evidenceView.primaryClaims
+  const supporting = [
+    ...evidenceView.primaryClaims
     .filter((claim) => !anchors.some((anchor) => anchor.id === claim.id))
     .filter((claim) => claim.allowedUse === "cautious_possible" && claim.confidence >= 0.58)
-    .slice(0, 3);
+    .slice(0, 2),
+    ...pickRelatedContextClaims(evidenceView, likelyVisibleIdentity?.label)
+  ].slice(0, 4);
 
   return {
     likelyVisibleIdentity,
@@ -40,10 +43,34 @@ export function buildStoryFactPlan(
       "Start the story from likelyVisibleIdentity or the first anchorFact when available.",
       "Use anchorFacts as normal street talk, not as evidence language.",
       "Use at most one supportingFact if it helps the narrator sound specific.",
+      "Sourced background can become a small life detail, not a lecture.",
+      "For any place type, let the persona connect the visible clue to ordinary life: errands, family talk, food, study, work, queues, routes, waiting, repairs, delivery, visiting, or weather.",
       "Do not mention avoidFacts as visible or selected.",
       "If an anchorFact is medium confidence, phrase it as street-level caution rather than certainty."
     ]
   };
+}
+
+function pickRelatedContextClaims(evidenceView: NarrativeEvidenceView, likelyLabel?: string) {
+  const label = normalizeText(likelyLabel || "");
+  return evidenceView.optionalNearbyClaims
+    .filter((claim) =>
+      claim.source === "wikipedia" ||
+      claim.source === "wikidata" ||
+      claim.source === "place_memory" ||
+      claim.source === "hk_amo" ||
+      claim.source === "hk_landsd"
+    )
+    .filter((claim) => claim.confidence >= 0.48)
+    .sort((a, b) => relatedContextScore(b, label) - relatedContextScore(a, label))
+    .slice(0, 2);
+}
+
+function relatedContextScore(claim: EvidenceClaim, normalizedLabel: string) {
+  const text = normalizeText(claim.text);
+  return claim.confidence +
+    (normalizedLabel && text.includes(normalizedLabel) ? 0.42 : 0) +
+    (claim.source === "wikipedia" ? 0.18 : claim.source === "wikidata" ? 0.12 : claim.source === "place_memory" ? 0.16 : 0);
 }
 
 function pickLikelyVisibleIdentity(claims: EvidenceClaim[]): StoryFactPlan["likelyVisibleIdentity"] {
@@ -123,4 +150,8 @@ function extractNamedIdentity(claim: EvidenceClaim) {
   if (prefix) return prefix;
   const polyu = claim.text.match(/\b(?:The Hong Kong Polytechnic University|PolyU|Hong Kong Polytechnic University)\b/i)?.[0];
   return polyu;
+}
+
+function normalizeText(value: string) {
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
 }

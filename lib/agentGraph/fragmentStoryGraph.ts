@@ -1,6 +1,7 @@
 import { logAgentRun } from "@/lib/agentRuns";
 import { verifyCandidateMatches } from "@/lib/candidateVerification";
 import { buildEvidencePacket } from "@/lib/evidence";
+import { getPlaceReviewContextForStory } from "@/lib/googlePlaceContext";
 import { geminiDiagnostics } from "@/lib/gemini";
 import { generateNarratives } from "@/lib/narrative";
 import { buildNarrativeBlocks, buildSafeNarratives, reinforceConcreteFacts, validateNarrative } from "@/lib/narrativeValidation";
@@ -13,6 +14,7 @@ import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import { textModelDiagnostics } from "@/lib/textModel";
 import type {
   AgentRunSummary,
+  EvidenceClaim,
   EvidencePacket,
   GeneratedPersona,
   NarrativeBlock,
@@ -91,7 +93,7 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
     }
   );
 
-  const evidencePacket = await runAgent(
+  let evidencePacket = await runAgent(
     "EvidencePacketAgent",
     {
       candidateCount: candidateVerification?.matches?.length || 0,
@@ -156,7 +158,7 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
     }
   );
 
-  const storyFactPlan = await runAgent(
+  let storyFactPlan = await runAgent(
     "StoryFactPlanAgent",
     {
       primaryClaimCount: narrativeEvidenceView.primaryClaims.length,
@@ -169,8 +171,69 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
       agentRuns,
       provider: "system",
       model: "story-fact-plan-v1"
+      }
+  );
+
+  const reviewClaims = await runAgent(
+    "PlaceReviewSocialAgent",
+    {
+      targetNames: reviewTargetNames(storyFactPlan),
+      placeCount: input.placeContext?.places?.length || 0
+    },
+    async () => {
+      const reviews = await getPlaceReviewContextForStory({
+        places: input.placeContext?.places,
+        targetNames: reviewTargetNames(storyFactPlan),
+        config
+      }).catch(() => []);
+      return reviews.map(reviewToEvidenceClaim);
+    },
+    {
+      ...runContext,
+      config,
+      agentRuns,
+      provider: "google_places",
+      model: "place-details-reviews-v1"
     }
   );
+
+  if (reviewClaims.length) {
+    evidencePacket = {
+      ...evidencePacket,
+      claims: [...evidencePacket.claims, ...reviewClaims]
+    };
+    narrativeEvidenceView = await runAgent(
+      "NarrativeEvidenceViewAgent",
+      {
+        claimCount: evidencePacket.claims.length,
+        mode: "with_place_reviews"
+      },
+      async () => buildNarrativeEvidenceView(evidencePacket),
+      {
+        ...runContext,
+        config,
+        agentRuns,
+        provider: "system",
+        model: "narrative-evidence-view-v1"
+      }
+    );
+    storyFactPlan = await runAgent(
+      "StoryFactPlanAgent",
+      {
+        primaryClaimCount: narrativeEvidenceView.primaryClaims.length,
+        optionalNearbyClaimCount: narrativeEvidenceView.optionalNearbyClaims.length,
+        reviewClaimCount: reviewClaims.length
+      },
+      async () => buildStoryFactPlan(evidencePacket, narrativeEvidenceView),
+      {
+        ...runContext,
+        config,
+        agentRuns,
+        provider: "system",
+        model: "story-fact-plan-v1"
+      }
+    );
+  }
 
   const generatedNarratives = await runAgent(
     "StoryWriterAgent",
@@ -412,6 +475,47 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
     narrativeValidation,
     agentRuns,
     repaired
+  };
+}
+
+function reviewTargetNames(storyFactPlan: ReturnType<typeof buildStoryFactPlan>) {
+  const names = new Set<string>();
+  if (storyFactPlan.likelyVisibleIdentity?.label) {
+    names.add(storyFactPlan.likelyVisibleIdentity.label);
+  }
+  for (const fact of [...storyFactPlan.anchorFacts, ...storyFactPlan.supportingFacts]) {
+    const name = extractTargetNameFromFact(fact.text);
+    if (name) names.add(name);
+  }
+  return Array.from(names).slice(0, 3);
+}
+
+function extractTargetNameFromFact(text: string) {
+  const match = text.match(/(?:Use|Treat|toward|around|Mention)\s+(.+?)\s+(?:as|only|,|so|$)/i);
+  return match?.[1]?.trim();
+}
+
+function reviewToEvidenceClaim(
+  review: Awaited<ReturnType<typeof getPlaceReviewContextForStory>>[number],
+  index: number
+): EvidenceClaim {
+  return {
+    id: `gr${index + 1}`,
+    text: `${review.placeName} has selected Google Places review context: ${review.summary}`,
+    source: "google_reviews",
+    claimType: "social_context",
+    confidence: review.rating && review.rating >= 4 ? 0.62 : 0.54,
+    visibilityStatus: "area_level_only",
+    allowedUse: "background_only",
+    uncertaintyCueRequired: true,
+    privacySensitive: false,
+    relatedSchemas: ["Identity-Belonging", "Memory-Temporality", "Social-Cultural Resonance"],
+    publishedAt: review.publishedAt,
+    sourceTitle: review.sourceTitle,
+    sourceTier: review.sourceTier,
+    spatialMatch: review.spatialMatch,
+    temporalRelevance: review.temporalRelevance,
+    localConcernLevel: review.localConcernLevel
   };
 }
 

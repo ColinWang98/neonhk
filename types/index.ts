@@ -112,7 +112,9 @@ export type ContextCandidate = {
     | "gov_press_release"
     | "rthk"
     | "gdelt"
-    | "social";
+    | "social"
+    | "google_reviews"
+    | "place_memory";
   visibilityConfidence: "visible_likely" | "possible" | "nearby_only" | "area_background" | "reject";
   allowedUse: AllowedNarrativeUse;
 };
@@ -162,6 +164,23 @@ export type PublicNewsItem = {
   temporalRelevance: TemporalRelevance;
   localConcernLevel: LocalConcernLevel;
   matchedTerms: string[];
+};
+
+export type PlaceReviewContextItem = {
+  id: string;
+  placeId?: string;
+  placeName: string;
+  title: string;
+  summary: string;
+  rating?: number;
+  publishedAt?: string;
+  source: "google_reviews";
+  sourceTitle: "Google Places reviews";
+  sourceTier: "social";
+  spatialMatch: SpatialMatch;
+  temporalRelevance: TemporalRelevance;
+  localConcernLevel: LocalConcernLevel;
+  matchedThemes: string[];
 };
 
 export type NearbyContinuationRecommendation = {
@@ -219,6 +238,7 @@ export type PlaceContext = {
   places: NearbyPlace[];
   publicDataCandidates?: PublicDataCandidate[];
   publicNewsContext?: PublicNewsItem[];
+  placeReviewContext?: PlaceReviewContextItem[];
   wikidataEntities?: LocalEntity[];
   sourceNotes?: SourceNote[];
   ragCandidates?: ContextCandidate[];
@@ -353,7 +373,9 @@ export type EvidenceClaim = {
     | "rthk"
     | "gdelt"
     | "social"
+    | "google_reviews"
     | "candidate_verifier"
+    | "place_memory"
     | "system";
   claimType: EvidenceClaimType;
   confidence: number;

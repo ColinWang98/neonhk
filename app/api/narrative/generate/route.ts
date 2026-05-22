@@ -4,6 +4,7 @@ import { runFragmentStoryGraph } from "@/lib/agentGraph/fragmentStoryGraph";
 import { persistFragment } from "@/lib/fragments";
 import { logEvent } from "@/lib/logger";
 import { narrativeCacheVersion } from "@/lib/narrativeCache";
+import { rememberEvidencePacket } from "@/lib/placeMemory";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import { textModelDiagnostics } from "@/lib/textModel";
 import type {
@@ -116,6 +117,17 @@ export async function POST(request: NextRequest) {
       narrativeValidation,
       status: "ready"
     }, config);
+    await rememberEvidencePacket({
+      sessionId: body.sessionId,
+      fragmentId: body.fragmentId,
+      evidencePacket,
+      config
+    }).catch((error) => {
+      console.warn("[place.memory] remember_after_narrative_failed", {
+        fragmentId: body.fragmentId,
+        message: error instanceof Error ? error.message : String(error)
+      });
+    });
     await logEvent(
       {
         eventType: "narratives_generated",

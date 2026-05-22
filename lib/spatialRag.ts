@@ -3,6 +3,7 @@ import type {
   LocalEntity,
   NearbyPlace,
   PlaceContext,
+  PlaceReviewContextItem,
   PublicDataCandidate,
   PublicNewsItem,
   SourceNote
@@ -17,6 +18,8 @@ type BuildSpatialRagParams = {
   wikidataEntities?: LocalEntity[];
   sourceNotes?: SourceNote[];
   publicNewsContext?: PublicNewsItem[];
+  placeReviewContext?: PlaceReviewContextItem[];
+  memoryCandidates?: ContextCandidate[];
   limit?: number;
 };
 
@@ -26,7 +29,9 @@ export function buildSpatialRagContext(params: BuildSpatialRagParams): Pick<Plac
     ...(params.publicDataCandidates || []).map(publicDataCandidate),
     ...(params.wikidataEntities || []).map(wikidataCandidate),
     ...(params.sourceNotes || []).map(wikipediaCandidate),
-    ...(params.publicNewsContext || []).map(newsCandidate)
+    ...(params.publicNewsContext || []).map(newsCandidate),
+    ...(params.placeReviewContext || []).map(reviewCandidate),
+    ...(params.memoryCandidates || [])
   ]
     .filter((candidate): candidate is ContextCandidate => Boolean(candidate))
     .filter((candidate) => candidate.visibilityConfidence !== "reject" && candidate.allowedUse !== "do_not_use");
@@ -139,6 +144,25 @@ function newsCandidate(item: PublicNewsItem): ContextCandidate | undefined {
   };
 }
 
+function reviewCandidate(item: PlaceReviewContextItem): ContextCandidate | undefined {
+  if (!item.summary?.trim()) return undefined;
+  return {
+    id: item.id,
+    label: item.placeName.trim(),
+    category: `review themes: ${item.matchedThemes.join(", ")}`,
+    source: "google_reviews",
+    publishedAt: item.publishedAt,
+    sourceTitle: item.sourceTitle,
+    sourceTier: item.sourceTier,
+    spatialMatch: item.spatialMatch,
+    temporalRelevance: item.temporalRelevance,
+    localConcernLevel: item.localConcernLevel,
+    visibilityConfidence: "area_background",
+    allowedUse: "background_only",
+    matchReason: item.summary
+  };
+}
+
 function gateSpatialCandidate(
   candidate: {
     relativeDirection?: string;
@@ -182,7 +206,9 @@ function retrievalScore(candidate: ContextCandidate) {
     gov_press_release: 0.48,
     rthk: 0.42,
     gdelt: 0.34,
-    social: 0.18
+    social: 0.18,
+    google_reviews: 0.38,
+    place_memory: 0.62
   }[candidate.source];
   const visibilityScore = {
     visible_likely: 0.32,
@@ -215,7 +241,9 @@ function summarizeRag(candidates: ContextCandidate[]) {
   const visible = candidates.filter((candidate) => candidate.visibilityConfidence === "visible_likely" || candidate.visibilityConfidence === "possible").length;
   const background = candidates.filter((candidate) => candidate.allowedUse === "background_only").length;
   const news = candidates.filter((candidate) => ["gov_press_release", "rthk", "gdelt"].includes(candidate.source)).length;
-  return `Spatial RAG retrieved ${candidates.length} candidates: ${visible} possible visual/map matches, ${background} background-only items, and ${news} local concern items.`;
+  const reviews = candidates.filter((candidate) => candidate.source === "google_reviews").length;
+  const memory = candidates.filter((candidate) => candidate.source === "place_memory").length;
+  return `Spatial RAG retrieved ${candidates.length} candidates: ${visible} possible visual/map matches, ${background} background-only items, ${news} local concern items, ${reviews} review-derived social-lite items, and ${memory} place-memory items.`;
 }
 
 function spatialReason(candidate: {

@@ -39,6 +39,7 @@ Do not invent:
 
 Important distinction:
 - You may let the persona speak from personal habits, memories, and comparisons, e.g. "this reminds me of the small shops near my old flat".
+- You may let the persona have fictional, ordinary personal ties, as long as they are clearly the persona's own life and not presented as verified facts about the photographed place. Good examples: "my cousin's kid studies nearby", "a friend told me the canteen queue gets silly", "my nephew keeps talking about studio deadlines", "when I worked near a campus like this...".
 - Cultural interpretation is allowed, but do not make it poetic. Put it into plain street talk: where to stand, what to avoid, where to queue, whether a shop looks open, whether the pavement is tight, whether the sign helps.
 - You must not claim an unverifiable fact about the actual photographed place, e.g. do not write "this shop used to be a fish shop" unless the visual evidence says so.
 - Keep evidence limits backstage for every persona. Do not tell the user "there is not enough evidence", "I cannot talk about this", "I will not guess", or "I cannot know". If evidence is weak, use a smaller grounded observation, a route-finding judgement, or a personal comparison instead.
@@ -49,6 +50,10 @@ Important distinction:
 - If an Evidence Packet claim says a mapped building footprint intersects the selected sight line, treat it as stronger spatial evidence than an ordinary nearby place. Say it plainly but cautiously: "The map footprint and this sight line point to X." Do not call it certain unless visual text also supports it.
 - Direct facts and high-confidence facts are anchors. Medium-confidence facts are optional. Use at most one or two medium-confidence facts across the whole story, only when they help the narrator's walk-through. Do not stuff every candidate name or public note into the narration.
 - When using a medium-confidence fact, make it sound casual: "I keep that name in mind", "that might be the useful landmark", "I would not build the whole story on it". If it feels awkward, skip it.
+- When a sourced name is likely to appear in the story, do not stop at wayfinding. Connect it to related everyday life for that place type: buying, eating, waiting, studying, working, visiting, repairing, delivering, crossing, finding shade, avoiding rain, or meeting someone.
+- One small persona anecdote is welcome for any place type. A campus can bring up a relative's child, courses, studios, labs, exams, or canteen food. A shop can bring up a regular purchase, a queue, a cashier, a family errand, or a price someone remembers. A station can bring up rushing, missing an exit, or carrying bags. A clinic or pharmacy can bring up picking something up for family. Do not claim those anecdotes are verified facts about the photographed place. Say them as lived talk: "my cousin's kid...", "a friend told me...", "I usually...", "people around me mention...".
+- If Google Places review context is provided, use it only as social-lite background about the target place that is already likely to appear in the story. Do not quote reviewers. Do not mention usernames. Do not say reviews prove what is visible. Turn review themes into ordinary talk: food, queues, service, student routines, finding the entrance, or busy timing.
+- For all place types, use sourced public facts as the frame and persona memory as the warmth. The story should feel like a person linking a visible place to the life around it, not like a database result.
 - Do not expose evidence machinery in the spoken story. Avoid phrases like "the map and image make", "visual-map verifier", "candidate", "matchLevel", "Evidence Packet", "primary claims", or "possible match here".
 - Turn map uncertainty into normal street talk. Say "Maps puts X around this frontage", "I would treat X as a likely landmark", or "I would use that name carefully", not "the map and image make X a possible match".
 - If nearby place context is only background_only, you may say a named shop or address is nearby, but do not say it is the selected fragment.
@@ -67,6 +72,7 @@ Important distinction:
 - Keep uncertainty only for real-world facts about the photographed place. Do not make the persona's own experience sound uncertain.
 - Do not label the persona in the sentence. Never write "as a temporary-resident", "as a tourist", or "as a local resident". Let the role show through habits and comparison.
 - Use the persona's background, userIntro, role, and voiceHint. Each segment should contain one small clue that only this narrator would say: a work habit, local routine, visitor comparison, short-term resident learning curve, age-related pace, or ordinary preference.
+- Each segment should contain either a concrete place fact, a visible detail, or a persona-specific anecdote. Do not let all segments become movement advice.
 - If the persona is a temporary resident, use phrases like "after staying here a while", "I am still learning which signs matter", or "compared with where I lived before".
 - If the persona is a visitor, use direct travel habits: "when I visit a street like this", "I use big signs first", "I slow down at the edge", and comparison with travel habits.
 - If the persona is local or a worker, use direct lived routines: "on my usual route", "when I work nearby", "I know to leave space", plus errands, shortcuts, queue manners, shop opening rhythms, rain, delivery, lunch, transport timing, and where people stand.
@@ -90,6 +96,7 @@ Important distinction:
 - Prefer phrases like "I would look at...", "I would stand...", "I would not block...", "this looks like...", "Maps puts X nearby...", "from what I can see...", and "I would read it as...".
 - Make the story beats feel like one small walk-through with the narrator. Start with what catches their eye, then what they do with that clue, then what it reminds them of, then how they move with other people. Do not make separate mini reports.
 - Give the narrator a tiny scene, not just an opinion. Examples: arriving from the MTR, slowing near a doorway, checking a sign while holding a drink, letting a delivery worker pass, comparing the shopfront with a street near home, or choosing where to wait in rain.
+- Make at least one beat about what the identified place is connected to beyond the exact crop: buying something, eating, waiting, studying, working, commuting, visiting someone, family talk, carrying bags, avoiding rain, or why someone would care about that name. Keep this connection modest and human.
 - The persona's lived action should be direct: "I slow down", "I use the sign", "I step to the side", "I learned this after a few weeks here". Use "I would" only when the action is genuinely conditional.
 
 Use cautious language such as:
@@ -123,7 +130,8 @@ Evidence boundary:
 - If the plan fitLevel is low or not_applicable, still write useful spoken observations unless the plan narrativeMode is disabled. Keep them modest and comparative.
 - If the plan narrativeMode is disabled, return very brief privacy-safe text only. Do not invent a story.
 
-Generate 3 to 5 spoken story beats, each 45-85 words. They should connect into a small, everyday story rather than four versions of the same point. The backend may reorder or display these beats directly, so do not write phrases like "first", "second", "finally", or "in this section".
+Generate 3 to 5 spoken story beats, each 55-95 words. They should connect into a small, everyday story rather than four versions of the same point. The backend may reorder or display these beats directly, so do not write phrases like "first", "second", "finally", or "in this section".
+Each storyBeat.title must be a natural spoken card title, not a schema title. Never use "How I use it", "First impression", "Street timing", "Street manners", "Functional-Use", "Identity-Belonging", "Memory-Temporality", or "Social-Cultural Resonance" as user-facing titles. Use titles like "The name I grab first", "What that campus name brings up", "Where I would wait", or "The lunch-hour version".
 
 Loose story shape:
 - Segment 1: the first useful clue, then the narrator's immediate street action.
@@ -142,21 +150,39 @@ Use schemas only as hidden tags for each beat:
 
 Voice example to imitate. Do not copy the exact objects or facts. This example is only for tone; the real response must follow the final JSON shape with storyBeats:
 {
+  "storyBeats": [
+    {
+      "title": "The name I grab first",
+      "schema": "Functional-Use",
+      "text": "Maps puts the named shop around this frontage, so I use the sign carefully, not like proof. After staying here a while, I trust big shop names more than tiny street numbers. I glance up, move aside, and let the queue breathe.",
+      "groundedIn": ["claim_id"],
+      "confidence": "medium",
+      "claimType": "cautious_interpretation"
+    },
+    {
+      "title": "What it brings up",
+      "schema": "Identity-Belonging",
+      "text": "The name gives me a quick handle, but it also brings up ordinary talk. A friend might mention the lunch queue, a nephew might complain about studio work, and suddenly this is not just a frontage. It becomes a place people arrange their day around.",
+      "groundedIn": ["claim_id"],
+      "confidence": "medium",
+      "claimType": "persona_interpretation"
+    }
+  ],
   "functionalUse": {
     "title": "Functional-Use",
-    "text": "Maps puts the named shop around this frontage, so I would use the sign carefully, not like proof. After staying here a while, I trust big shop names more than tiny street numbers. I would glance up, move aside, and let the queue breathe."
+    "text": "Maps puts the named shop around this frontage, so I use the sign carefully, not like proof. After staying here a while, I trust big shop names more than tiny street numbers. I glance up, move aside, and let the queue breathe."
   },
   "identityBelonging": {
     "title": "Identity-Belonging",
-    "text": "The shop name gives me a quick handle. Back home I might wait for a clearer doorway, but here people read fast and keep walking. I would copy that pace, check whether anyone is ordering, and not hover in front."
+    "text": "The name gives me a quick handle, but it also brings up ordinary talk. A friend might mention the lunch queue, a nephew might complain about studio work, and suddenly this is not just a frontage."
   },
   "memoryTemporality": {
     "title": "Memory-Temporality",
-    "text": "This feels like the kind of place that changes by the hour. Maybe busy after school, quieter before lunch, wet and cramped when it rains. I would remember it by when people stop briefly, buy something, and move on."
+    "text": "This feels like the kind of place that changes by the hour. Maybe busy after school, quieter before lunch, wet and cramped when it rains."
   },
   "socialCulturalResonance": {
     "title": "Social-Cultural Resonance",
-    "text": "The small rule is simple: do not block the shopfront. I learned that quickly in Hong Kong. If I need to check my phone or decide whether to buy, I step sideways first and let the faster people pass."
+    "text": "The small rule is simple: do not block the shopfront. I learned that quickly in Hong Kong. If I need to check my phone, I step sideways first."
   }
 }
 
@@ -226,7 +252,7 @@ export async function generateNarratives(
             lng: visualContext.image?.lng
           },
           languageStyle:
-            "Default to English. Write like plain street talk, not a literary voiceover. First-person, short, practical, slightly messy. Keep the schema logic and evidence limits hidden. Use only Evidence Packet claim ids and Persona Fragment Plan boundaries for factual claims, but use the persona freely for practical judgement, crowd-following, route-finding, and personal comparison. Make the four segments feel like one small walk-through, but do not number the parts or say first, second, finally. If candidate_verifier, a public institution, campus, station, hospital, museum, public building, landmark, mapped footprint match, or visible readable text supports a concrete name, mention that name early. Turn that name into normal street talk, not evidence language. Direct and high-confidence facts are anchors. Medium-confidence facts are optional. Use at most one or two medium-confidence facts across the whole story, only when they help the narrator. Do not stuff every candidate name or public note into the narration. Use concrete actions: stand, wait, pass, queue, check the sign, avoid the rain, do not block the door. Give the narrator a tiny scene: arriving from the MTR, slowing near an entrance, checking a sign with a drink in hand, letting a delivery worker pass, choosing where to wait in rain, or comparing the frontage with a street near home. Add oral turns such as okay, so; the thing is; I mean; honestly; I learned that pretty quickly. Do not overuse one phrase. Every narrator may compare with places or routines they know, but must say it as personal perspective, not a fact about this location. Local personas should use local habits and street manners; visitor or temporary-resident personas should use wayfinding, comparison, and what they have learned by staying here. The persona is a fictional role-play speaker, so their own habits can be direct: I usually, I learned, after staying here, when I visit, on my usual route. Keep uncertainty only for real-world claims about the place. Never say not enough evidence, not enough information, I cannot talk about, I will not guess, or I will not invent. Never write as a temporary-resident, as a tourist, or as a local resident. Avoid poetic words such as traces, layers, resonance, threshold, memory, belonging, rhythm, atmosphere, or meaning. Avoid evidence phrases such as the map and image make, possible match here, or keep the reading modest. Avoid role-play hypotheticals like if I were visiting or if this were on my route. Use I would sparingly. Prefer direct action: I slow down, I use the sign, I step aside, I learned this after a few weeks here. If a map candidate is close and view-aligned, mention it cautiously as a nearby landmark. Do not overstate it. Avoid repeating the same line across segments."
+            "Default to English. Write like plain street talk, not a literary voiceover. First-person, short, practical, slightly messy. Keep the schema logic and evidence limits hidden. Use only Evidence Packet claim ids and Persona Fragment Plan boundaries for factual claims, but use the persona freely for practical judgement, family talk, food memories, study/work associations, errands, crowd-following, route-finding, and personal comparison. Make the segments feel like one small walk-through, but do not number the parts or say first, second, finally. If candidate_verifier, a close place, campus, station, hospital, shop, market, restaurant, museum, public building, landmark, mapped footprint match, or visible readable text supports a concrete name, mention that name early. Turn that name into normal street talk, not evidence language. Direct and high-confidence facts are anchors. Medium-confidence facts are optional. Use at most two medium-confidence facts across the whole story, only when they help the narrator. Google review context, when present, is only social-lite background for a target place that is already likely to appear. Use review themes as ordinary talk, never as proof. Do not stuff every candidate name or public note into the narration. Use concrete actions: stand, wait, pass, queue, check the sign, avoid the rain, do not block the door. Give the narrator a tiny scene: arriving from the MTR, slowing near an entrance, checking a sign with a drink in hand, letting a delivery worker pass, choosing where to wait in rain, hearing a relative talk about a course, remembering a snack queue, or picking something up for family. Add oral turns such as okay, so; the thing is; I mean; honestly; I learned that pretty quickly. Do not overuse one phrase. Every narrator may compare with places or routines they know, but must say it as personal perspective, not a fact about this location. Local personas should use local habits and street manners; visitor or temporary-resident personas should use wayfinding, comparison, family or friend connections, and what they have learned by staying here. The persona is a fictional role-play speaker, so their own habits and relationships can be direct: I usually, my cousin's kid, a friend told me, I learned, after staying here, when I visit, on my usual route. Keep uncertainty only for real-world claims about the place. Never say not enough evidence, not enough information, I cannot talk about, I will not guess, or I will not invent. Never write as a temporary-resident, as a tourist, or as a local resident. Avoid poetic words such as traces, layers, resonance, threshold, memory, belonging, rhythm, atmosphere, or meaning. Avoid evidence phrases such as the map and image make, possible match here, or keep the reading modest. Avoid role-play hypotheticals like if I were visiting or if this were on my route. Use I would sparingly. Prefer direct action: I slow down, I use the sign, I step aside, I learned this after a few weeks here. If a map candidate is close and view-aligned, mention it cautiously as a nearby landmark. Do not overstate it. Include one related-life connection beyond the exact crop when the named place supports it, for any place type. StoryBeat titles must sound like real story cards, not schema labels or instructions."
         })
       }
     ],
@@ -333,9 +359,10 @@ function normalizeStoryBeats(
       const text = cleanText(item.text || item.content || item.narrative);
       if (!text) return undefined;
       const schema = normalizeSchema(item.schema || item.title || item.name, index);
+      const title = cleanText(item.title || item.name);
       return {
         schema,
-        title: cleanText(item.title || item.name) || defaultBeatTitle(schema, index),
+        title: storyBeatTitle(title, schema, index),
         text,
         claimType: normalizeClaimType(item.claimType || item.claim_type),
         groundedIn: normalizeGroundedIn(item.groundedIn || item.grounded_in, fallbackClaimIds),
@@ -404,6 +431,15 @@ function defaultBeatTitle(schema: NarrativeBlock["schema"], index: number) {
     "Social-Cultural Resonance": "How people share the space"
   } as const;
   return fallback[schema] || `Beat ${index + 1}`;
+}
+
+function storyBeatTitle(title: string, schema: NarrativeBlock["schema"], index: number) {
+  if (!title || isSchemaLikeTitle(title)) return defaultBeatTitle(schema, index);
+  return title;
+}
+
+function isSchemaLikeTitle(title: string) {
+  return /^(how i use it|first impression|street timing|street manners|functional-use|functional use|identity-belonging|identity belonging|memory-temporality|memory temporality|social-cultural resonance|social cultural resonance)$/i.test(title.trim());
 }
 
 function schemaKey(schema: NarrativeBlock["schema"]): keyof SchemaNarratives {
