@@ -1364,8 +1364,8 @@ function FragmentFirstPanel({
       <p className="mt-3 text-sm leading-6 text-ink/62">
         {hasNarrator
           ? zh
-            ? "现在可以旋转全景图，点“开始框选”，在你想继续听的位置拖出一个框。"
-            : "Now rotate the panorama, press Select fragment, and drag over one detail."
+            ? "现在可以旋转全景图，把细节放进中间白框，或直接拖拽一个框。"
+            : "Now rotate the panorama, place a detail in the center frame, or drag your own box."
           : zh
             ? "先选择一个讲述人。之后“开始框选”按钮才会打开。"
             : "Choose a narrator first. The Select fragment button will unlock after that."}

@@ -219,6 +219,56 @@ export function StreetImageViewer({
     }
   }, [image?.provider, targetPov]);
 
+  const centerGuideBox = googleSelecting && viewportSize.width > 0 && viewportSize.height > 0
+    ? defaultCenterScreenBox(viewportSize.width, viewportSize.height)
+    : undefined;
+
+  const selectGoogleScreenBox = (screenBox: ScreenBox) => {
+    if (!panoRef.current || !image || !googleMapsApiKey) return;
+    const rect = panoRef.current.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const latestPov = panoramaRef.current ? readPanoramaPov(panoramaRef.current) : povRef.current;
+    povRef.current = latestPov;
+    setPov(latestPov);
+    const sourceSize = fitStaticSize(rect.width, rect.height);
+    const cropBox = {
+      x: (screenBox.x / rect.width) * sourceSize.width,
+      y: (screenBox.y / rect.height) * sourceSize.height,
+      width: (screenBox.width / rect.width) * sourceSize.width,
+      height: (screenBox.height / rect.height) * sourceSize.height
+    };
+    const snapshotFov = currentHorizontalFov(latestPov.zoom);
+    const snapshotVerticalFov = verticalFov(snapshotFov, rect.width, rect.height);
+    const boxCorners = screenBoxCorners(screenBox).map((corner) =>
+      screenPointToPanoramaPoint(corner, {
+        width: rect.width,
+        height: rect.height,
+        heading: latestPov.heading,
+        pitch: latestPov.pitch,
+        horizontalFov: snapshotFov,
+        verticalFov: snapshotVerticalFov
+      })
+    );
+    const sourceImageUrl = buildGoogleStreetViewStaticUrl({
+      key: googleMapsApiKey,
+      panoId: image.panoId || image.id,
+      width: sourceSize.width,
+      height: sourceSize.height,
+      heading: latestPov.heading,
+      pitch: latestPov.pitch,
+      fov: snapshotFov
+    });
+    setGoogleSelecting(false);
+    onFragmentSelected(screenBox, cropBox, sourceImageUrl, {
+      heading: latestPov.heading,
+      pitch: latestPov.pitch,
+      fov: snapshotFov,
+      boxCorners,
+      viewportWidth: rect.width,
+      viewportHeight: rect.height
+    });
+  };
+
   return (
     <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex flex-col gap-3 border-b border-ink/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-4">
@@ -276,58 +326,35 @@ export function StreetImageViewer({
                 {googleSelecting ? (
                   <BoxSelectionLayer
                     disabled={busy || googleStatus !== "ready" || !selectionEnabled}
-                    onSelect={(screenBox) => {
-                      if (!panoRef.current || !image) return;
-                      const rect = panoRef.current.getBoundingClientRect();
-                      const latestPov = panoramaRef.current ? readPanoramaPov(panoramaRef.current) : povRef.current;
-                      povRef.current = latestPov;
-                      setPov(latestPov);
-                      const sourceSize = fitStaticSize(rect.width, rect.height);
-                      const cropBox = {
-                        x: (screenBox.x / rect.width) * sourceSize.width,
-                        y: (screenBox.y / rect.height) * sourceSize.height,
-                        width: (screenBox.width / rect.width) * sourceSize.width,
-                        height: (screenBox.height / rect.height) * sourceSize.height
-                      };
-                      const snapshotFov = currentHorizontalFov(latestPov.zoom);
-                      const snapshotVerticalFov = verticalFov(snapshotFov, rect.width, rect.height);
-                      const boxCorners = screenBoxCorners(screenBox).map((corner) =>
-                        screenPointToPanoramaPoint(corner, {
-                          width: rect.width,
-                          height: rect.height,
-                          heading: latestPov.heading,
-                          pitch: latestPov.pitch,
-                          horizontalFov: snapshotFov,
-                          verticalFov: snapshotVerticalFov
-                        })
-                      );
-                      const sourceImageUrl = buildGoogleStreetViewStaticUrl({
-                        key: googleMapsApiKey,
-                        panoId: image.panoId || image.id,
-                        width: sourceSize.width,
-                        height: sourceSize.height,
-                        heading: latestPov.heading,
-                        pitch: latestPov.pitch,
-                        fov: snapshotFov
-                      });
-                      setGoogleSelecting(false);
-                      onFragmentSelected(screenBox, cropBox, sourceImageUrl, {
-                        heading: latestPov.heading,
-                        pitch: latestPov.pitch,
-                        fov: snapshotFov,
-                        boxCorners,
-                        viewportWidth: rect.width,
-                        viewportHeight: rect.height
-                      });
-                    }}
+                    onSelect={selectGoogleScreenBox}
                   />
                 ) : null}
                 {googleSelecting ? (
-                  <div className="pointer-events-none absolute inset-0 z-[30] border-[3px] border-signal bg-signal/10">
+                  <div className="pointer-events-none absolute inset-0 z-[60] border-[3px] border-signal bg-signal/10">
                     <div className="absolute left-3 right-3 top-3 inline-flex max-w-[360px] items-center gap-2 rounded-[16px] border-2 border-white/35 bg-ink/90 px-3 py-2 text-xs font-semibold text-white shadow-lg sm:left-4 sm:right-auto sm:top-4 sm:px-4 sm:py-3 sm:text-sm">
                       <MousePointer2 className="h-4 w-4 shrink-0" />
-                      {zh ? "在全景图上按住鼠标拖拽，框选一个 place fragment" : "Drag on the panorama to box-select a place fragment"}
+                      {zh ? "拖拽白框，或把细节放进中间虚线框" : "Drag a box, or put the detail inside the center frame"}
                     </div>
+                    {centerGuideBox ? (
+                      <div
+                        className="absolute rounded-[10px] border-2 border-dashed border-white bg-white/10 shadow-[0_0_0_1px_rgba(37,111,134,0.75),0_12px_30px_rgba(0,0,0,0.2)]"
+                        style={{
+                          left: centerGuideBox.x,
+                          top: centerGuideBox.y,
+                          width: centerGuideBox.width,
+                          height: centerGuideBox.height
+                        }}
+                      />
+                    ) : null}
+                    {centerGuideBox ? (
+                      <button
+                        type="button"
+                        onClick={() => selectGoogleScreenBox(centerGuideBox)}
+                        className="pointer-events-auto absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border-2 border-white/80 bg-white px-4 py-2 text-xs font-semibold text-ink shadow-[0_4px_0_rgba(0,0,0,0.18),0_14px_28px_rgba(0,0,0,0.25)] transition hover:bg-field sm:text-sm"
+                      >
+                        {zh ? "使用中间白框" : "Use center box"}
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
                 {googleStatus === "loading" ? (
@@ -551,6 +578,17 @@ function screenBoxCorners(box: ScreenBox) {
     { x: box.x + box.width, y: box.y + box.height },
     { x: box.x, y: box.y + box.height }
   ];
+}
+
+function defaultCenterScreenBox(width: number, height: number): ScreenBox {
+  const boxWidth = clamp(width * 0.34, Math.min(160, width * 0.72), width * 0.72);
+  const boxHeight = clamp(height * 0.3, Math.min(110, height * 0.68), height * 0.68);
+  return {
+    x: (width - boxWidth) / 2,
+    y: (height - boxHeight) / 2,
+    width: boxWidth,
+    height: boxHeight
+  };
 }
 
 function validPanoramaCorners(corners?: PanoramaPoint[]) {
