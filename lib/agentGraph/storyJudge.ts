@@ -47,6 +47,7 @@ You must check:
 8. Story quality: the narration should feel like one continuous small walk-through with one or two everyday actions or comparisons, not a bare list of cautious facts.
 9. Spoken style: fail if it sounds like a written explanation, repeats "I would", uses headings such as "What catches my eye", or uses abstract terms such as identity, rhythm, social meaning, urban texture, or public-facing environment.
 10. Anti-template check: fail if most of the story is generic wayfinding, standing aside, following the crowd, keeping passage open, or "this is how I orient myself" without a concrete person, errand, taste, class, work shift, payment, queue, rain, or waiting scene.
+11. Completeness: fail if the story is too thin, for example under about 130 English words, or if it lacks a visible cue, a personal/social connection, a small complication, and a next action.
 
 Important:
 - A persona may make practical, cautious, first-person comparisons.

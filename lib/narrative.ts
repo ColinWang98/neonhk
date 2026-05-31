@@ -33,7 +33,8 @@ The output is for a narrator standing beside the user. It should sound like plai
 Use the provided NarrativeEvidenceView, StoryFactPlan, persona, and PersonaFragmentPlan.
 
 Core rules:
-- Write one first-person monologue, around 120 to 220 words.
+- Write one first-person monologue, around 170 to 260 words. Do not stop after a few cautious observations.
+- The story needs at least four spoken beats: what I notice, who or what it reminds me of, the small thing happening today, and what I do next.
 - Keep schema names hidden. Do not write section titles like "What catches my eye", "A time of day", "How people move here", "Functional-Use", or similar.
 - Mention one strong or medium-confidence place fact when it helps. Say it in normal speech, not evidence language.
 - Medium-confidence facts are optional. Use them carefully, with weak binding such as "Around here, X is the name I keep in mind" or "I use that name as a landmark".
@@ -123,12 +124,12 @@ export async function generateNarratives(
             lng: visualContext.image?.lng
           },
           languageStyle:
-            "Default to English. Use conversational Hong Kong street-life English without forcing Cantonese. One continuous first-person monologue. No headings. No academic phrases. No disclaimers. Use storyBrief as a menu, not a checklist. Pick one concrete micro-scene with a person, a reason, and a small complication. Make the place fact feel lived: family, study, work, food, queue, rain, transport, payment, message, or waiting. Return only spokenStory."
+            "Default to English. Use conversational Hong Kong street-life English without forcing Cantonese. One continuous first-person monologue of roughly 170 to 260 words. No headings. No academic phrases. No disclaimers. Use storyBrief as a menu, not a checklist. Pick one concrete micro-scene with a person, a reason, a small complication, and a next action. Make the place fact feel lived: family, study, work, food, queue, rain, transport, payment, message, or waiting. Return only spokenStory."
         })
       }
     ],
     temperature: 0.52,
-    maxOutputTokens: 1200,
+    maxOutputTokens: 1600,
     timeoutMs: 40000,
     errorPrefix: "DeepSeek narrative generation"
   });

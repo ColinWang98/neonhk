@@ -241,6 +241,9 @@ export function validateNarrative(params: {
   if (hasTemplatedOrFormalStoryVoice(allText)) {
     warnings.push("Narrative sounds too formal, explanatory, or card-like for spoken story mode.");
   }
+  if (hasThinStoryShape(primaryNarrativeText(params.narratives))) {
+    warnings.push("Narrative is too short or lacks a full everyday story arc for spoken story mode.");
+  }
   const strongerCandidateNames = new Set(
     params.evidencePacket.claims
       .filter((claim) => claim.allowedUse !== "background_only" && claim.allowedUse !== "do_not_use")
@@ -274,6 +277,7 @@ export function validateNarrative(params: {
     warning.includes("disabled") ||
     warning.includes("evidence limits") ||
     warning.includes("backend evidence language") ||
+    warning.includes("too short") ||
     warning.includes("overstated as visible") ||
     warning.includes("direct cause")
   );
@@ -423,6 +427,24 @@ function hasTemplatedOrFormalStoryVoice(text: string) {
   const abstractLanguage = /\b(identity|rhythm|social meaning|urban texture|public-facing environment|resonance|threshold|sense of belonging|layers of meaning|spatial context)\b/i.test(text);
   const stiffPhrases = /\b(the timing matters more than the history|it is not a grand story|daily rhythm is the part i trust|gives me a handle on this little patch|the small rule is simple|use it first for orientation|use it for orientation|edge of the flow|one sign, one corner|stop feeling lost|keep the passage open|faster people pass|street manner i notice here)\b/i.test(text);
   return repeatedWould || cardHeading || abstractLanguage || stiffPhrases;
+}
+
+function hasThinStoryShape(text: string) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return true;
+  const latinWords = normalized.match(/[A-Za-z0-9']+/g)?.length || 0;
+  const cjkChars = normalized.match(/[\u3400-\u9fff]/g)?.length || 0;
+  if (latinWords > 0 && latinWords < 115) return true;
+  if (latinWords === 0 && cjkChars > 0 && cjkChars < 180) return true;
+
+  const hasPersonalConnection = /\b(my|me|I|cousin|friend|coworker|colleague|landlord|child|kid|son|daughter|family|relative|classmate|customer|passenger|someone|aunt|uncle|mother|father|roommate)\b/i.test(normalized) ||
+    /(我|朋友|同事|家人|親戚|亲戚|孩子|小孩|表弟|表妹|同學|同学|房東|房东|客人|乘客|有人)/.test(normalized);
+  const hasComplication = /\b(late|early|rain|queue|wrong entrance|wrong exit|message|texting|busy|crowd|crowded|heavy bag|bags|wait|waiting|hungry|rush|missed|payment|octopus|delivery|shift|exam|deadline)\b/i.test(normalized) ||
+    /(遲|迟|早到|下雨|排隊|排队|入口|出口|訊息|信息|短信|人多|擠|挤|等|餓|饿|趕|赶|錯過|错过|付款|八達通|八达通|外賣|外卖|班|考試|考试|deadline)/i.test(normalized);
+  const hasNextAction = /\b(I go|I head|I wait|I step|I move|I send|I text|I answer|I check|I buy|I call|I cross|I ask|I follow|I leave|I walk|I look|I slow|I turn|I stay|I settle)\b/i.test(normalized) ||
+    /(我走|我去|我等|我站|我挪|我發|我发|我回|我看|我買|我买|我打|我問|我问|我離開|我离开|我慢|我轉|我转|我留)/.test(normalized);
+
+  return !(hasPersonalConnection && hasComplication && hasNextAction);
 }
 
 function extractCandidateName(text: string) {

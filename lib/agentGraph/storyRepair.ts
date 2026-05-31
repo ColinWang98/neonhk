@@ -31,6 +31,7 @@ Repair goals:
 6. Convert the story into one continuous monologue, not checklist answers or separate cards.
 7. Return only spokenStory. It is the source of truth for subtitles and internal fields.
 8. Direct and high-confidence facts are anchors. Medium-confidence facts are optional. Keep only the ones that make the story sound more specific and natural.
+9. The repaired story should be roughly 170 to 260 words, with enough room for a visible cue, a personal connection, a small complication, and a next action.
 
 Persona style:
 - Do not label the persona in the sentence. Never write "as a temporary-resident", "as a tourist", or "as a local resident".
@@ -69,7 +70,7 @@ Return strict JSON:
 export async function repairNarrativeWithTextModel(input: StoryRepairInput): Promise<SchemaNarratives> {
   const raw = await generateTextJson({
     temperature: 0.25,
-    maxOutputTokens: 1200,
+    maxOutputTokens: 1600,
     timeoutMs: 40000,
     errorPrefix: "DeepSeek story repair",
     messages: [
