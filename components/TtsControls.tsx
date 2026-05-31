@@ -52,20 +52,26 @@ export function TtsControls({
   const [message, setMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [durationLabel, setDurationLabel] = useState("0:00");
+  const [storyExpanded, setStoryExpanded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const requestIdRef = useRef(0);
   const spokenStory = narratives?.spokenStory?.trim() || "";
   const storyText = useMemo(() => {
     return spokenStory;
   }, [spokenStory]);
+  const storyCaptionSegments = useMemo(() => {
+    const blockSegments = narratives?.subtitleBlocks
+      ?.map((block) => block.text.trim())
+      .filter(Boolean) || [];
+    return blockSegments.length ? blockSegments : splitCaptionSegments(storyText);
+  }, [narratives?.subtitleBlocks, storyText]);
   const captionSegments = useMemo(() => {
-    const storySegments = splitCaptionSegments(storyText);
     if (includeIntro && introText) {
       const intro = introSegments?.length ? introSegments : splitCaptionSegments(introText);
-      return [...intro, ...storySegments];
+      return [...intro, ...storyCaptionSegments];
     }
-    return storySegments;
-  }, [includeIntro, introSegments, introText, storyText]);
+    return storyCaptionSegments;
+  }, [includeIntro, introSegments, introText, storyCaptionSegments]);
   const captionTiming = useMemo(() => buildCaptionTiming(captionSegments), [captionSegments]);
   const speechText = useMemo(() => {
     if (includeIntro && introText) {
@@ -75,6 +81,7 @@ export function TtsControls({
   }, [includeIntro, introText, storyText]);
 
   const previewText = speechText || storyText || introText || "";
+  const canExpandStory = previewText.trim().length > 280;
   const selectedProvider = normalizeFrontendTtsProvider(config.ttsProvider);
   const hasSavedAudio = Boolean(cachedAudio?.audioUrl);
   const defaultFineLabel = zh ? "听故事" : "Listen";
@@ -185,6 +192,7 @@ export function TtsControls({
 
   useEffect(() => {
     stop();
+    setStoryExpanded(false);
     return stop;
   }, [persona?.id, stop, speechText]);
 
@@ -227,10 +235,21 @@ export function TtsControls({
           <div className="h-full rounded-full bg-signal transition-[width]" style={{ width: `${progress * 100}%` }} />
         </div>
         <div className="mt-3 border-t border-ink/10 pt-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/45">
-            {zh ? "故事文字" : "Story text"}
-          </p>
-          <p className="mt-1 line-clamp-4 text-xs leading-5 text-ink/70">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/45">
+              {zh ? "故事文字" : "Story text"}
+            </p>
+            {canExpandStory ? (
+              <button
+                type="button"
+                onClick={() => setStoryExpanded((value) => !value)}
+                className="text-[11px] font-semibold text-signal transition hover:text-[var(--leaf-dark)]"
+              >
+                {storyExpanded ? (zh ? "收起" : "Collapse") : zh ? "展开全文" : "Full text"}
+              </button>
+            ) : null}
+          </div>
+          <p className={`mt-1 text-xs leading-5 text-ink/70 ${storyExpanded ? "max-h-56 overflow-auto pr-1" : "line-clamp-4"}`}>
             {previewText || (zh ? "故事准备好后可播放旁白。" : "Once the story is ready, narration can be played.")}
           </p>
         </div>
