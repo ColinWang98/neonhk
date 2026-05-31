@@ -1,1 +1,1 @@
-export const narrativeCacheVersion = 16;
+export const narrativeCacheVersion = 17;

@@ -369,7 +369,7 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
 
 function factSceneSentence(name: string, sourceText: string, certainty: "direct" | "cautious") {
   const lower = `${name} ${sourceText}`.toLowerCase();
-  const prefix = certainty === "direct" ? `I catch the name ${name} here` : `Around here, I keep ${name} in mind`;
+  const prefix = factOpening(name, sourceText, certainty);
   if (/\b(university|polytechnic|polyu|campus|school|college|student)\b/.test(lower)) {
     return `${prefix}, and I think of someone texting from the wrong entrance after class, asking where to meet and whether the canteen is still open.`;
   }
@@ -386,6 +386,30 @@ function factSceneSentence(name: string, sourceText: string, certainty: "direct"
     return `${prefix}, the sort of sign someone uses in a lazy message, wait by that shop and I will be there in five.`;
   }
   return `${prefix}, and I tie it to the small errand in my head, the message I am answering, and where I should wait without getting in the way.`;
+}
+
+function factOpening(name: string, sourceText: string, certainty: "direct" | "cautious") {
+  const directOpenings = [
+    `The name ${name} is what I notice first`,
+    `${name} is the bit that makes me slow down for a second`,
+    `I spot ${name}, and that gives this corner a handle`
+  ];
+  const cautiousOpenings = [
+    `Around here, ${name} is the name I keep in the back of my mind`,
+    `The map points me toward ${name}, so I use that name carefully`,
+    `${name} is useful around here, even if I keep it a little loose`
+  ];
+  const openings = certainty === "direct" ? directOpenings : cautiousOpenings;
+  return openings[deterministicIndex(`${name}:${sourceText}:${certainty}`, openings.length)];
+}
+
+function deterministicIndex(value: string, length: number) {
+  if (length <= 1) return 0;
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash % length;
 }
 
 function confidenceForPlan(plan: PersonaFragmentPlan): NarrativeBlock["confidence"] {
