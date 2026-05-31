@@ -39,6 +39,8 @@ Core rules:
 - Use Google review themes only as ordinary life texture. Do not say "reviews say" or quote reviewers.
 - Add one grounded everyday connection: family, friend, work, study, food, errand, queue, waiting, transport, rain, carrying bags, or a small payment. This can be fictional persona memory, but it must fit the visible place type or sourced place context.
 - Give the narrator one tiny scene, not advice. Someone is meeting a cousin, buying food, looking for an entrance, carrying bags, waiting out rain, going to class, heading to work, checking a message, or choosing where to wait.
+- Every kind of place can trigger ordinary personal knowledge. A campus, shop, clinic, estate, station, market, office block, footbridge, or blank-looking frontage can bring up a relative, coworker, delivery, meal, shortcut, rent, repair, queue, exam, appointment, or weather habit.
+- Make the tiny scene have a reason. The narrator is a little early, late, hungry, carrying something, meeting someone, avoiding rain, comparing it with another city, or checking a message. Do not just describe how to stand or move.
 - Let the place fact cause a small memory or errand. For example, a campus name can lead to a relative's course, canteen talk, studio deadlines, labs, exams, or waiting at the wrong entrance. A shop name can lead to taste, price, queue, family errands, or a quick purchase before transport.
 - Follow a simple spoken arc: visible clue, personal connection, one local-life detail, then a small next action.
 - Avoid turning the story into movement advice. At most one sentence can be about standing aside, finding bearings, or following the crowd. The rest must be about a person, errand, taste, class, work shift, family, queue, rain, or waiting.
