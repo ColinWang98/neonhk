@@ -34,6 +34,7 @@ type StoryJudgeDecision = {
 const storyJudgePrompt = `You are the Story Judge for a street-view place narration system.
 
 Judge the generated story as a user-facing narration, not as a research report.
+Only judge generatedStory.spokenStory as the user-facing text. Caption or grounding metadata is provided only to check evidence use; do not treat it as extra story sections or repetition.
 
 You must check:
 1. Factual grounding: factual claims must be supported by the Evidence Packet.
@@ -45,13 +46,14 @@ You must check:
 7. Role-play voice: the narrator's own fictional habits and experiences should sound direct, not hypothetical. Repeated phrases like "if I were visiting", "if I were working nearby", or "if this were on my usual route" are unnatural.
 8. Story quality: the narration should feel like one continuous small walk-through with one or two everyday actions or comparisons, not a bare list of cautious facts.
 9. Spoken style: fail if it sounds like a written explanation, repeats "I would", uses headings such as "What catches my eye", or uses abstract terms such as identity, rhythm, social meaning, urban texture, or public-facing environment.
+10. Anti-template check: fail if most of the story is generic wayfinding, standing aside, following the crowd, keeping passage open, or "this is how I orient myself" without a concrete person, errand, taste, class, work shift, payment, queue, rain, or waiting scene.
 
 Important:
 - A persona may make practical, cautious, first-person comparisons.
 - A tourist, newcomer, or temporary resident may compare with places they know.
 - A local or worker may use practical routine and street manners.
 - Do not fail a story only because it is cautious.
-- Fail when the story is misleading, exposes internal evidence policy, is badly unnatural, too formal/card-like, or violates clear evidence boundaries.
+- Fail when the story is misleading, exposes internal evidence policy, is badly unnatural, too formal/card-like, too generic, or violates clear evidence boundaries.
 
 Return strict JSON:
 {
@@ -84,8 +86,7 @@ export async function judgeNarrativeWithTextModel(input: StoryJudgeInput): Promi
           persona: input.persona,
           evidencePacket: compactEvidencePacket(input.evidencePacket),
           personaFragmentPlan: input.personaFragmentPlan,
-          narrativeBlocks: input.narrativeBlocks,
-          narratives: input.narratives,
+          generatedStory: compactGeneratedStory(input.narratives, input.narrativeBlocks),
           deterministicValidation: input.deterministicValidation
         })
       }
@@ -133,6 +134,30 @@ function normalizeJudgeDecision(value: StoryJudgeDecision): Required<Pick<StoryJ
     warnings,
     requiresRegeneration: Boolean(value.requiresRegeneration || status === "failed" || scoreFailure)
   };
+}
+
+function compactGeneratedStory(narratives: SchemaNarratives, narrativeBlocks: NarrativeBlock[]) {
+  return {
+    spokenStory: primaryNarrativeText(narratives),
+    grounding: narrativeBlocks.map((block) => ({
+      schema: block.schema,
+      claimType: block.claimType,
+      groundedIn: block.groundedIn,
+      confidence: block.confidence
+    }))
+  };
+}
+
+function primaryNarrativeText(narratives: SchemaNarratives) {
+  if (narratives.spokenStory?.trim()) return narratives.spokenStory.trim();
+  const blockText = (narratives.subtitleBlocks || narratives.storyBeats)?.map((block) => block.text).join(" ") || "";
+  if (blockText.trim()) return blockText.trim();
+  return [
+    narratives.functionalUse.text,
+    narratives.identityBelonging.text,
+    narratives.memoryTemporality.text,
+    narratives.socialCulturalResonance.text
+  ].join(" ").trim();
 }
 
 function compactEvidencePacket(packet: EvidencePacket) {

@@ -40,13 +40,13 @@ export function buildStoryFactPlan(
     })),
     avoidFacts,
     guidance: [
-      "Start the story from likelyVisibleIdentity or the first anchorFact when available.",
-      "Use anchorFacts as normal street talk, not as evidence language.",
-      "Use at most one supportingFact if it helps the narrator sound specific.",
-      "Sourced background can become a small life detail, not a lecture.",
+      "When there is a strong named place, use it early in plain speech.",
+      "Turn anchor facts into something the narrator would actually say on the pavement.",
+      "Use at most one extra fact if it helps the story feel specific.",
+      "Sourced background can become a small life detail, never a lecture.",
       "For any place type, let the persona connect the visible clue to ordinary life: errands, family talk, food, study, work, queues, routes, waiting, repairs, delivery, visiting, or weather.",
       "Do not mention avoidFacts as visible or selected.",
-      "If an anchorFact is medium confidence, phrase it as street-level caution rather than certainty."
+      "If a fact is medium confidence, phrase it like a useful street clue rather than a confirmed identification."
     ]
   };
 }
@@ -128,15 +128,15 @@ function storyFactText(claim: EvidenceClaim) {
 
 function wordingForClaim(claim: EvidenceClaim, label: string) {
   if (claim.allowedUse === "direct_fact") {
-    return `Use ${label} as a clear visible name.`;
+    return `${label} is a name the narrator can pick up naturally at the start.`;
   }
   if (claim.source === "candidate_verifier") {
-    return `Treat ${label} as a likely map-and-view match, but keep the wording casual and cautious.`;
+    return `${label} can be used as a likely landmark in casual words, without sounding certain.`;
   }
   if (/footprint|sight line|viewing cone/i.test(claim.text)) {
-    return `The mapped sight line points toward ${label}, so it can be used as a careful landmark.`;
+    return `This view points toward ${label}, so it can be used as a careful landmark, not a hard identification.`;
   }
-  return `Mention ${label} only as a careful visible or nearby landmark.`;
+  return `${label} can be mentioned only if it helps the narrator's everyday story.`;
 }
 
 function claimLabel(claim: EvidenceClaim) {

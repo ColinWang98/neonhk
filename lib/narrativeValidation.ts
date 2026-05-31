@@ -1,6 +1,5 @@
 import type {
   EvidencePacket,
-  GeneratedPersona,
   NarrativeBlock,
   NarrativeEvidenceView,
   NarrativeValidation,
@@ -150,12 +149,30 @@ export function reinforceConcreteFacts(
 ): SchemaNarratives {
   const fact = topConcreteFact(evidencePacket, evidenceView);
   if (!fact) return narratives;
-  const allText = narrativeText(narratives).toLowerCase();
-  if (allText.includes(fact.name.toLowerCase())) return narratives;
+  const userFacingText = userFacingNarrativeText(narratives).toLowerCase();
+  if (userFacingText.includes(fact.name.toLowerCase())) return narratives;
+  const spokenStory = narratives.spokenStory
+    ? `${fact.sentence} ${narratives.spokenStory}`.replace(/\s+/g, " ").trim()
+    : undefined;
+  const subtitleBlocks = narratives.subtitleBlocks?.length
+    ? [
+        {
+          ...narratives.subtitleBlocks[0],
+          text: `${fact.sentence} ${narratives.subtitleBlocks[0].text}`.replace(/\s+/g, " ").trim(),
+          groundedIn: Array.from(new Set([
+            ...narratives.subtitleBlocks[0].groundedIn,
+            ...(evidenceView?.primaryClaims.slice(0, 1).map((claim) => claim.id) || [])
+          ]))
+        },
+        ...narratives.subtitleBlocks.slice(1)
+      ]
+    : narratives.subtitleBlocks;
   if (narratives.storyBeats?.length) {
     const [first, ...rest] = narratives.storyBeats;
     return {
       ...narratives,
+      ...(spokenStory ? { spokenStory } : {}),
+      ...(subtitleBlocks ? { subtitleBlocks } : {}),
       storyBeats: [
         {
           ...first,
@@ -172,6 +189,8 @@ export function reinforceConcreteFacts(
   }
   return {
     ...narratives,
+    ...(spokenStory ? { spokenStory } : {}),
+    ...(subtitleBlocks ? { subtitleBlocks } : {}),
     functionalUse: {
       ...narratives.functionalUse,
       text: `${fact.sentence} ${narratives.functionalUse.text}`.replace(/\s+/g, " ").trim()
@@ -207,12 +226,12 @@ export function validateNarrative(params: {
       if (!claimIds.has(id)) warnings.push(`${block.schema} references unknown claim id ${id}.`);
       if (doNotUseIds.has(id)) warnings.push(`${block.schema} uses do_not_use claim id ${id}.`);
     }
-    if (block.confidence !== "high" && !hasUncertaintyCue(block.text)) {
-      warnings.push(`${block.schema} has ${block.confidence} confidence but no uncertainty cue.`);
-    }
   }
 
-  const allText = narrativeText(params.narratives).toLowerCase();
+  const allText = primaryNarrativeText(params.narratives).toLowerCase();
+  if (storyRequiresUncertaintyCue(params.narrativeBlocks, params.evidencePacket) && !hasUncertaintyCue(allText)) {
+    warnings.push("Narrative uses uncertain claims but no uncertainty cue.");
+  }
   if (hasMetaRefusal(allText)) {
     warnings.push("Narrative exposes evidence limits instead of turning uncertainty into a grounded persona perspective.");
   }
@@ -255,7 +274,6 @@ export function validateNarrative(params: {
     warning.includes("disabled") ||
     warning.includes("evidence limits") ||
     warning.includes("backend evidence language") ||
-    warning.includes("too formal") ||
     warning.includes("overstated as visible") ||
     warning.includes("direct cause")
   );
@@ -266,82 +284,21 @@ export function validateNarrative(params: {
   };
 }
 
-function narrativeText(narratives: SchemaNarratives) {
+function userFacingNarrativeText(narratives: SchemaNarratives) {
+  return primaryNarrativeText(narratives);
+}
+
+function primaryNarrativeText(narratives: SchemaNarratives) {
+  if (narratives.spokenStory?.trim()) return narratives.spokenStory.trim();
+  const spokenText = narratives.spokenStory || "";
+  const blockText = (narratives.subtitleBlocks || narratives.storyBeats)?.map((block) => block.text).join(" ") || "";
   const schemaText = [
-    narratives.spokenStory,
     narratives.functionalUse.text,
     narratives.identityBelonging.text,
     narratives.memoryTemporality.text,
     narratives.socialCulturalResonance.text
-  ];
-  const beatText = (narratives.subtitleBlocks || narratives.storyBeats)?.map((block) => block.text) || [];
-  return [...schemaText, ...beatText].join(" ");
-}
-
-export function buildSafeNarratives(params: {
-  evidencePacket: EvidencePacket;
-  evidenceView: NarrativeEvidenceView;
-  persona?: GeneratedPersona;
-  personaRole?: string;
-}): SchemaNarratives {
-  const mainFact = topConcreteFact(params.evidencePacket, params.evidenceView);
-  const visual = params.evidenceView.primaryClaims.find((claim) => claim.claimType === "visual_observation");
-  const feature = mainFact?.name || params.evidencePacket.fragment.mainFeature || visualName(visual) || "this detail";
-  const persona = personaStreetAngle(params.persona, params.personaRole);
-  const detail = feature === "this detail" ? "this selected detail" : feature;
-  const factLine = mainFact?.sentence || `Okay, ${detail} is the clue I use first here.`;
-  const story = [
-    `${factLine} ${persona.anchor}`,
-    `${persona.connection(detail)} ${persona.comparison}`,
-    `${persona.routine} ${persona.socialRule}`
   ].join(" ");
-  const subtitleBlocks = safeSubtitleBlocks(story, params.evidenceView, mainFact?.name ? "medium" : "low");
-  return {
-    spokenStory: story,
-    subtitleBlocks,
-    storyBeats: subtitleBlocks,
-    functionalUse: {
-      title: "Functional-Use",
-      text: subtitleBlocks[0]?.text || story
-    },
-    identityBelonging: {
-      title: "Identity-Belonging",
-      text: subtitleBlocks[1]?.text || story
-    },
-    memoryTemporality: {
-      title: "Memory-Temporality",
-      text: subtitleBlocks[2]?.text || story
-    },
-    socialCulturalResonance: {
-      title: "Social-Cultural Resonance",
-      text: subtitleBlocks[3]?.text || story
-    }
-  };
-}
-
-function safeSubtitleBlocks(
-  story: string,
-  evidenceView: NarrativeEvidenceView,
-  confidence: NarrativeBlock["confidence"]
-): NarrativeBlock[] {
-  const claimIds = evidenceView.primaryClaims.slice(0, 2).map((claim) => claim.id);
-  const schemas = [
-    "Functional-Use",
-    "Identity-Belonging",
-    "Memory-Temporality",
-    "Social-Cultural Resonance"
-  ] as const;
-  return story
-    .split(/(?<=[.!?。！？])\s+/)
-    .map((text) => text.trim())
-    .filter(Boolean)
-    .map((text, index) => ({
-      schema: schemas[index % schemas.length],
-      text,
-      claimType: index === 0 ? "cautious_interpretation" : "persona_interpretation",
-      groundedIn: claimIds,
-      confidence
-    }));
+  return `${spokenText} ${blockText || schemaText}`.trim();
 }
 
 function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: NarrativeEvidenceView): { name: string; sentence: string } | undefined {
@@ -358,9 +315,7 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
     if (name) {
       return {
         name,
-        sentence: verifier.allowedUse === "direct_fact"
-          ? `Okay, ${name} is the name I hold onto here.`
-          : `Maps puts ${name} around here, so I use that name carefully.`
+        sentence: factSceneSentence(name, verifier.text, verifier.allowedUse === "direct_fact" ? "direct" : "cautious")
       };
     }
   }
@@ -375,7 +330,7 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
     if (name) {
       return {
         name,
-        sentence: `The map footprint points me toward ${name}, so I keep that in mind.`
+        sentence: factSceneSentence(name, footprint.text, "cautious")
       };
     }
   }
@@ -388,8 +343,8 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
       return {
         name,
         sentence: entity.allowedUse === "direct_fact"
-          ? `The sign gives me ${name} as the name to follow.`
-          : `The sign seems to point toward ${name}.`
+          ? factSceneSentence(name, entity.text, "direct")
+          : factSceneSentence(name, entity.text, "cautious")
       };
     }
   }
@@ -401,11 +356,32 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
     if (name && name.length <= 80) {
       return {
         name,
-        sentence: `The readable text here says "${name}", so that is what I notice first.`
+        sentence: factSceneSentence(name, text.text, "direct")
       };
     }
   }
   return undefined;
+}
+
+function factSceneSentence(name: string, sourceText: string, certainty: "direct" | "cautious") {
+  const lower = `${name} ${sourceText}`.toLowerCase();
+  const prefix = certainty === "direct" ? `${name} is the name I catch here` : `Around here, I treat ${name} as the likely name`;
+  if (/\b(university|polytechnic|polyu|campus|school|college|student)\b/.test(lower)) {
+    return `${prefix}, and my mind goes straight to classes, canteens, and someone trying to find the right entrance.`;
+  }
+  if (/\b(restaurant|cafe|food|snack|egg waffle|bakery|noodle|market|茶餐|food court)\b/.test(lower)) {
+    return `${prefix}, and it already feels like a quick food stop, the kind people check before the next bus or train.`;
+  }
+  if (/\b(pharmacy|dispensary|clinic|medical|藥房|药房)\b/.test(lower)) {
+    return `${prefix}, and I picture a very normal family errand, picking something up quickly and getting out of the doorway.`;
+  }
+  if (/\b(station|bus|tram|mtr|taxi|transport|crossing)\b/.test(lower)) {
+    return `${prefix}, so I read this spot through transfers, messages, and people checking which way to go next.`;
+  }
+  if (/\b(shop|store|mall|sign|storefront|frontage|entrance)\b/.test(lower)) {
+    return `${prefix}, the sort of sign someone uses when they say, meet me by that shop.`;
+  }
+  return `${prefix}, and I use it as a small hook for the errand happening right in front of me.`;
 }
 
 function confidenceForPlan(plan: PersonaFragmentPlan): NarrativeBlock["confidence"] {
@@ -414,59 +390,22 @@ function confidenceForPlan(plan: PersonaFragmentPlan): NarrativeBlock["confidenc
   return "low";
 }
 
-function personaStreetAngle(persona?: GeneratedPersona, role?: string) {
-  const text = [persona?.role, persona?.userIntro, persona?.background, role].filter(Boolean).join(" ").toLowerCase();
-  if (/tourist|visitor|first-time|travell?er|overseas/.test(text)) {
-    return {
-      anchor: "I use big signs first, then I slow down at the edge.",
-      connection: (detail: string) => `A name like ${detail} is the kind of thing I text to a friend when we are trying to meet.`,
-      comparison: "Back home I might use street numbers, but here I trust shop signs, campus names, and where people pause.",
-      routine: "I notice the small bursts first, people buying quickly, checking directions, then moving away.",
-      socialRule: "I have learned not to stop in the middle of the pavement."
-    };
-  }
-  if (/temporary|short-term|recent arrival|newcomer|staying|migrant/.test(text)) {
-    return {
-      anchor: "After staying here a while, I read places by practical cues first.",
-      connection: (detail: string) => `A place like ${detail} becomes part of my small map, where to wait, where to duck in, where not to stand.`,
-      comparison: "I compare it with streets I knew before, then adjust to Hong Kong's faster pace.",
-      routine: "After a few weeks, I start noticing lunch, school time, rain, and people buying something fast.",
-      socialRule: "I pause at the edge first. That is the safest move while I am still learning the city."
-    };
-  }
-  if (/shop|stall|worker|security|driver|teacher|local worker/.test(text)) {
-    return {
-      anchor: "When I work near streets like this, I read them by how people move past.",
-      connection: (detail: string) => `${detail} is useful in a very normal way: someone says meet me there, pick this up, wait near that sign.`,
-      comparison: "That feels familiar in Hong Kong. A place can be useful even when you only catch the sign quickly.",
-      routine: "I notice deliveries, lunch breaks, shutters, and who is blocking the way.",
-      socialRule: "People give way when they can, because everyone is trying to get one small thing done."
-    };
-  }
-  if (/local|resident|neighbour|neighbor|retired|long-term/.test(text)) {
-    return {
-      anchor: "On my usual route, I read a frontage like this very practically.",
-      connection: (detail: string) => `${detail} is the sort of name I use when giving directions to family, not the full address.`,
-      comparison: "On a familiar street, a shop name is often just how you remember the corner.",
-      routine: "On a normal day, I notice whether it is busy, whether a queue spills out, and where people stand when it rains.",
-      socialRule: "People know to leave a narrow lane open, even when they are waiting or looking at the sign."
-    };
-  }
-  return {
-    anchor: "I keep my reading practical and small.",
-    connection: (detail: string) => `${detail} gives me one simple thing to hold onto before I decide where to stand.`,
-    comparison: "It helps me orient myself before I try to understand the wider place.",
-    routine: "The useful clues are ordinary ones: errands, waiting, rain, lunch time, and people passing.",
-    socialRule: "The safest rule is to stand aside before stopping."
-  };
-}
-
 function requiresUncertainty(ids: string[], packet: EvidencePacket) {
   return packet.claims.some((claim) => ids.includes(claim.id) && claim.uncertaintyCueRequired);
 }
 
+function storyRequiresUncertaintyCue(blocks: NarrativeBlock[], packet: EvidencePacket) {
+  return blocks.some((block) =>
+    block.claimType === "cautious_interpretation" ||
+    block.claimType === "background_context" ||
+    Boolean(block.uncertaintyCue) ||
+    requiresUncertainty(block.groundedIn, packet)
+  );
+}
+
 function hasUncertaintyCue(text: string) {
-  return /\b(may|might|could|maybe|possibly|looks like|feels like|seems|seem|i would guess|i would read|from what i can see|i would not treat it as certain|reminds me of|suggests)\b/i.test(text);
+  return /\b(may|might|could|maybe|possibly|probably|nearby|around here|in this area|looks like|feels like|seems|seem|appears|i read it as|i treat it as|i take it as|i keep in mind|keep that name in mind|carefully|not certain|not a hard identification|points me toward|seems to point|map points|maps put|maps puts|reminds me of|suggests)\b/i.test(text) ||
+    /(附近|这一带|周围|地图上|看起来|看上去|大概|可能|像是|先当作|先记住|不一定|不完全确定)/.test(text);
 }
 
 function hasMetaRefusal(text: string) {
@@ -482,7 +421,7 @@ function hasTemplatedOrFormalStoryVoice(text: string) {
   const repeatedWould = (text.match(/\bi would\b/gi) || []).length >= 4;
   const cardHeading = /\b(what catches my eye|what it brings up|a time of day|how people move here|how i use it|first impression|street timing|street manners|everyday use|shared space)\b/i.test(text);
   const abstractLanguage = /\b(identity|rhythm|social meaning|urban texture|public-facing environment|resonance|threshold|sense of belonging|layers of meaning|spatial context)\b/i.test(text);
-  const stiffPhrases = /\b(the timing matters more than the history|it is not a grand story|daily rhythm is the part i trust|gives me a handle on this little patch|the small rule is simple)\b/i.test(text);
+  const stiffPhrases = /\b(the timing matters more than the history|it is not a grand story|daily rhythm is the part i trust|gives me a handle on this little patch|the small rule is simple|use it first for orientation|use it for orientation|edge of the flow|one sign, one corner|stop feeling lost|keep the passage open|faster people pass|street manner i notice here)\b/i.test(text);
   return repeatedWould || cardHeading || abstractLanguage || stiffPhrases;
 }
 
@@ -496,11 +435,6 @@ function sentenceOverstatesBackground(candidate: string, lowerText: string) {
   const sentences = lowerText.split(/(?<=[.!?。！？])\s+|\n+/).filter(Boolean);
   const binding = /\b(this is|this shop is|this place is|this storefront is|this frontage is|the selected|the visible|visible storefront|visible shop|visible sign|is the selected|is the visible)\b|(?:这个|這個|这家|這家|可见|可見|框选|框選|选中|選中).{0,24}(就是|是|指向|对应|對應)/i;
   return sentences.some((sentence) => new RegExp(normalizedCandidate, "i").test(sentence) && binding.test(sentence));
-}
-
-function visualName(claim?: { text: string }) {
-  const match = claim?.text.match(/"([^"]+)"/);
-  return match?.[1]?.trim();
 }
 
 function escapeRegExp(value: string) {

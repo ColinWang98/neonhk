@@ -224,9 +224,11 @@ export function StreetImageViewer({
       <div className="flex flex-col gap-3 border-b border-ink/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-4">
         <div className="min-w-0">
           <p className="fine-label">{zh ? "全景图" : "Panorama"}</p>
-          <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "街道图像查看器" : "Street Image Viewer"}</h2>
+          <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "街景细节选择" : "Street detail selection"}</h2>
           <p className="mt-1 break-all text-xs text-ink/58">
-            {image ? `${providerLabel(image.provider)} image ${image.id}` : "Select a marker to begin"}
+            {image
+              ? zh ? `${providerLabel(image.provider)} 街景` : `${providerLabel(image.provider)} street view`
+              : zh ? "先在地图上选择一个街景点" : "Select a marker to begin"}
           </p>
           {image ? (
             <p className="mt-1 text-[11px] text-ink/45">
@@ -267,6 +269,7 @@ export function StreetImageViewer({
                   activeFragmentId={activeFragmentId}
                   viewportSize={viewportSize}
                   pov={pov}
+                  language={language}
                   disabled={googleSelecting}
                   onFragmentClick={onFragmentClick}
                 />
@@ -335,7 +338,7 @@ export function StreetImageViewer({
               </>
             ) : (
               <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/70">
-                {zh ? "当前部署还没有配置交互式街景。" : "Interactive Street View is not configured for this deployment."}
+                {zh ? "这里暂时打不开可拖动街景。" : "Interactive Street View is unavailable here right now."}
               </div>
             )}
           </div>
@@ -410,6 +413,7 @@ function FragmentBoxOverlay({
   activeFragmentId,
   viewportSize,
   pov,
+  language,
   disabled,
   onFragmentClick
 }: {
@@ -417,9 +421,11 @@ function FragmentBoxOverlay({
   activeFragmentId?: string;
   viewportSize: { width: number; height: number };
   pov: GooglePov;
+  language: "en" | "zh";
   disabled?: boolean;
   onFragmentClick?: (fragment: SelectedFragment) => void;
 }) {
+  const zh = language === "zh";
   if (disabled || viewportSize.width <= 0 || viewportSize.height <= 0 || fragments.length === 0) return null;
 
   return (
@@ -457,6 +463,13 @@ function FragmentBoxOverlay({
         const active = fragment.id === activeFragmentId;
         const ready = fragment.status === "ready";
         const hasAudio = Object.keys(fragment.audioGenerations || {}).length > 0;
+        const label = active
+          ? hasAudio
+            ? zh ? "当前故事" : "Current story"
+            : zh ? "当前白框" : "Current box"
+          : hasAudio
+            ? zh ? "回到故事" : "Return to story"
+            : zh ? "选择此框" : "Select this box";
 
         return (
           <button
@@ -478,7 +491,7 @@ function FragmentBoxOverlay({
             </span>
             {ready && shape.bounds.width >= 96 ? (
               <span className="absolute left-1/2 top-8 -translate-x-1/2 whitespace-nowrap rounded-sm border border-white/70 bg-white px-2 py-1 text-[11px] font-semibold text-ink shadow">
-                {active ? (hasAudio ? "Active audio" : "Active") : hasAudio ? "Play saved audio" : "Select this"}
+                {label}
               </span>
             ) : null}
           </button>

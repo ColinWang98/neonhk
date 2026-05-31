@@ -4,7 +4,7 @@ import { buildEvidencePacket } from "@/lib/evidence";
 import { getPlaceReviewContextForStory } from "@/lib/googlePlaceContext";
 import { geminiDiagnostics } from "@/lib/gemini";
 import { generateNarratives } from "@/lib/narrative";
-import { buildNarrativeBlocks, buildSafeNarratives, reinforceConcreteFacts, validateNarrative } from "@/lib/narrativeValidation";
+import { buildNarrativeBlocks, reinforceConcreteFacts, validateNarrative } from "@/lib/narrativeValidation";
 import { buildNarrativeEvidenceView } from "@/lib/narrativeEvidenceView";
 import { buildPersonaFragmentPlan } from "@/lib/personaFragment";
 import { buildStoryFactPlan } from "@/lib/storyFactPlan";
@@ -406,65 +406,6 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
         model: textDiagnostics.model
       }
     );
-  }
-
-  if (narrativeValidation.requiresRegeneration) {
-    repaired = true;
-    narrativeEvidenceView = await runAgent(
-      "SafeEvidenceViewAgent",
-      {
-        warnings: narrativeValidation.warnings,
-        mode: "safe"
-      },
-      async () => buildNarrativeEvidenceView(evidencePacket, { warnings: narrativeValidation.warnings, safeMode: true }),
-      {
-        ...runContext,
-        config,
-        agentRuns,
-        provider: "system",
-        model: "narrative-evidence-view-v1"
-      }
-    );
-    narratives = await runAgent(
-      "SafeNarrationAgent",
-      {
-        warnings: narrativeValidation.warnings,
-        primaryClaimCount: narrativeEvidenceView.primaryClaims.length
-      },
-      async () =>
-        buildSafeNarratives({
-          evidencePacket,
-          evidenceView: narrativeEvidenceView,
-          persona: input.persona,
-          personaRole: input.persona?.role
-        }),
-      {
-        ...runContext,
-        config,
-        agentRuns,
-        provider: "system",
-        model: "safe-narration-v1"
-      }
-    );
-    narrativeBlocks = buildNarrativeBlocks(narratives, evidencePacket, personaFragmentPlan, narrativeEvidenceView);
-    deterministicValidation = validateNarrative({
-      narratives,
-      narrativeBlocks,
-      evidencePacket,
-      plan: personaFragmentPlan
-    });
-    narrativeValidation = {
-      ...deterministicValidation,
-      status: deterministicValidation.requiresRegeneration ? "warning" : deterministicValidation.status,
-      requiresRegeneration: false,
-      validator: "system",
-      deterministicWarnings: deterministicValidation.warnings,
-      aiWarnings: narrativeValidation.aiWarnings || [],
-      aiDecision: {
-        previousFailure: narrativeValidation.aiDecision,
-        safeNarrationApplied: true
-      }
-    };
   }
 
   return {

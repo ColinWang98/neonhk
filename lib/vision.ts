@@ -37,7 +37,7 @@ Return strict JSON with:
 
 If the crop contains identifiable people, license plates, private interiors, or sensitive information, mark privacyRisk.riskLevel as "medium" or "high".`;
 
-const scenePrompt = `You are analyzing a full street-level panorama snapshot for a place-story prototype.
+const scenePrompt = `You are analyzing a full street-level panorama snapshot for a place-story experience.
 
 Describe only what is visually observable. Do not infer historical events, demographic identities, ownership, private information, or community facts.
 Focus on spatial layout, visible public-space elements, movement/access cues, material qualities, surfaces, boundaries, signs, seating, paths, and signs of everyday use.

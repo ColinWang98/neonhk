@@ -2,7 +2,7 @@
 
 import L from "leaflet";
 import { Camera } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MapContainer, Marker, TileLayer, Tooltip, useMapEvents } from "react-leaflet";
 import type { StorySession, StreetImage } from "@/types";
 
@@ -55,61 +55,69 @@ export function LeafletMap({
   onImageSelect,
   onSavedSessionSelect
 }: Props) {
+  const [mounted, setMounted] = useState(false);
   const center = useMemo<[number, number]>(() => {
     if (selectedImage) return [selectedImage.lat, selectedImage.lng];
     if (images[0]) return [images[0].lat, images[0].lng];
     return [22.303, 114.172];
   }, [images, selectedImage]);
+  const mapKey = `${provider}:${center[0].toFixed(5)}:${center[1].toFixed(5)}`;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="surface-panel relative h-full overflow-hidden rounded-md bg-field">
-      <MapContainer center={center} zoom={17} scrollWheelZoom className="z-0">
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <ClickHandler onLocationClick={onLocationClick} />
-        {savedSessions.map((session) => (
-          <Marker
-            key={session.id}
-            position={[session.lat, session.lng]}
-            icon={savedSessionIcon}
-            eventHandlers={{
-              click: () => onSavedSessionSelect?.(session)
-            }}
-          >
-            <Tooltip direction="top">
-              <div className="text-xs">
-                <div className="font-medium">Saved spatial story</div>
-                <div>{new Date(session.createdAt).toLocaleString()}</div>
-              </div>
-            </Tooltip>
-          </Marker>
-        ))}
-        {images.map((image) => (
-          <Marker
-            key={image.id}
-            position={[image.lat, image.lng]}
-            icon={selectedImage?.id === image.id ? selectedMarkerIcon : markerIcon}
-            eventHandlers={{
-              click: () => onImageSelect(image)
-            }}
-          >
-            <Tooltip direction="top">
-              <div className="flex items-center gap-1 text-xs">
-                <Camera className="h-3 w-3" />
-                {image.capturedAt ? new Date(image.capturedAt).toLocaleDateString() : image.id}
-              </div>
-            </Tooltip>
-          </Marker>
-        ))}
-      </MapContainer>
+      {mounted ? (
+        <MapContainer key={mapKey} center={center} zoom={17} scrollWheelZoom className="z-0">
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <ClickHandler onLocationClick={onLocationClick} />
+          {savedSessions.map((session) => (
+            <Marker
+              key={session.id}
+              position={[session.lat, session.lng]}
+              icon={savedSessionIcon}
+              eventHandlers={{
+                click: () => onSavedSessionSelect?.(session)
+              }}
+            >
+              <Tooltip direction="top">
+                <div className="text-xs">
+                  <div className="font-medium">Saved street story</div>
+                  <div>{new Date(session.createdAt).toLocaleString()}</div>
+                </div>
+              </Tooltip>
+            </Marker>
+          ))}
+          {images.map((image) => (
+            <Marker
+              key={image.id}
+              position={[image.lat, image.lng]}
+              icon={selectedImage?.id === image.id ? selectedMarkerIcon : markerIcon}
+              eventHandlers={{
+                click: () => onImageSelect(image)
+              }}
+            >
+              <Tooltip direction="top">
+                <div className="flex items-center gap-1 text-xs">
+                  <Camera className="h-3 w-3" />
+                  {image.capturedAt ? new Date(image.capturedAt).toLocaleDateString() : image.id}
+                </div>
+              </Tooltip>
+            </Marker>
+          ))}
+        </MapContainer>
+      ) : null}
       <div className="pointer-events-none absolute left-4 top-4 z-[500] rounded-md border border-ink/10 bg-paper/95 px-3 py-2 text-xs text-ink shadow-sm">
-        Click the map to search nearby {provider === "google" ? "Google Street View" : "Mapillary"} images.
+        Click the map to find nearby {provider === "google" ? "Google Street View" : "Mapillary"} scenes.
       </div>
       {savedSessions.length ? (
         <div className="pointer-events-none absolute bottom-4 right-4 z-[500] rounded-md border border-ink/10 bg-paper/95 px-3 py-2 text-xs text-ink shadow-sm">
-          Green points are saved stories.
+          Green points are saved story places.
         </div>
       ) : null}
     </div>

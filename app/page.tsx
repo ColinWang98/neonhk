@@ -91,7 +91,8 @@ export default function Home() {
         runtimeHeaders
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Search failed.");
+      console.error("Street-view search failed", err);
+      setError(searchErrorMessage(err, imageProvider));
     } finally {
       setIsSearching(false);
     }
@@ -153,12 +154,12 @@ export default function Home() {
     <main className="story-shell flex min-h-dvh flex-col p-3 text-ink sm:p-5 lg:h-screen">
       <header className="surface-panel mb-4 flex flex-col gap-4 px-4 py-4 sm:mb-5 sm:px-5 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="fine-label mb-2">Street-level narrative prototype</p>
+          <p className="fine-label mb-2">Hong Kong street reading</p>
           <h1 className="text-[1.75rem] font-semibold tracking-normal text-ink sm:text-[2rem] md:text-[2.4rem]">
             HK Spatial Story
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-6 text-ink/62">
-            Choose a Hong Kong street scene, then enter a guided panorama story.
+            Pick a street view, choose a narrator, then listen to one selected detail.
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
@@ -179,7 +180,7 @@ export default function Home() {
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
               className="h-10 min-w-0 flex-1 rounded-full border-2 border-ink/15 bg-paper px-4 text-sm outline-none transition focus:border-signal"
-              placeholder="lat, lng"
+              placeholder="Search by lat, lng"
             />
             <button
               type="submit"
@@ -223,11 +224,11 @@ export default function Home() {
           ) : null}
         </div>
 
-        <aside className="surface-panel flex min-h-[360px] flex-col lg:min-h-0">
+        <aside className="surface-panel flex min-h-[240px] flex-col lg:min-h-0 lg:self-start">
           <div className="border-b border-ink/10 px-5 py-4">
-            <p className="fine-label">Step 1</p>
-            <h2 className="mt-1 text-base font-semibold text-ink">Select a Scene</h2>
-            <p className="mt-1 text-xs leading-5 text-ink/58">Map first, story second.</p>
+            <p className="fine-label">Start here</p>
+            <h2 className="mt-1 text-base font-semibold text-ink">Choose a street view</h2>
+            <p className="mt-1 text-xs leading-5 text-ink/58">The next screen opens the panorama and saved story boxes.</p>
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5">
             {selectedImage ? (
@@ -245,20 +246,24 @@ export default function Home() {
                     <MapPin className="h-3.5 w-3.5 text-brass" />
                     {selectedImage.lat.toFixed(5)}, {selectedImage.lng.toFixed(5)}
                   </p>
-                  <p className="break-all text-xs text-ink/55">{selectedImage.id}</p>
+                  <p className="text-xs text-ink/55">
+                    {selectedImage.capturedAt
+                      ? `Captured ${new Date(selectedImage.capturedAt).toLocaleDateString()}`
+                      : "Street-view point selected"}
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={enterStory}
                   className="soft-button-primary mt-auto inline-flex h-11 items-center justify-center gap-2 px-5 text-sm font-semibold"
                 >
-                  Enter Story
+                  Read this place
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </>
             ) : (
-              <div className="flex h-full items-center justify-center rounded-[16px] border-2 border-dashed border-ink/20 px-5 text-center text-sm leading-6 text-ink/55">
-                Search coordinates or click the map, then choose a street scene marker.
+              <div className="flex min-h-[9.5rem] items-center justify-center rounded-[16px] border-2 border-dashed border-ink/20 px-5 text-center text-sm leading-6 text-ink/55">
+                Search coordinates or click the map, then choose a street-view marker.
               </div>
             )}
           </div>
@@ -272,6 +277,18 @@ function parseLatLng(input: string) {
   const parts = input.split(",").map((part) => Number(part.trim()));
   if (parts.length !== 2 || parts.some((part) => !Number.isFinite(part))) return null;
   return { lat: parts[0], lng: parts[1] };
+}
+
+function searchErrorMessage(error: unknown, provider: ImageProvider) {
+  const message = error instanceof Error ? error.message : "";
+  if (/api_key|key|not configured|unauthorized|forbidden/i.test(message)) {
+    return provider === "google"
+      ? "Street View search is not available here right now. Try Mapillary, or use the live site with Street View enabled."
+      : "Mapillary search is not available here right now. Try another source, or use the live site.";
+  }
+  return provider === "google"
+    ? "Street View search did not find a usable scene here. Try another point nearby."
+    : "Mapillary search did not find a usable scene here. Try another point nearby.";
 }
 
 function providerLabel(provider: ImageProvider) {

@@ -18,206 +18,12 @@ type NarrativeVisualContext = {
   image?: StreetImage;
 };
 
-const narrativePrompt = `You are generating spoken place stories for a user-selected street-level image fragment.
-
-Use only:
-1. visually observable cues from the crop
-2. cautious interpretation
-3. the selected fictional persona as a narrator's lens
-4. optional nearby place context, only as approximate context around the panorama coordinate
-5. optional Wikidata/Wikipedia/news notes, only when they have a natural nearby relationship to the pano point
-
-Do not invent:
-- historical facts
-- demographic identities
-- community stories
-- cultural traditions
-- ownership
-- personal information
-- events that cannot be verified from the image
-- abstract cultural meaning that is not grounded in the persona's everyday experience
-
-Important distinction:
-- You may let the persona speak from personal habits, memories, and comparisons, e.g. "this reminds me of the small shops near my old flat".
-- You may let the persona have fictional, ordinary personal ties, as long as they are clearly the persona's own life and not presented as verified facts about the photographed place. Good examples: "my cousin's kid studies nearby", "a friend told me the canteen queue gets silly", "my nephew keeps talking about studio deadlines", "when I worked near a campus like this...".
-- Cultural interpretation is allowed, but do not make it poetic. Put it into plain street talk: where to stand, what to avoid, where to queue, whether a shop looks open, whether the pavement is tight, whether the sign helps.
-- You must not claim an unverifiable fact about the actual photographed place, e.g. do not write "this shop used to be a fish shop" unless the visual evidence says so.
-- Keep evidence limits backstage for every persona. Do not tell the user "there is not enough evidence", "I cannot talk about this", "I will not guess", or "I cannot know". If evidence is weak, use a smaller grounded observation, a route-finding judgement, or a personal comparison instead.
-- PersonaFragmentPlan personaMustAvoid entries are internal boundaries. Do not quote them, summarize them, or turn them into refusal sentences.
-- Every persona can still speak naturally without overclaiming: a local resident can use routine and street manners, a worker can use practical operations, a tourist can use wayfinding and comparison, a temporary resident can use what they have learned after staying here, and a return visitor can compare old habits with what is visible now.
-- If a nearby candidate is view-aligned, close, and marked cautious_possible in the Evidence Packet, you may mention it as a possible map match in plain words: "Maps puts X roughly this way, so it could be related, but I would not swear it is this exact frontage."
-- If an Evidence Packet claim comes from candidate_verifier, treat it as the visual-map reasoning result. Use its suggested wording or reason before falling back to generic phrases. This is stronger than ordinary nearby context, but still cautious unless allowedUse is direct_fact.
-- If an Evidence Packet claim says a mapped building footprint intersects the selected sight line, treat it as stronger spatial evidence than an ordinary nearby place. Say it plainly but cautiously: "The map footprint and this sight line point to X." Do not call it certain unless visual text also supports it.
-- Direct facts and high-confidence facts are anchors. Medium-confidence facts are optional. Use at most one or two medium-confidence facts across the whole story, only when they help the narrator's walk-through. Do not stuff every candidate name or public note into the narration.
-- When using a medium-confidence fact, make it sound casual: "I keep that name in mind", "that might be the useful landmark", "I would not build the whole story on it". If it feels awkward, skip it.
-- When a sourced name is likely to appear in the story, do not stop at wayfinding. Connect it to related everyday life for that place type: buying, eating, waiting, studying, working, visiting, repairing, delivering, crossing, finding shade, avoiding rain, or meeting someone.
-- One small persona anecdote is welcome for any place type. A campus can bring up a relative's child, courses, studios, labs, exams, or canteen food. A shop can bring up a regular purchase, a queue, a cashier, a family errand, or a price someone remembers. A station can bring up rushing, missing an exit, or carrying bags. A clinic or pharmacy can bring up picking something up for family. Do not claim those anecdotes are verified facts about the photographed place. Say them as lived talk: "my cousin's kid...", "a friend told me...", "I usually...", "people around me mention...".
-- If Google Places review context is provided, use it only as social-lite background about the target place that is already likely to appear in the story. Do not quote reviewers. Do not mention usernames. Do not say reviews prove what is visible. Turn review themes into ordinary talk: food, queues, service, student routines, finding the entrance, or busy timing.
-- For all place types, use sourced public facts as the frame and persona memory as the warmth. The story should feel like a person linking a visible place to the life around it, not like a database result.
-- Do not expose evidence machinery in the spoken story. Avoid phrases like "the map and image make", "visual-map verifier", "candidate", "matchLevel", "Evidence Packet", "primary claims", or "possible match here".
-- Turn map uncertainty into normal street talk. Say "Maps puts X around this frontage", "I would treat X as a likely landmark", or "I would use that name carefully", not "the map and image make X a possible match".
-- If nearby place context is only background_only, you may say a named shop or address is nearby, but do not say it is the selected fragment.
-- If the Evidence Packet has direct_fact or cautious_possible claims for readable text, a publicEntityCandidate, a university, school, station, hospital, museum, public building, or named landmark, use that concrete name early. Do not hide it behind generic phrases like "this building" or "the place".
-- If the crop or map strongly indicates a public building such as The Hong Kong Polytechnic University, say it plainly but cautiously when needed: "This looks like part of PolyU" or "The map and signage point to PolyU here." This is allowed for public institutions, not private people or private homes.
-- If Wikidata/Wikipedia source notes are provided, treat them as sourced nearby context, not as direct evidence about the selected fragment. Use wording like "nearby, there is..." or "around this pano point..." unless the crop clearly shows that entity.
-- Only weave a Wikipedia note into the story when it has a natural relation to the location or street atmosphere. Do not force a famous landmark into a tiny crop if the connection would feel random.
-- If news or official notice claims are provided, treat them as local concern background. They are mainly relevant to local residents, shop workers, long-term residents, and other narrators with localConcernLevel high.
-- If localConcernLevel is medium, mention news only briefly and cautiously, using wording like "I heard reports around here" or "there was coverage around this area".
-- If localConcernLevel is low, do not bring in news unless it is essential for orientation. A tourist narrator should mostly notice visible environment and direction.
-- Never say a news item explains the selected fragment, a closed shutter, graffiti, queue, or shop condition unless the evidence explicitly has exact address confirmation and visual support.
-- Old news must sound old. Use phrases like "older reports", "in 2024", or "some past coverage", not present-tense certainty.
-- Never invent news, events, ownership, former shop uses, or community history from a nearby entity name alone.
-- Use first-person persona perspective by default. The writing should feel like the narrator is standing here, speaking to one visitor beside them.
-- Treat the persona as an active fictional role-play speaker, not a hypothetical observer. The narrator may state their own fictional habits and experiences directly: "I usually...", "I learned...", "I still get confused by...", "Back home...", "After staying here a while...".
-- Keep uncertainty only for real-world facts about the photographed place. Do not make the persona's own experience sound uncertain.
-- Do not label the persona in the sentence. Never write "as a temporary-resident", "as a tourist", or "as a local resident". Let the role show through habits and comparison.
-- Use the persona's background, userIntro, role, and voiceHint. Each segment should contain one small clue that only this narrator would say: a work habit, local routine, visitor comparison, short-term resident learning curve, age-related pace, or ordinary preference.
-- Each segment should contain either a concrete place fact, a visible detail, or a persona-specific anecdote. Do not let all segments become movement advice.
-- If the persona is a temporary resident, use phrases like "after staying here a while", "I am still learning which signs matter", or "compared with where I lived before".
-- If the persona is a visitor, use direct travel habits: "when I visit a street like this", "I use big signs first", "I slow down at the edge", and comparison with travel habits.
-- If the persona is local or a worker, use direct lived routines: "on my usual route", "when I work nearby", "I know to leave space", plus errands, shortcuts, queue manners, shop opening rhythms, rain, delivery, lunch, transport timing, and where people stand.
-- Make it oral and practical: short sentences, small reactions, concrete actions, and ordinary street judgement.
-- Avoid academic or report-like language. Do not sound like an image caption, urban studies abstract, or museum label.
-- Avoid literary language. Avoid phrases like "the city remembers", "traces of time", "layers of meaning", "sense of belonging", "resonance", "threshold", "ritual", "quiet poetry", or "the street tells us".
-- Avoid soft abstract verbs when a direct phrase works. Prefer "I would stand here", "I would not block this bit", "this looks shut", "the sign helps", "the railing keeps people moving".
-- The persona should sound ordinary: mention walking to lunch, waiting for a minibus, buying tea, avoiding rain, carrying shopping, opening a shutter, checking a sign, or finding where to stand.
-- Keep it a little messy in a human way. It is fine to say "I mean", "you know", "maybe not", "to be honest", or "I would just..." when natural.
-- Add a few natural spoken fillers, but do not overdo it. Good options include "you know", "I mean", "honestly", "okay", "right", "maybe", "I suppose", "to be honest", "sort of", and "a little bit". Use at most two fillers per segment.
-- Use small spoken turns that a real person says while walking: "okay, so", "the thing is", "I normally", "I just", "that is the bit I look for", "I learned that pretty quickly", "I would not overthink it". Do not overuse any one phrase.
-- Avoid em dashes and long dash punctuation. Do not use "—" or "–". Use commas, periods, or short separate sentences instead.
-- Avoid long complex sentences. Most sentences should be under 16 words. Break one idea into two short sentences when possible.
-- Avoid semicolons and heavy clauses. The story should be easy to subtitle and easy to speak aloud.
-- Avoid repeated formula phrases such as "the visible cues", "this fragment may suggest", "can be read as", "spatial context", "I would notice", and "I cannot know".
-- Avoid stiff evidence phrases such as "this frontage has a simple identity", "I would keep the reading modest", "without pretending I know the whole place", "the map and image", "possible match here", and "as a temporary-resident".
-- Avoid role-play hypotheticals such as "if I were visiting", "if I were working nearby", "if this were on my usual route", "I would keep it simple", and repeated "I would..." sentence starts. Use direct persona voice instead.
-- Avoid meta-refusal phrases such as "there is not enough evidence", "not enough information", "I cannot describe", "I cannot talk about", "I will not speculate", "I will not invent", "I don't know enough", and "no detailed story can be provided".
-- Never use evidence policy as spoken content. The user should hear a careful person, not a compliance note.
-- Do not repeat the same safety sentence in all four segments. Each segment must add one new concrete thing: a named place, a sign, an entrance, a route, a material detail, a public use, or a small action.
-- Prefer phrases like "I would look at...", "I would stand...", "I would not block...", "this looks like...", "Maps puts X nearby...", "from what I can see...", and "I would read it as...".
-- Make the story beats feel like one small walk-through with the narrator. Start with what catches their eye, then what they do with that clue, then what it reminds them of, then how they move with other people. Do not make separate mini reports.
-- Give the narrator a tiny scene, not just an opinion. Examples: arriving from the MTR, slowing near a doorway, checking a sign while holding a drink, letting a delivery worker pass, comparing the shopfront with a street near home, or choosing where to wait in rain.
-- Make at least one beat about what the identified place is connected to beyond the exact crop: buying something, eating, waiting, studying, working, commuting, visiting someone, family talk, carrying bags, avoiding rain, or why someone would care about that name. Keep this connection modest and human.
-- The persona's lived action should be direct: "I slow down", "I use the sign", "I step to the side", "I learned this after a few weeks here". Use "I would" only when the action is genuinely conditional.
-
-Use cautious language such as:
-- "maybe"
-- "looks like"
-- "feels a bit like"
-- "I would guess carefully"
-- "reminds me of"
-- "I would read this as"
-- "from what I can see"
-- "I would not treat it as certain"
-
-Evidence boundary:
-- The model input includes a NarrativeEvidenceView, a StoryFactPlan, and a Persona Fragment Plan.
-- Treat NarrativeEvidenceView.primaryClaims as the only source of factual claims about the selected fragment.
-- Treat StoryFactPlan.anchorFacts as the facts that should shape the opening of the story.
-- Treat StoryFactPlan.supportingFacts as optional. Use them only if they make the narrator more concrete.
-- Treat StoryFactPlan.avoidFacts as names or facts that should not be described as visible or selected.
-- NarrativeEvidenceView.optionalNearbyClaims are optional. Use them only as "nearby" or "around here" context, and omit them if awkward.
-- Medium-confidence primaryClaims are also optional for style. Stronger facts should shape the story, but medium facts can be skipped when they make the speech sound like a list.
-- Never describe optionalNearbyClaims as visible in, selected by, or identical to the fragment.
-- Do not mention NarrativeEvidenceView.forbiddenVisibleNames as visible in the selected fragment.
-- Every segment must be grounded in primaryClaims, optional nearby context, and activeSchemas.
-- If a claim uncertaintyCueRequired is true, use cautious wording.
-- If the plan narrativeMode is brief_comment, make each segment shorter and more modest.
-- If the plan narrativeMode is question_or_observation, phrase the segment as a small observation or question.
-- If a schema is weakly supported, use the strongest available facts and make a narrower everyday observation. Do not say the schema is unsupported.
-- If the plan localConcernLevel is low, avoid news_context and official_notice claims.
-- If the persona is a tourist, newcomer, temporary resident, short-term resident, first-time visitor, or return visitor, weak fit does not mean silence. Use outsider stance: first impressions, route-finding, crowd-following, travel comparison, origin-culture comparison, and what they have slowly learned after staying here. Do not pretend to know long-term local memory.
-- If the persona is a local resident, shop worker, local worker, driver, retiree, teacher, security guard, or other locally familiar role, weak evidence still does not mean refusal. Use practical routine, crowd manners, opening and closing rhythms, weather habits, transport timing, or how locals avoid blocking each other.
-- If the plan fitLevel is low or not_applicable, still write useful spoken observations unless the plan narrativeMode is disabled. Keep them modest and comparative.
-- If the plan narrativeMode is disabled, return very brief privacy-safe text only. Do not invent a story.
-
-Generate 3 to 5 spoken story beats, each 55-95 words. They should connect into a small, everyday story rather than four versions of the same point. The backend may reorder or display these beats directly, so do not write phrases like "first", "second", "finally", or "in this section".
-Each storyBeat.title must be a natural spoken card title, not a schema title. Never use "How I use it", "First impression", "Street timing", "Street manners", "Functional-Use", "Identity-Belonging", "Memory-Temporality", or "Social-Cultural Resonance" as user-facing titles. Use titles like "The name I grab first", "What that campus name brings up", "Where I would wait", or "The lunch-hour version".
-
-Loose story shape:
-- Segment 1: the first useful clue, then the narrator's immediate street action.
-- Segment 2: how the clue changes the narrator's feeling of approach, familiarity, or awkwardness.
-- Segment 3: the simple timing of the place: lunch, rain, opening, closing, delivery, campus flow, school flow, station flow, or people passing.
-- Segment 4: the social rule the narrator follows around other people.
-- Every persona should turn uncertainty into a lived angle. Use one or two light personal comparisons across the full story, matched to the persona. Good examples: "where I lived before...", "after staying here a while...", "when I worked nearby...", "when I visit a street like this...", "on my usual route...". Keep it practical, not sentimental.
-
-Do not start more than one segment with "This looks like", "I would", or "Maybe". Use different openings.
-
-Use schemas only as hidden tags for each beat:
-- Functional-Use: entering, waiting, passing, queueing, checking a sign, avoiding blocking, or moving on.
-- Identity-Belonging: whether the detail feels readable, approachable, awkward, familiar, or closed.
-- Memory-Temporality: routine timing such as opening, closing, rain, lunch, delivery, campus flow, station flow, or people passing.
-- Social-Cultural Resonance: street manners, giving way, where not to stand, how people share tight pavement.
-
-Voice example to imitate. Do not copy the exact objects or facts. This example is only for tone; the real response must follow the final JSON shape with storyBeats:
-{
-  "storyBeats": [
-    {
-      "title": "The name I grab first",
-      "schema": "Functional-Use",
-      "text": "Maps puts the named shop around this frontage, so I use the sign carefully, not like proof. After staying here a while, I trust big shop names more than tiny street numbers. I glance up, move aside, and let the queue breathe.",
-      "groundedIn": ["claim_id"],
-      "confidence": "medium",
-      "claimType": "cautious_interpretation"
-    },
-    {
-      "title": "What it brings up",
-      "schema": "Identity-Belonging",
-      "text": "The name gives me a quick handle, but it also brings up ordinary talk. A friend might mention the lunch queue, a nephew might complain about studio work, and suddenly this is not just a frontage. It becomes a place people arrange their day around.",
-      "groundedIn": ["claim_id"],
-      "confidence": "medium",
-      "claimType": "persona_interpretation"
-    }
-  ],
-  "functionalUse": {
-    "title": "Functional-Use",
-    "text": "Maps puts the named shop around this frontage, so I use the sign carefully, not like proof. After staying here a while, I trust big shop names more than tiny street numbers. I glance up, move aside, and let the queue breathe."
-  },
-  "identityBelonging": {
-    "title": "Identity-Belonging",
-    "text": "The name gives me a quick handle, but it also brings up ordinary talk. A friend might mention the lunch queue, a nephew might complain about studio work, and suddenly this is not just a frontage."
-  },
-  "memoryTemporality": {
-    "title": "Memory-Temporality",
-    "text": "This feels like the kind of place that changes by the hour. Maybe busy after school, quieter before lunch, wet and cramped when it rains."
-  },
-  "socialCulturalResonance": {
-    "title": "Social-Cultural Resonance",
-    "text": "The small rule is simple: do not block the shopfront. I learned that quickly in Hong Kong. If I need to check my phone, I step sideways first."
-  }
-}
-
-Return strict JSON with this shape. storyBeats is the user-facing story. The four schema fields are only fallback compatibility and should summarize the beats without adding new facts:
-{
-  "storyBeats": [
-    {
-      "title": string,
-      "schema": "Functional-Use" | "Identity-Belonging" | "Memory-Temporality" | "Social-Cultural Resonance",
-      "text": string,
-      "groundedIn": [claim id strings],
-      "confidence": "low" | "medium" | "high",
-      "claimType": "direct_observation" | "cautious_interpretation" | "persona_interpretation" | "background_context"
-    }
-  ],
-  "functionalUse": {
-    "title": "Functional-Use",
-    "text": string
-  },
-  "identityBelonging": {
-    "title": "Identity-Belonging",
-    "text": string
-  },
-  "memoryTemporality": {
-    "title": "Memory-Temporality",
-    "text": string
-  },
-  "socialCulturalResonance": {
-    "title": "Social-Cultural Resonance",
-    "text": string
-  }
-}
-
-Do not return arrays, narrativeBlocks, markdown, or wrapper keys. The four top-level keys above are required.`;
-void narrativePrompt;
+type StoryBrief = {
+  personaMode: string;
+  placeHooks: string[];
+  microSceneOptions: string[];
+  avoidPatterns: string[];
+};
 
 const continuousNarrativePrompt = `You are writing one continuous spoken street-view story for a selected image fragment.
 
@@ -227,24 +33,29 @@ Use the provided NarrativeEvidenceView, StoryFactPlan, persona, and PersonaFragm
 
 Core rules:
 - Write one first-person monologue, around 120 to 220 words.
-- Split the same monologue into 5 to 8 subtitleBlocks. The blocks are for subtitles only. They are not cards and must not have user-facing headings.
-- subtitleBlocks must be consecutive slices of spokenStory in the same order. Do not summarize or rewrite the story differently inside subtitleBlocks.
-- Keep subtitleBlocks balanced for audio sync: usually 16 to 34 words per block, one short sentence or two very short sentences.
 - Keep schema names hidden. Do not write section titles like "What catches my eye", "A time of day", "How people move here", "Functional-Use", or similar.
 - Mention one strong or medium-confidence place fact when it helps. Say it in normal speech, not evidence language.
-- Medium-confidence facts are optional. Use them carefully, with weak binding such as "Maps puts X around here" or "I use that name as a landmark".
+- Medium-confidence facts are optional. Use them carefully, with weak binding such as "Around here, X is the name I keep in mind" or "I use that name as a landmark".
 - Use Google review themes only as ordinary life texture. Do not say "reviews say" or quote reviewers.
-- Add one grounded everyday connection: family, friend, work, study, food, errand, queue, waiting, transport, rain, carrying bags, or where to stand. This can be fictional persona memory, but it must fit the visible place type or sourced place context.
+- Add one grounded everyday connection: family, friend, work, study, food, errand, queue, waiting, transport, rain, carrying bags, or a small payment. This can be fictional persona memory, but it must fit the visible place type or sourced place context.
+- Give the narrator one tiny scene, not advice. Someone is meeting a cousin, buying food, looking for an entrance, carrying bags, waiting out rain, going to class, heading to work, checking a message, or choosing where to wait.
+- Let the place fact cause a small memory or errand. For example, a campus name can lead to a relative's course, canteen talk, studio deadlines, labs, exams, or waiting at the wrong entrance. A shop name can lead to taste, price, queue, family errands, or a quick purchase before transport.
+- Follow a simple spoken arc: visible clue, personal connection, one local-life detail, then a small next action.
+- Avoid turning the story into movement advice. At most one sentence can be about standing aside, finding bearings, or following the crowd. The rest must be about a person, errand, taste, class, work shift, family, queue, rain, or waiting.
 - Keep uncertainty only for real-world facts. The persona's own habits and memories can be direct.
 - Never say "not enough evidence", "I cannot know", "I will not guess", "I will not invent", or similar policy language.
 - Never label the narrator as "as a tourist", "as a temporary resident", or "as a local".
 - Avoid repeated "I would". Prefer direct voice: "I slow down", "I use the sign", "I step aside", "I learned this after a few weeks here".
+- Avoid repeating the same opening pattern across stories. Do not always start with "Okay" or "X is the name I hold onto".
 - Avoid stiff evidence phrases: "the map and image make", "possible match here", "candidate", "Evidence Packet", "primary claims", "keep the reading modest", "frontage has a simple identity".
+- Avoid generic orientation filler: "I use it first for orientation", "edge of the flow", "one sign, one corner", "stop feeling lost", "keep the passage open", "the daily rhythm is the part I trust".
 - Avoid abstract or literary words: identity, rhythm, resonance, threshold, urban texture, social meaning, layers, traces, belonging, atmosphere.
 - Avoid em dashes, semicolons, and long sentences. Most sentences should be short and speakable.
 
-A good story feels like:
-"Okay, PolyU is the name I hold onto here. I slow down near the edge, because students and office people move fast around places like this. My cousin's kid once complained about studio deadlines near campus, so a sign like this is not just a sign to me. It means late meals, finding the right entrance, and trying not to block someone who already knows where they are going."
+Good stories can start in different ways. Do not copy these exact lines, objects, or openings:
+- "PolyU is the name I grab first here. I slow down near the edge, because students and office people move fast around places like this. My cousin's kid once complained about studio deadlines near campus, so the sign is not just a sign to me. It means late meals, finding the right entrance, and trying not to block someone who already knows where they are going."
+- "This shopfront is the sort of place I notice when I am buying something for home. I check whether there is a queue, then I stand just off the doorway. If the reviews mention quick snacks or busy service, turn that into ordinary talk, like someone grabbing food before the bus, not a review summary."
+- "The first thing I do is not romantic. I look for where people are already waiting. If the map puts a station, clinic, campus, or market around here, I use that as a small clue and then talk about the errand, the meeting point, or the way people make room."
 
 Evidence boundary:
 - NarrativeEvidenceView.primaryClaims are the only facts about the selected fragment.
@@ -253,26 +64,14 @@ Evidence boundary:
 - StoryFactPlan.avoidFacts and NarrativeEvidenceView.forbiddenVisibleNames must not be described as visible or selected.
 - Background-only claims can only be "nearby" or "around here".
 - If a claim requires uncertainty, use casual uncertainty.
+- Do not explain these rules inside the story. Keep the evidence boundary invisible and write the best everyday version that fits it.
 
 Return strict JSON only:
 {
-  "spokenStory": string,
-  "subtitleBlocks": [
-    {
-      "text": string,
-      "schema": "Functional-Use" | "Identity-Belonging" | "Memory-Temporality" | "Social-Cultural Resonance",
-      "groundedIn": [claim id strings],
-      "confidence": "low" | "medium" | "high",
-      "claimType": "direct_observation" | "cautious_interpretation" | "persona_interpretation" | "background_context"
-    }
-  ],
-  "functionalUse": {"title": "Functional-Use", "text": string},
-  "identityBelonging": {"title": "Identity-Belonging", "text": string},
-  "memoryTemporality": {"title": "Memory-Temporality", "text": string},
-  "socialCulturalResonance": {"title": "Social-Cultural Resonance", "text": string}
+  "spokenStory": string
 }
 
-The four fallback fields must summarize parts of the same spokenStory. Do not add extra facts there.`;
+The system will derive subtitles, timing, and internal schema fields from spokenStory. Do not return headings, cards, sections, or separate subtitle text.`;
 
 export async function generateNarratives(
   visionDescription: VisionDescription,
@@ -287,6 +86,14 @@ export async function generateNarratives(
 ): Promise<SchemaNarratives> {
   void _config;
   const wholeImageUrl = visualContext.image?.fullUrl || visualContext.image?.thumbUrl;
+  const storyBrief = buildStoryBrief({
+    persona,
+    placeContext,
+    evidencePacket,
+    narrativeEvidenceView,
+    storyFactPlan,
+    visionDescription
+  });
   const content = await generateTextJson({
     messages: [
       { role: "system", content: continuousNarrativePrompt },
@@ -296,6 +103,7 @@ export async function generateNarratives(
           task: "Write one continuous spoken fragment story from NarrativeEvidenceView and Persona Fragment Plan. Return the required JSON only.",
           narrativeEvidenceView,
           storyFactPlan,
+          storyBrief,
           personaFragmentPlan,
           visionDescription: evidencePacket ? undefined : visionDescription,
           persona,
@@ -308,12 +116,12 @@ export async function generateNarratives(
             lng: visualContext.image?.lng
           },
           languageStyle:
-            "Default to English. Use conversational Hong Kong street-life English without forcing Cantonese. One continuous first-person monologue. No headings. No academic phrases. No disclaimers. Include a grounded place fact when available, then make it feel lived: family, study, work, food, queue, rain, transport, or where to stand. Use subtitleBlocks only as caption chunks."
+            "Default to English. Use conversational Hong Kong street-life English without forcing Cantonese. One continuous first-person monologue. No headings. No academic phrases. No disclaimers. Use storyBrief as a menu, not a checklist. Pick one concrete micro-scene and make the place fact feel lived: family, study, work, food, queue, rain, transport, payment, message, or waiting. Return only spokenStory."
         })
       }
     ],
-    temperature: 0.35,
-    maxOutputTokens: 3200,
+    temperature: 0.52,
+    maxOutputTokens: 1200,
     timeoutMs: 40000,
     errorPrefix: "DeepSeek narrative generation"
   });
@@ -336,24 +144,17 @@ export function normalizeNarratives(
   const root = asRecord(value);
   const source = unwrapNarrativeSource(value);
   const spokenStory = cleanText(root.spokenStory || root.spoken_story || source.spokenStory || source.spoken_story || source.text || source.monologue);
-  const storyBeats = normalizeStoryBeats(root, source, evidenceView, plan, spokenStory);
-  const fromBlocks = narrativesFromBlocks(source);
+  if (!spokenStory) {
+    throw new Error("Narrative model returned missing spokenStory.");
+  }
+  const storyBeats = blocksFromSpokenStory(spokenStory, evidenceView, plan);
   const fromBeats = narrativesFromStoryBeats(storyBeats);
   const next = {
-    functionalUse: segmentFrom(source, "functionalUse", "functional_use", "Functional-Use", "Functional Use", "functional", fromBlocks.functionalUse, fromBeats.functionalUse),
-    identityBelonging: segmentFrom(source, "identityBelonging", "identity_belonging", "Identity-Belonging", "Identity Belonging", "identity", fromBlocks.identityBelonging, fromBeats.identityBelonging),
-    memoryTemporality: segmentFrom(source, "memoryTemporality", "memory_temporality", "Memory-Temporality", "Memory Temporality", "memory", fromBlocks.memoryTemporality, fromBeats.memoryTemporality),
-    socialCulturalResonance: segmentFrom(source, "socialCulturalResonance", "social_cultural_resonance", "Social-Cultural Resonance", "Social Cultural Resonance", "social", fromBlocks.socialCulturalResonance, fromBeats.socialCulturalResonance)
+    functionalUse: fromBeats.functionalUse || { text: spokenStory },
+    identityBelonging: fromBeats.identityBelonging || { text: spokenStory },
+    memoryTemporality: fromBeats.memoryTemporality || { text: spokenStory },
+    socialCulturalResonance: fromBeats.socialCulturalResonance || { text: spokenStory }
   };
-  const missing = [
-    ["functionalUse.text", next.functionalUse?.text],
-    ["identityBelonging.text", next.identityBelonging?.text],
-    ["memoryTemporality.text", next.memoryTemporality?.text],
-    ["socialCulturalResonance.text", next.socialCulturalResonance?.text]
-  ].filter(([, text]) => !String(text || "").trim());
-  if (missing.length) {
-    throw new Error(`Narrative model returned incomplete segments: ${missing.map(([key]) => key).join(", ")}.`);
-  }
   const normalized: SchemaNarratives = {
     ...(spokenStory ? { spokenStory } : {}),
     functionalUse: {
@@ -380,6 +181,112 @@ export function normalizeNarratives(
   return normalized;
 }
 
+function buildStoryBrief(input: {
+  persona?: GeneratedPersona;
+  placeContext?: PlaceContext;
+  evidencePacket?: EvidencePacket;
+  narrativeEvidenceView?: NarrativeEvidenceView;
+  storyFactPlan?: StoryFactPlan;
+  visionDescription: VisionDescription;
+}): StoryBrief {
+  const text = [
+    input.visionDescription.mainFeature,
+    input.visionDescription.fragmentCategory,
+    input.evidencePacket?.fragment.mainFeature,
+    input.evidencePacket?.fragment.fragmentCategory,
+    ...(input.narrativeEvidenceView?.primaryClaims.map((claim) => claim.text) || []),
+    ...(input.storyFactPlan?.anchorFacts.map((fact) => fact.text) || []),
+    ...(input.storyFactPlan?.supportingFacts.map((fact) => fact.text) || []),
+    ...(input.placeContext?.places.slice(0, 4).map((place) => `${place.name} ${place.type || ""}`) || [])
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  const personaText = [
+    input.persona?.role,
+    input.persona?.userIntro,
+    input.persona?.background,
+    input.persona?.voiceHint,
+    input.persona?.interpretiveLens
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  const placeHooks: string[] = [];
+  const microSceneOptions: string[] = [];
+
+  if (matchesAny(text, ["university", "polytechnic", "polyu", "campus", "school", "college", "student"])) {
+    placeHooks.push("campus life, entrances, students, canteens, studio or lab deadlines, exams, waiting for someone after class");
+    microSceneOptions.push("connect the visible name to a cousin, friend, child, classmate, or younger relative studying nearby");
+  }
+  if (matchesAny(text, ["restaurant", "cafe", "茶餐", "food", "snack", "egg waffle", "bakery", "noodle", "market"])) {
+    placeHooks.push("taste, queue length, takeaway bags, cash or Octopus, buying something before transport");
+    microSceneOptions.push("make the narrator remember ordering for someone, checking the queue, or deciding whether there is time to buy food");
+  }
+  if (matchesAny(text, ["pharmacy", "dispensary", "clinic", "hospital", "medical", "藥房", "药房"])) {
+    placeHooks.push("family errands, quick medicine purchase, older relatives, bright shop signs, not blocking the entrance");
+    microSceneOptions.push("make it about picking something up for family, not about medical claims");
+  }
+  if (matchesAny(text, ["station", "bus", "tram", "mtr", "taxi", "stop", "transport", "crossing"])) {
+    placeHooks.push("transfers, missed exits, rain, checking a route message, where people pause before moving on");
+    microSceneOptions.push("make the narrator check a message or meet someone near a transport cue");
+  }
+  if (matchesAny(text, ["shop", "store", "mall", "market", "sign", "storefront", "frontage", "entrance"])) {
+    placeHooks.push("shop sign as meeting point, errands, price checking, doorway crowd, quick purchase");
+    microSceneOptions.push("make the narrator use the sign because someone gave a casual direction, like 'wait by that shop'");
+  }
+  if (matchesAny(text, ["estate", "residential", "building", "tower", "apartment", "public housing"])) {
+    placeHooks.push("visiting family, finding the right lift lobby, delivery, security desk, wet umbrellas");
+    microSceneOptions.push("make it about arriving for a visit or delivery, not architectural description");
+  }
+  if (!placeHooks.length) {
+    placeHooks.push("a specific visible clue, a small errand, waiting, rain, a message, and how people use the pavement");
+    microSceneOptions.push("make the selected detail matter because it helps with one ordinary task today");
+  }
+
+  const personaMode = personaStoryMode(personaText);
+  const personaOptions = personaSceneOptions(personaText);
+  return {
+    personaMode,
+    placeHooks: uniqueShort(placeHooks, 4),
+    microSceneOptions: uniqueShort([...personaOptions, ...microSceneOptions], 5),
+    avoidPatterns: [
+      "do not make the whole story about orientation",
+      "do not repeat standing aside or following the crowd",
+      "do not say the place is not a grand story",
+      "do not list four abstract meanings"
+    ]
+  };
+}
+
+function personaStoryMode(personaText: string) {
+  if (matchesAny(personaText, ["tourist", "visitor", "first-time", "traveller", "traveler", "overseas"])) {
+    return "visitor voice: compare with home, use one small surprise, ask practical questions, but speak from present experience";
+  }
+  if (matchesAny(personaText, ["temporary", "newcomer", "staying", "migrant", "short-term", "recent arrival"])) {
+    return "temporary-resident voice: learned habits after a few weeks, compare with origin city, mention a friend, rental route, class, work, or grocery habit";
+  }
+  if (matchesAny(personaText, ["shop", "stall", "worker", "security", "driver", "teacher", "office", "delivery"])) {
+    return "worker voice: short breaks, deliveries, lunch, customers, shift timing, and the practical way people share a tight street";
+  }
+  if (matchesAny(personaText, ["local", "resident", "neighbour", "neighbor", "retired", "retiree", "long-term"])) {
+    return "local voice: family directions, old habits, errands, queue memory, wet weather routines, and names used in daily speech";
+  }
+  return "everyday narrator voice: direct, practical, lightly personal, not analytical";
+}
+
+function personaSceneOptions(personaText: string) {
+  if (matchesAny(personaText, ["tourist", "visitor", "first-time", "traveller", "traveler", "overseas"])) {
+    return ["compare the street cue with how people give directions at home", "send a photo or place name to a friend while choosing where to wait"];
+  }
+  if (matchesAny(personaText, ["temporary", "newcomer", "staying", "migrant", "short-term", "recent arrival"])) {
+    return ["describe a habit learned after staying nearby for a few weeks", "mention a friend, classmate, landlord, coworker, or neighbour who uses this area"];
+  }
+  if (matchesAny(personaText, ["worker", "shop", "stall", "security", "driver", "teacher", "office", "delivery"])) {
+    return ["tie the detail to lunch break, delivery timing, a customer question, or getting through a shift"];
+  }
+  if (matchesAny(personaText, ["local", "resident", "neighbour", "neighbor", "retired", "retiree", "long-term"])) {
+    return ["use the place name the way someone gives directions to family", "connect it to a regular errand, queue, weather habit, or meeting point"];
+  }
+  return ["turn the visible clue into one ordinary decision made today"];
+}
+
 function unwrapNarrativeSource(value: unknown): Record<string, unknown> {
   const object = asRecord(value);
   const nested = [
@@ -396,49 +303,6 @@ function unwrapNarrativeSource(value: unknown): Record<string, unknown> {
     if (Object.keys(next).length) return next;
   }
   return object;
-}
-
-function normalizeStoryBeats(
-  root: Record<string, unknown>,
-  source: Record<string, unknown>,
-  evidenceView?: NarrativeEvidenceView,
-  plan?: PersonaFragmentPlan,
-  spokenStory?: string
-): NarrativeBlock[] {
-  const blocks =
-    arrayFromUnknown(root.subtitleBlocks) ||
-    arrayFromUnknown(root.subtitle_blocks) ||
-    arrayFromUnknown(source.subtitleBlocks) ||
-    arrayFromUnknown(source.subtitle_blocks) ||
-    arrayFromUnknown(root.storyBeats) ||
-    arrayFromUnknown(root.story_beats) ||
-    arrayFromUnknown(source.storyBeats) ||
-    arrayFromUnknown(source.story_beats);
-  if (!blocks?.length) {
-    return spokenStory ? blocksFromSpokenStory(spokenStory, evidenceView, plan) : [];
-  }
-
-  const fallbackClaimIds = evidenceView?.primaryClaims.slice(0, 2).map((claim) => claim.id) || plan?.sourceClaimIds.slice(0, 2) || [];
-  const nextBlocks: Array<NarrativeBlock | undefined> = blocks
-    .map((block, index) => {
-      const item = asRecord(block);
-      const text = cleanText(item.text || item.content || item.narrative);
-      if (!text) return undefined;
-      const schema = normalizeSchema(item.schema || item.title || item.name, index);
-      const title = cleanText(item.title || item.name);
-      return {
-        schema,
-        title: storyBeatTitle(title, schema, index),
-        text,
-        claimType: normalizeClaimType(item.claimType || item.claim_type),
-        groundedIn: normalizeGroundedIn(item.groundedIn || item.grounded_in, fallbackClaimIds),
-        confidence: normalizeConfidence(item.confidence, plan),
-        uncertaintyCue: cleanText(item.uncertaintyCue || item.uncertainty_cue) || undefined
-      } satisfies NarrativeBlock;
-    });
-  return nextBlocks
-    .filter((block): block is NarrativeBlock => Boolean(block))
-    .slice(0, 8);
 }
 
 function blocksFromSpokenStory(
@@ -516,53 +380,12 @@ function narrativesFromStoryBeats(storyBeats: NarrativeBlock[]) {
   return result;
 }
 
-function normalizeSchema(value: unknown, index: number): NarrativeBlock["schema"] {
-  const text = String(value || "").toLowerCase();
-  if (text.includes("identity") || text.includes("belong") || text.includes("impression")) return "Identity-Belonging";
-  if (text.includes("memory") || text.includes("tempor") || text.includes("timing") || text.includes("routine")) return "Memory-Temporality";
-  if (text.includes("social") || text.includes("cultural") || text.includes("manner") || text.includes("shared")) return "Social-Cultural Resonance";
-  if (text.includes("functional") || text.includes("use") || text.includes("action")) return "Functional-Use";
-  return (["Functional-Use", "Identity-Belonging", "Memory-Temporality", "Social-Cultural Resonance"] as const)[index % 4];
-}
-
-function normalizeClaimType(value: unknown): NarrativeBlock["claimType"] {
-  const text = String(value || "").toLowerCase();
-  if (text.includes("direct")) return "direct_observation";
-  if (text.includes("background")) return "background_context";
-  if (text.includes("cautious")) return "cautious_interpretation";
-  return "persona_interpretation";
-}
-
-function normalizeGroundedIn(value: unknown, fallbackClaimIds: string[]) {
-  const ids = Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean) : [];
-  return ids.length ? ids.slice(0, 4) : fallbackClaimIds;
-}
-
 function normalizeConfidence(value: unknown, plan?: PersonaFragmentPlan): NarrativeBlock["confidence"] {
   const text = String(value || "").toLowerCase();
   if (text === "high" || text === "medium" || text === "low") return text;
   if (plan?.fitLevel === "high") return "high";
   if (plan?.fitLevel === "medium") return "medium";
   return "low";
-}
-
-function defaultBeatTitle(schema: NarrativeBlock["schema"], index: number) {
-  const fallback = {
-    "Functional-Use": "What I do here",
-    "Identity-Belonging": "How it feels to approach",
-    "Memory-Temporality": "When this place changes",
-    "Social-Cultural Resonance": "How people share the space"
-  } as const;
-  return fallback[schema] || `Beat ${index + 1}`;
-}
-
-function storyBeatTitle(title: string, schema: NarrativeBlock["schema"], index: number) {
-  if (!title || isSchemaLikeTitle(title)) return defaultBeatTitle(schema, index);
-  return title;
-}
-
-function isSchemaLikeTitle(title: string) {
-  return /^(how i use it|first impression|street timing|street manners|functional-use|functional use|identity-belonging|identity belonging|memory-temporality|memory temporality|social-cultural resonance|social cultural resonance)$/i.test(title.trim());
 }
 
 function schemaKey(schema: NarrativeBlock["schema"]): keyof SchemaNarratives {
@@ -572,48 +395,18 @@ function schemaKey(schema: NarrativeBlock["schema"]): keyof SchemaNarratives {
   return "functionalUse";
 }
 
-function narrativesFromBlocks(source: Record<string, unknown>) {
-  const result: Partial<Record<keyof SchemaNarratives, { text: string }>> = {};
-  const blocks = arrayFromUnknown(source.narrativeBlocks) || arrayFromUnknown(source.blocks) || arrayFromUnknown(source.segments);
-  for (const block of blocks || []) {
-    const item = asRecord(block);
-    const schema = String(item.schema || item.title || item.name || "").toLowerCase();
-    const text = cleanText(item.text || item.content || item.narrative);
-    if (!text) continue;
-    if (schema.includes("functional")) result.functionalUse = { text };
-    else if (schema.includes("identity") || schema.includes("belong")) result.identityBelonging = { text };
-    else if (schema.includes("memory") || schema.includes("tempor")) result.memoryTemporality = { text };
-    else if (schema.includes("social") || schema.includes("cultural") || schema.includes("resonance")) {
-      result.socialCulturalResonance = { text };
-    }
-  }
-  return result;
-}
-
-function segmentFrom(
-  source: Record<string, unknown>,
-  ...keysAndFallback: Array<string | { text: string } | undefined>
-): { text: string } | undefined {
-  const fallback = keysAndFallback.find((value): value is { text: string } => typeof value === "object" && Boolean(value?.text));
-  for (const key of keysAndFallback) {
-    if (typeof key !== "string") continue;
-    const direct = cleanText(source[key]);
-    if (direct) return { text: direct };
-    const object = asRecord(source[key]);
-    const text = cleanText(object.text || object.content || object.narrative || object.value);
-    if (text) return { text };
-  }
-  return fallback;
-}
-
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
-function arrayFromUnknown(value: unknown) {
-  return Array.isArray(value) ? value : undefined;
-}
-
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+}
+
+function matchesAny(text: string, needles: string[]) {
+  return needles.some((needle) => text.includes(needle));
+}
+
+function uniqueShort(values: string[], limit: number) {
+  return Array.from(new Set(values)).slice(0, limit);
 }

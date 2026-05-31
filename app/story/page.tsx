@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, ChevronLeft, Loader2, MapPin, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronLeft, ImageIcon, Loader2, MapPin, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SelectedFragmentList } from "@/components/SelectedFragmentList";
@@ -90,43 +90,35 @@ export default function StoryPage() {
     [activeOpening?.openingBlocks]
   );
   const activeStoryReady = Boolean(
-    readyFragment?.narratives &&
+    readyFragment?.narratives?.spokenStory?.trim() &&
     selectedPersona?.id &&
     readyFragment.narrativePersonaId === selectedPersona.id
   );
   const activeNarratives = activeStoryReady ? readyFragment?.narratives : undefined;
-  const activeNarrativeBlocks = activeStoryReady ? readyFragment?.narrativeBlocks : undefined;
   const includeOpeningInStoryAudio = Boolean(
-      activeStoryReady &&
-      selectedPersona?.id &&
-      activeOpeningKey &&
-      activeOpeningText &&
-      !playedOpeningKeys[activeOpeningKey]
-  );
-  const openingNeededForStory = Boolean(
     activeStoryReady &&
     selectedPersona?.id &&
     activeOpeningKey &&
+    activeOpeningText &&
     !playedOpeningKeys[activeOpeningKey]
   );
-  const openingPendingForStory = Boolean(openingNeededForStory && !activeOpeningText && openingStatus !== "error");
-  const openingFailedForStory = Boolean(openingNeededForStory && !activeOpeningText && openingStatus === "error");
-  const storyVoiceReady = Boolean(activeStoryReady && !openingPendingForStory && !openingFailedForStory);
-  const currentStage = storyVoiceReady
-    ? "listen"
-    : activeFragment
-      ? "select"
-      : selectedPersona
-        ? "select"
-        : "narrator";
+  const storyVoiceReady = Boolean(activeStoryReady);
+  const showOpeningContext = Boolean(
+    selectedPersona &&
+    (!storyVoiceReady || openingStatus === "loading" || openingStatus === "error")
+  );
+  const currentStage = !selectedPersona
+    ? "narrator"
+    : storyVoiceReady
+      ? "listen"
+      : "select";
   const currentStoryText = useMemo(
     () =>
       storyTextForAudio(
-        activeNarrativeBlocks,
         activeNarratives,
         includeOpeningInStoryAudio ? activeOpeningText : undefined
       ),
-    [activeNarrativeBlocks, activeNarratives, activeOpeningText, includeOpeningInStoryAudio]
+    [activeNarratives, activeOpeningText, includeOpeningInStoryAudio]
   );
   const activeSchemasForRecommendation = useMemo(
     () => getActiveSchemasForRecommendation(readyFragment, selectedPersona),
@@ -262,9 +254,10 @@ export default function StoryPage() {
       })
       .catch((err) => {
         if (personaRequestIdRef.current !== requestId) return;
+        console.error("Narrator preparation failed", err);
         setSceneStatus("error");
         setPersonaStatus("error");
-        setError(err instanceof Error ? err.message : "Narrators could not be prepared. Please try another scene.");
+        setError(uiLanguage === "zh" ? "这个场景暂时读不出来。可以换一个街景再试。" : "This scene could not be read clearly. Try another street view.");
       });
   }, [
     apiConfig,
@@ -277,7 +270,8 @@ export default function StoryPage() {
     setStorySession,
     storageHydrated,
     storySession,
-    selectedPersona
+    selectedPersona,
+    uiLanguage
   ]);
 
   useEffect(() => {
@@ -311,7 +305,7 @@ export default function StoryPage() {
     setCaption(null);
     openingPersonaIdRef.current = undefined;
     setOpeningStatus(storySession?.sceneOpeningGenerations?.[persona.id]?.version === openingCacheVersion ? "ready" : "loading");
-    setStoryStatus(activeFragment ? "loading" : "idle");
+    setStoryStatus(activeFragment?.status === "ready" ? "loading" : "idle");
     if (storySession) {
       const nextSession = { ...storySession, selectedPersona: persona };
       setStorySession(nextSession);
@@ -376,8 +370,9 @@ export default function StoryPage() {
       })
       .catch((err) => {
         if (openingRequestIdRef.current !== requestId) return;
+        console.error("Narrator context failed", err);
         setOpeningStatus("error");
-        setError(err instanceof Error ? err.message : "Opening could not be prepared. Please try another narrator.");
+        setError(uiLanguage === "zh" ? "这个讲述人暂时读不出这一带。可以换一个讲述人，或者直接重新框选。" : "This narrator could not read the wider area. Try another narrator or select a clearer detail.");
       });
   }, [
     openingStatus,
@@ -387,7 +382,8 @@ export default function StoryPage() {
     selectedPersona,
     setStorySession,
     storageHydrated,
-    storySession
+    storySession,
+    uiLanguage
   ]);
 
   useEffect(() => {
@@ -532,8 +528,9 @@ export default function StoryPage() {
       })
       .catch((err) => {
         if (cancelled) return;
+        console.error("Story preparation failed", err);
         setStoryStatus("error");
-        setError(err instanceof Error ? err.message : "Story could not be prepared. Please try again.");
+        setError(uiLanguage === "zh" ? "这段讲述没有组织好。可以换一个讲述人，或者重新框选一个更清楚的公共细节。" : "This story did not come together. Try another narrator, or select a clearer public detail.");
       });
 
     return () => {
@@ -558,6 +555,7 @@ export default function StoryPage() {
     setCaption,
     setStorySession,
     storySession?.id,
+    uiLanguage,
     updateFragment
   ]);
 
@@ -607,8 +605,9 @@ export default function StoryPage() {
       })
       .catch((err) => {
         if (cancelled) return;
+        console.error("Nearby continuation failed", err);
         setNearbyStatus("error");
-        setNearbyError(err instanceof Error ? err.message : "Nearby places could not be prepared.");
+        setNearbyError(uiLanguage === "zh" ? "附近延展地点暂时没有准备好。" : "Nearby continuation is not ready yet.");
       });
 
     return () => {
@@ -625,7 +624,8 @@ export default function StoryPage() {
     runtimeHeaders,
     selectedImage,
     selectedPersona,
-    storySession?.id
+    storySession?.id,
+    uiLanguage
   ]);
 
   async function openNearbyRecommendation(recommendation: NearbyContinuationRecommendation) {
@@ -713,8 +713,9 @@ export default function StoryPage() {
         runtimeHeaders
       );
     } catch (err) {
+      console.error("Street View continuation failed", err);
       setNearbyStatus("error");
-      setNearbyError(err instanceof Error ? err.message : "Street View is not available for this place.");
+      setNearbyError(uiLanguage === "zh" ? "这个推荐地点暂时打不开街景。" : "Street View is not available for this recommended place.");
     }
   }
 
@@ -829,8 +830,9 @@ export default function StoryPage() {
         void saveStorySession(nextSession, runtimeHeaders);
       }
     } catch (err) {
+      console.error("Fragment reading failed", err);
       updateFragment(activeFragmentId, { status: "error" });
-      setError(err instanceof Error ? err.message : "Fragment could not be completed. Please try again.");
+      setError(uiLanguage === "zh" ? "这个细节暂时读不清楚。试试招牌、入口、公共设施或更完整的建筑局部。" : "This detail is hard to read. Try a sign, entrance, public fixture, or clearer building detail.");
     } finally {
       setProcessing(false);
     }
@@ -857,16 +859,22 @@ export default function StoryPage() {
         <div>
           <Link href="/" className="mb-2 inline-flex items-center gap-1 text-xs font-semibold text-ink/58 transition hover:text-ink">
             <ArrowLeft className="h-3 w-3" />
-            Map
+            {uiLanguage === "zh" ? "地图" : "Map"}
           </Link>
-          <p className="fine-label mb-2">Guided panorama reading</p>
+          <p className="fine-label mb-2">{uiLanguage === "zh" ? "街景阅读" : "Guided panorama reading"}</p>
           <h1 className="text-[1.75rem] font-semibold tracking-normal sm:text-[2rem] md:text-[2.4rem]">HK Spatial Story</h1>
           <p className="mt-2 text-sm leading-6 text-ink/62">
-            {currentStage === "narrator"
-              ? "Choose a narrator for this panorama."
-              : currentStage === "select"
-                  ? "Select a place fragment for this narrator to read."
-                  : "Switch narrator, read, and listen."}
+            {uiLanguage === "zh"
+              ? currentStage === "narrator"
+                ? "先选一个讲述人，从他的视角进入这条街。"
+                : currentStage === "select"
+                  ? "在全景图上框选一个你想听的细节。"
+                  : "听这一段故事，也可以切换讲述人或回到其他白框。"
+              : currentStage === "narrator"
+                ? "Choose a narrator for this panorama."
+                : currentStage === "select"
+                  ? "Select one detail in the panorama for this narrator to read."
+                  : "Listen to this story, or switch narrator and return to saved boxes."}
           </p>
           <StoryProgress stage={currentStage} language={uiLanguage} />
         </div>
@@ -894,7 +902,7 @@ export default function StoryPage() {
         </div>
       ) : null}
 
-      <section className="grid flex-1 gap-4 lg:min-h-0 lg:grid-rows-[minmax(660px,1fr)_minmax(220px,0.26fr)] lg:gap-5">
+      <section className="grid flex-1 gap-4 lg:min-h-0 lg:grid-rows-[minmax(640px,1fr)_auto] lg:gap-4">
         <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(720px,1fr)_360px] lg:gap-5">
           <div className="grid min-h-[56vh] grid-rows-[minmax(420px,1fr)_auto] gap-3 sm:min-h-[62vh] sm:grid-rows-[minmax(500px,1fr)_auto] lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto]">
             <StreetImageViewer
@@ -926,15 +934,19 @@ export default function StoryPage() {
               language={uiLanguage}
               onSelect={choosePersona}
             />
-            {selectedPersona ? (
+            {showOpeningContext ? (
               <SceneOpeningPreview
                 status={openingStatus}
                 opening={activeOpening}
                 language={uiLanguage}
               />
             ) : null}
-            {readyFragment ? (
-              <GroundingSummaryCard fragment={readyFragment} language={uiLanguage} />
+            {activeFragment ? (
+              <CurrentDetailCard
+                fragment={activeFragment}
+                persona={selectedPersona}
+                language={uiLanguage}
+              />
             ) : null}
             {!storyVoiceReady || !readyFragment || !activeNarratives ? (
                 <FragmentFirstPanel
@@ -942,12 +954,11 @@ export default function StoryPage() {
                   fragment={activeFragment}
                   processing={processing}
                   hasNarrator={Boolean(selectedPersona)}
-                  storyStatus={openingPendingForStory ? "loading" : openingFailedForStory ? "error" : storyStatus}
+                  storyStatus={storyStatus}
                 />
             ) : (
               <TtsControls
                 narratives={activeNarratives}
-                narrativeBlocks={activeNarrativeBlocks}
                 persona={selectedPersona}
                 config={apiConfig}
                 language={uiLanguage}
@@ -959,8 +970,8 @@ export default function StoryPage() {
                 description={
                   includeOpeningInStoryAudio
                     ? uiLanguage === "zh"
-                      ? "这次会先接上讲述人的整体开场，再进入你框选的细节。之后同一讲述人不会重复开场。"
-                      : "This play starts with the narrator's wider opening, then moves into the selected detail. Later plays skip the opening for this narrator."
+                      ? "这次故事会带上讲述人对这一带的背景，然后直接讲你框选的细节。同一讲述人之后不重复这段背景。"
+                      : "This story includes the narrator's wider context once, then moves straight into your selected detail."
                     : undefined
                 }
                 onCaptionChange={setCaption}
@@ -994,7 +1005,7 @@ export default function StoryPage() {
             ) : null}
           </div>
         </div>
-        <div className="min-h-[260px] lg:min-h-0">
+        <div className="min-h-[132px] lg:min-h-0">
           <SelectedFragmentList
             fragments={fragments}
             language={uiLanguage}
@@ -1041,19 +1052,35 @@ function PersonaSwitcher({
   onSelect: (persona: GeneratedPersona) => void;
 }) {
   const zh = language === "zh";
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    setExpanded(false);
+  }, [selectedPersona?.id]);
+  const showList = !selectedPersona || expanded;
+
   return (
     <div className="surface-panel min-h-0 overflow-hidden p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="fine-label">{zh ? "第一步" : "Step 1"}</p>
+          <p className="fine-label">{selectedPersona ? (zh ? "讲述人" : "Narrator") : (zh ? "开始" : "Start")}</p>
           <h2 className="mt-1 text-sm font-semibold text-ink">
-            {zh ? "选择讲述人" : "Choose narrator"}
+            {selectedPersona ? selectedPersona.name : (zh ? "选择讲述人" : "Choose narrator")}
           </h2>
           <p className="mt-1 text-xs leading-5 text-ink/58">
-            {fragment?.visionDescription?.mainFeature ||
+            {selectedPersona?.userIntro ||
+              fragment?.visionDescription?.mainFeature ||
               (zh ? "先从讲述人的角度进入这个街景。" : "Start with a narrator's view of this panorama.")}
           </p>
         </div>
+        {selectedPersona && personas.length > 1 ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="soft-button h-8 shrink-0 px-3 text-xs font-semibold"
+          >
+            {expanded ? (zh ? "收起" : "Done") : (zh ? "切换" : "Change")}
+          </button>
+        ) : null}
       </div>
       {(personaStatus === "loading" || sceneStatus === "loading") && personas.length === 0 ? (
         <div className="mt-5 flex items-center gap-2 text-sm text-ink/62">
@@ -1061,35 +1088,41 @@ function PersonaSwitcher({
           <span>{zh ? "正在准备讲述人" : "Preparing narrators"}</span>
         </div>
       ) : null}
-      {storyStatus === "loading" ? (
+      {storyStatus === "loading" && fragment?.status === "ready" && selectedPersona ? (
         <div className="cozy-card mt-4 flex items-center gap-2 px-3 py-2 text-xs text-ink/62">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{zh ? "正在准备故事" : "Preparing story"}</span>
         </div>
       ) : null}
-      <div className="mt-3 grid max-h-[42vh] gap-2 overflow-auto pr-1 lg:max-h-[36vh]">
-        {personas.map((persona) => {
-          const selected = selectedPersona?.id === persona.id;
-          return (
-            <button
-              type="button"
-              key={persona.id}
-              onClick={() => onSelect(persona)}
-              className={`p-3 text-left transition ${
-                selected
-                  ? "cozy-card cozy-card-active"
-                  : "cozy-card hover:border-brass/45 hover:bg-[#fff3d8]"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-ink">{persona.name}</h3>
-                {selected ? <span className="rounded-full bg-signal px-2 py-0.5 text-[11px] font-semibold text-white">{zh ? "当前" : "Active"}</span> : null}
-              </div>
-              <p className="mt-1 text-xs leading-5 text-ink/68">{persona.userIntro}</p>
-            </button>
-          );
-        })}
-      </div>
+      {showList ? (
+        <div className="mt-3 grid max-h-[42vh] gap-2 overflow-auto pr-1 lg:max-h-[30vh]">
+          {personas.map((persona) => {
+            const selected = selectedPersona?.id === persona.id;
+            return (
+              <button
+                type="button"
+                key={persona.id}
+                onClick={() => onSelect(persona)}
+                className={`p-3 text-left transition ${
+                  selected
+                    ? "cozy-card cozy-card-active"
+                    : "cozy-card hover:border-brass/45 hover:bg-[#fff3d8]"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-ink">{persona.name}</h3>
+                  {selected ? <span className="rounded-full bg-signal px-2 py-0.5 text-[11px] font-semibold text-white">{zh ? "当前" : "Active"}</span> : null}
+                </div>
+                <p className="mt-1 text-xs leading-5 text-ink/68">{persona.userIntro}</p>
+              </button>
+            );
+          })}
+        </div>
+      ) : selectedPersona ? (
+        <div className="mt-3 rounded-[16px] border border-ink/10 bg-field/55 px-3 py-2.5">
+          <p className="line-clamp-2 text-xs leading-5 text-ink/68">{selectedPersona.background || selectedPersona.interpretiveLens}</p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1105,38 +1138,38 @@ function SceneOpeningPreview({
 }) {
   const zh = language === "zh";
   if (status === "idle" && !opening) return null;
+  const ready = Boolean(opening);
   return (
-    <div className="surface-panel p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="fine-label">{zh ? "进入语" : "Opening"}</p>
-          <h2 className="mt-1 text-sm font-semibold text-ink">
-            {zh ? "先看这一带" : "Before the detail"}
-          </h2>
-        </div>
-        {status === "loading" ? <Loader2 className="mt-1 h-4 w-4 animate-spin text-ink/45" /> : null}
+    <div className="cozy-card flex items-start gap-3 px-3 py-2.5">
+      {status === "loading" && !ready ? (
+        <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-ink/45" />
+      ) : ready ? (
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
+      ) : (
+        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-ink/42" />
+      )}
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-ink">
+          {ready
+            ? zh ? "这一带已准备好" : "Wider place is ready"
+            : status === "error"
+              ? zh ? "这一带暂时读不出来" : "This area could not be read"
+              : zh ? "正在阅读这一带" : "Reading this area"}
+        </p>
+        <p className="mt-0.5 text-xs leading-5 text-ink/58">
+          {ready
+            ? zh
+              ? "播放时会把这一带的背景自然接到你框选的细节里。"
+              : "The story will naturally carry this wider context into your selected detail."
+            : status === "error"
+              ? zh
+                ? "换一个讲述人，或者重新选一个更清楚的细节。"
+                : "Try another narrator, or select a clearer detail."
+              : zh
+                ? "不用等待，也可以先框选细节。"
+                : "You can keep moving and select a detail now."}
+        </p>
       </div>
-      {status === "loading" && !opening ? (
-        <p className="mt-3 text-sm leading-6 text-ink/60">
-          {zh ? "正在准备这个讲述人的整体开场。" : "Preparing this narrator's wider opening."}
-        </p>
-      ) : null}
-      {status === "error" && !opening ? (
-        <p className="mt-3 text-sm leading-6 text-red-800">
-          {zh ? "开场暂时没有准备好，但仍可框选细节。" : "The opening is not ready yet, but you can still select a detail."}
-        </p>
-      ) : null}
-      {opening ? (
-        <div className="mt-3 space-y-2">
-          {(opening.openingBlocks?.length ? opening.openingBlocks : [{ text: opening.openingText, groundedIn: [] }])
-            .slice(0, 3)
-            .map((block, index) => (
-              <p key={index} className="text-sm leading-6 text-ink/72">
-                {block.text}
-              </p>
-            ))}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -1155,31 +1188,120 @@ function GroundingSummaryCard({
   if (!hints.length) return null;
 
   return (
-    <div className={`surface-panel ${compact ? "p-3" : "p-4"}`}>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="fine-label">{zh ? "依据" : "Grounding"}</p>
-          <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "地点线索" : "Place Clues"}</h2>
-        </div>
-        <CheckCircle2 className="h-4 w-4 text-signal" />
-      </div>
-      <div className="mt-3 grid gap-2">
-        {hints.slice(0, compact ? 2 : 3).map((hint) => (
-          <div key={`${hint.kind}-${hint.label}`} className="cozy-card px-3 py-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-semibold text-ink">{zh ? hint.zhKind : hint.kind}</span>
-              <span className={`rounded px-2 py-0.5 text-[10px] font-medium ${
-                hint.confidence === "high" ? "bg-[#eef7f4] text-signal" : "bg-field text-ink/58"
-              }`}>
-                {zh ? confidenceLabelZh(hint.confidence) : hint.confidence}
-              </span>
-            </div>
-            <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/68">{hint.label}</p>
+    <div className={`cozy-card ${compact ? "px-3 py-2.5" : "px-3 py-3"}`}>
+      <div className="flex items-start gap-3">
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold text-ink">{zh ? "有这些线索" : "Story clues"}</p>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/42">
+              {zh ? `${hints.length}条` : `${hints.length} found`}
+            </span>
           </div>
-        ))}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {hints.slice(0, compact ? 2 : 3).map((hint) => (
+              <span
+                key={`${hint.kind}-${hint.label}`}
+                title={hint.label}
+                className={`inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${
+                  hint.confidence === "high" ? "bg-[#eef7f4] text-signal" : "bg-field/80 text-ink/62"
+                }`}
+              >
+                <span>{zh ? hint.zhKind : hint.kind}</span>
+                <span className="max-w-[8rem] truncate font-medium opacity-75">{hint.label}</span>
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
+}
+
+function CurrentDetailCard({
+  fragment,
+  persona,
+  language
+}: {
+  fragment: SelectedFragment;
+  persona?: GeneratedPersona;
+  language: "en" | "zh";
+}) {
+  const zh = language === "zh";
+  const hints = groundingHints(fragment);
+  const statusText = fragmentStatusLabel(fragment.status, zh);
+  const mainFeature = fragment.visionDescription?.mainFeature || (zh ? "街景细节" : "Street detail");
+
+  return (
+    <div className="cozy-card overflow-hidden p-3">
+      <div className="flex gap-3">
+        <div
+          className={`flex h-20 w-24 shrink-0 items-center justify-center rounded-[14px] border-2 bg-field bg-cover bg-center shadow-[inset_0_0_0_1px_rgba(54,43,25,0.08)] ${
+            fragment.cropImageUrl ? "border-white/80" : "border-dashed border-ink/18"
+          }`}
+          style={fragment.cropImageUrl ? { backgroundImage: `url(${fragment.cropImageUrl})` } : undefined}
+          aria-label={zh ? "当前框选画面" : "Current selected crop"}
+        >
+          {!fragment.cropImageUrl ? <ImageIcon className="h-5 w-5 text-ink/38" /> : null}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="fine-label">{zh ? "当前白框" : "Current detail"}</p>
+            <span className="rounded-full bg-field/80 px-2 py-0.5 text-[10px] font-semibold text-ink/60">
+              {statusText}
+            </span>
+          </div>
+          <h2 className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-ink">{mainFeature}</h2>
+          <p className="mt-1 line-clamp-1 text-xs text-ink/55">
+            {persona
+              ? zh ? `讲述人：${persona.name}` : `Narrator: ${persona.name}`
+              : zh ? "先选择讲述人" : "Choose a narrator first"}
+          </p>
+        </div>
+      </div>
+      {hints.length ? (
+        <div className="mt-3 border-t border-ink/10 pt-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold text-ink/62">{zh ? "故事会参考这些线索" : "Story uses these clues"}</p>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/38">
+              {zh ? `${hints.length}条` : `${hints.length} clues`}
+            </span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {hints.slice(0, 4).map((hint) => (
+              <span
+                key={`${hint.kind}-${hint.label}`}
+                title={hint.label}
+                className={`inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${
+                  hint.confidence === "high" ? "bg-[#eef7f4] text-signal" : "bg-field/80 text-ink/62"
+                }`}
+              >
+                <span>{zh ? hint.zhKind : hint.kind}</span>
+                <span className="max-w-[9rem] truncate font-medium opacity-75">{hint.label}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-3 border-t border-ink/10 pt-2 text-xs leading-5 text-ink/55">
+          {zh ? "故事准备好后，这里会显示地点线索。" : "Place clues will appear here once the story is ready."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function fragmentStatusLabel(status: SelectedFragment["status"], zh: boolean) {
+  const labels: Record<SelectedFragment["status"], { en: string; zh: string }> = {
+    cropping: { en: "Saving", zh: "保存中" },
+    analyzing: { en: "Reading", zh: "读取中" },
+    generating: { en: "Preparing", zh: "准备中" },
+    ready: { en: "Ready", zh: "已完成" },
+    blocked: { en: "Blocked", zh: "不适合" },
+    error: { en: "Retry", zh: "需重试" }
+  };
+  const item = labels[status];
+  return zh ? item.zh : item.en;
 }
 
 function StoryProgress({
@@ -1191,8 +1313,8 @@ function StoryProgress({
 }) {
   const zh = language === "zh";
   const steps = zh
-    ? ["选择讲述人", "选择片段", "播放故事"]
-    : ["Choose narrator", "Select place", "Listen"];
+    ? ["选择讲述人", "框选细节", "播放故事"]
+    : ["Choose narrator", "Select detail", "Listen"];
   const activeIndex = stage === "narrator" ? 0 : stage === "select" ? 1 : 2;
 
   return (
@@ -1239,7 +1361,7 @@ function FragmentFirstPanel({
   const flow = fragmentFlowState(fragment, processing, storyStatus, zh, hasNarrator);
   return (
     <div className="surface-panel p-4">
-      <p className="fine-label">{zh ? "第二步" : "Step 2"}</p>
+      <p className="fine-label">{zh ? "下一步" : "Next"}</p>
       <h2 className="mt-1 text-sm font-semibold text-ink">
         {zh ? "框选一个片段" : "Select a fragment"}
       </h2>
@@ -1292,8 +1414,8 @@ function fragmentFlowState(
     return {
       title: zh ? "等待框选" : "Waiting for a fragment",
       detail: zh
-        ? "准备好后在全景图里拖出一个白框。故事会把整体开场和这个细节放在一起。"
-        : "Drag one box in the panorama when ready. The story will combine the wider opening with this detail.",
+        ? "准备好后在全景图里拖出一个白框。讲述会从这一带自然落到这个细节。"
+        : "Drag one box in the panorama when ready. The story will move from the wider place into this detail.",
       loading: false,
       done: false
     };
@@ -1333,7 +1455,7 @@ function fragmentFlowState(
   if (fragment.status === "error" || storyStatus === "error") {
     return {
       title: zh ? "这一轮没有完成" : "This run did not complete",
-      detail: zh ? "后端会直接报错，不会偷偷换模型或降级。可以换一个讲述人或重新框选。" : "The backend reports the error directly, without model fallback. Try another narrator or another box.",
+      detail: zh ? "可以换一个讲述人，或者重新框选一个更清楚的公共细节。" : "Try another narrator, or select a clearer public detail.",
       loading: false,
       done: false
     };
@@ -1341,7 +1463,7 @@ function fragmentFlowState(
   if (storyStatus === "loading") {
     return {
       title: zh ? "正在准备这个讲述人的故事" : "Preparing this narrator's story",
-      detail: zh ? "现在会把整体开场、画面、地图线索和讲述人视角合在一起。" : "The opening, crop, map clues, and narrator viewpoint are being combined.",
+      detail: zh ? "正在把画面、地点线索和讲述人的生活经验放进同一段话里。" : "The image, place clues, and narrator's everyday angle are being shaped into one story.",
       loading: true,
       done: false
     };
@@ -1349,7 +1471,7 @@ function fragmentFlowState(
   if (storyStatus === "ready") {
     return {
       title: zh ? "故事已准备好" : "Story is ready",
-      detail: zh ? "用右侧的播放区听。开场和片段故事会在同一个 Story Voice 里播放。" : "Use the voice panel to listen. The opening and fragment story live in the same Story Voice.",
+      detail: zh ? "用右侧的播放区听。字幕会跟着同一段讲述往前走。" : "Use the voice panel to listen. Captions follow the same spoken story.",
       loading: false,
       done: true
     };
@@ -1380,7 +1502,7 @@ function NearbyContinuationPanel({
   const zh = language === "zh";
 
   return (
-    <div className="surface-panel p-4">
+    <div className="surface-panel p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="fine-label">{zh ? "附近延展" : "Explore Nearby"}</p>
@@ -1389,8 +1511,8 @@ function NearbyContinuationPanel({
           </h2>
           <p className="mt-1 text-xs leading-5 text-ink/58">
             {zh
-              ? "基于当前片段的主题，推荐附近可继续进入街景的位置。"
-              : "Places nearby that can extend this reading with stronger public context."}
+              ? "和这个片段有关、附近还能继续看的地方。"
+              : "Nearby places that can continue this thread."}
           </p>
         </div>
         {status === "loading" ? <Loader2 className="mt-1 h-4 w-4 animate-spin text-ink/45" /> : null}
@@ -1434,7 +1556,7 @@ function NearbyContinuationPanel({
 
       {recommendations.length > 0 ? (
         <div className="mt-3 grid gap-2">
-          {recommendations.map((recommendation) => (
+          {recommendations.slice(0, 2).map((recommendation) => (
             <article key={recommendation.placeId} className="cozy-card p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -1449,9 +1571,9 @@ function NearbyContinuationPanel({
                   {recommendation.recommendedSchema || "Street"}
                 </span>
               </div>
-              <p className="mt-2 text-xs leading-5 text-ink/68">{recommendation.reason}</p>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {recommendation.evidenceSources.slice(0, 5).map((source) => (
+              <p className="mt-2 line-clamp-2 text-xs leading-5 text-ink/68">{recommendation.reason}</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {recommendation.evidenceSources.slice(0, 3).map((source) => (
                   <span key={source} className="inline-flex items-center gap-1 rounded-full bg-field/75 px-2 py-1 text-[10px] font-semibold text-ink/62">
                     <CheckCircle2 className="h-3 w-3 text-signal" />
                     {evidenceSourceLabel(source)}
@@ -1461,7 +1583,7 @@ function NearbyContinuationPanel({
               <button
                 type="button"
                 onClick={() => onOpen(recommendation)}
-                className="soft-button-primary mt-3 inline-flex h-9 items-center justify-center px-4 text-xs font-semibold"
+                className="soft-button-primary mt-2 inline-flex h-8 items-center justify-center px-3 text-xs font-semibold"
               >
                 {zh ? "打开街景" : "Open Street View"}
               </button>
@@ -1529,15 +1651,15 @@ function LiveCaption({
   return (
     <div className="notebook-panel min-h-[76px] px-4 py-3 text-brass sm:px-5">
       <div className="mb-1 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.14em] text-brass/65">
-        <span>{zh ? "实时字幕" : "Live Subtitle"}</span>
-        <span>{caption ? `${caption.index + 1}/${caption.total}` : "Idle"}</span>
+        <span>{zh ? "故事字幕" : "Story captions"}</span>
+        <span>{caption ? `${caption.index + 1}/${caption.total}` : zh ? "待播放" : "Waiting"}</span>
       </div>
       <p className="line-clamp-3 text-[15px] font-medium leading-6 text-brass sm:line-clamp-2 sm:text-[17px] sm:leading-7">
         {caption?.text ||
           (ready
             ? zh
-              ? "点击播放后，叙事会像视频字幕一样在这里逐条出现。"
-              : "Press Play; the story will appear here one subtitle line at a time."
+              ? "点击播放后，故事会像字幕一样逐句出现在这里。"
+              : "Press Listen; the story will appear here one subtitle line at a time."
             : zh
               ? "生成故事后，字幕会显示在这里。"
               : "Once the story is ready, captions will appear here.")}
@@ -1546,12 +1668,6 @@ function LiveCaption({
   );
 }
 
-const schemaNarrativeKey = {
-  "Functional-Use": "functionalUse",
-  "Identity-Belonging": "identityBelonging",
-  "Memory-Temporality": "memoryTemporality",
-  "Social-Cultural Resonance": "socialCulturalResonance"
-} as const;
 const openingCacheVersion = 3;
 
 function StoryArchiveDrawer({
@@ -1657,7 +1773,7 @@ function StoryArchiveDrawer({
                 })}
               </div>
 
-              {activeStory?.narratives ? (
+              {activeStory?.narratives?.spokenStory?.trim() ? (
                 <div className="space-y-3 border-t border-ink/10 pt-4">
                   <GroundingSummaryCard fragment={activeStory} language={language} compact />
                   <article className="cozy-card p-4">
@@ -1677,20 +1793,7 @@ function StoryArchiveDrawer({
 }
 
 function storyTextForFragment(fragment: SelectedFragment) {
-  if (fragment.narratives?.spokenStory?.trim()) {
-    return fragment.narratives.spokenStory.trim();
-  }
-  if (fragment.narrativeBlocks?.length) {
-    return fragment.narrativeBlocks
-      .map((block) => block.text.trim())
-      .filter(Boolean)
-      .join(" ");
-  }
-  if (!fragment.narratives) return "";
-  return (Object.keys(schemaNarrativeKey) as Array<keyof typeof schemaNarrativeKey>)
-    .map((schema) => fragment.narratives?.[schemaNarrativeKey[schema]]?.text?.trim() || "")
-    .filter(Boolean)
-    .join("\n\n");
+  return fragment.narratives?.spokenStory?.trim() || "";
 }
 
 async function fetchPlaceContext(
@@ -1807,20 +1910,10 @@ function findCachedAudio(
 }
 
 function storyTextForAudio(
-  narrativeBlocks: NarrativeBlock[] | undefined,
   narratives: SchemaNarratives | undefined,
   introText?: string
 ) {
-  const storyText = narrativeBlocks?.length
-    ? narrativeBlocks.map((block) => block.text.trim()).filter(Boolean).join("\n\n")
-    : narratives
-      ? [
-          narratives.functionalUse.text,
-          narratives.identityBelonging.text,
-          narratives.memoryTemporality.text,
-          narratives.socialCulturalResonance.text
-        ].join("\n\n")
-      : "";
+  const storyText = narratives?.spokenStory?.trim() || "";
   if (!storyText) return "";
   if (introText?.trim()) {
     return `${introText.trim()}\n\n${storyText}`;
@@ -1838,8 +1931,8 @@ function groundingHints(fragment: SelectedFragment) {
 
   for (const entity of fragment.visionDescription?.publicEntityCandidates || []) {
     hints.push({
-      kind: "Readable identity",
-      zhKind: "可读身份",
+      kind: "Visual clue",
+      zhKind: "画面线索",
       label: entity.nameEnglish || entity.name,
       confidence: entity.confidence >= 0.82 ? "high" : "medium"
     });
@@ -1847,8 +1940,8 @@ function groundingHints(fragment: SelectedFragment) {
   for (const candidate of fragment.placeContext?.publicDataCandidates || []) {
     if (candidate.spatialMatch === "footprint_intersection" || candidate.viewAlignment === "inside_fragment_view") {
       hints.push({
-        kind: candidate.spatialMatch === "footprint_intersection" ? "Map footprint" : "Public records",
-        zhKind: candidate.spatialMatch === "footprint_intersection" ? "建筑轮廓" : "公共记录",
+        kind: candidate.spatialMatch === "footprint_intersection" ? "Map outline" : "Public record",
+        zhKind: candidate.spatialMatch === "footprint_intersection" ? "地图轮廓" : "公共记录",
         label: candidate.label,
         confidence: candidate.spatialMatch === "footprint_intersection" ? "high" : "medium"
       });
@@ -1857,7 +1950,7 @@ function groundingHints(fragment: SelectedFragment) {
   for (const place of fragment.placeContext?.places || []) {
     if (place.viewAlignment === "inside_fragment_view" || place.viewAlignment === "near_fragment_view") {
       hints.push({
-        kind: "Map context",
+        kind: "Map clue",
         zhKind: "地图线索",
         label: place.name,
         confidence: place.viewAlignment === "inside_fragment_view" ? "medium" : "low"
@@ -1874,14 +1967,10 @@ function groundingHints(fragment: SelectedFragment) {
   });
 }
 
-function confidenceLabelZh(confidence: "high" | "medium" | "low") {
-  if (confidence === "high") return "较高";
-  if (confidence === "medium") return "中等";
-  return "较低";
-}
-
 function pickSchemaNarratives(narratives: SchemaNarratives): SchemaNarratives {
   return {
+    spokenStory: narratives.spokenStory,
+    subtitleBlocks: narratives.subtitleBlocks,
     functionalUse: narratives.functionalUse,
     identityBelonging: narratives.identityBelonging,
     memoryTemporality: narratives.memoryTemporality,

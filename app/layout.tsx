@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "HK Spatial Story",
-  description: "Hong Kong panorama fragment story prototype",
+  description: "Listen to place stories from selected Hong Kong street-view details.",
   icons: {
     icon: "/icon.svg",
     shortcut: "/icon.svg"
