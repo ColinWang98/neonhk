@@ -1225,6 +1225,8 @@ function CurrentDetailCard({
 }) {
   const zh = language === "zh";
   const hints = groundingHints(fragment);
+  const visibleHints = hints.slice(0, 2);
+  const hiddenHintCount = Math.max(0, hints.length - visibleHints.length);
   const statusText = fragmentStatusLabel(fragment.status, zh);
   const mainFeature = fragment.visionDescription?.mainFeature || (zh ? "街景细节" : "Street detail");
 
@@ -1256,15 +1258,15 @@ function CurrentDetailCard({
         </div>
       </div>
       {hints.length ? (
-        <div className="mt-3 border-t border-ink/10 pt-2">
+        <div className="mt-2 border-t border-ink/10 pt-2">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold text-ink/62">{zh ? "故事会参考这些线索" : "Story uses these clues"}</p>
+            <p className="text-[11px] font-semibold text-ink/62">{zh ? "地点线索" : "Place clues"}</p>
             <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/38">
               {zh ? `${hints.length}条` : `${hints.length} clues`}
             </span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {hints.slice(0, 4).map((hint) => (
+            {visibleHints.map((hint) => (
               <span
                 key={`${hint.kind}-${hint.label}`}
                 title={hint.label}
@@ -1276,6 +1278,11 @@ function CurrentDetailCard({
                 <span className="max-w-[9rem] truncate font-medium opacity-75">{hint.label}</span>
               </span>
             ))}
+            {hiddenHintCount ? (
+              <span className="inline-flex items-center rounded-full bg-field/70 px-2 py-1 text-[10px] font-semibold text-ink/45">
+                +{hiddenHintCount}
+              </span>
+            ) : null}
           </div>
         </div>
       ) : (
