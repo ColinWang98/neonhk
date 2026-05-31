@@ -449,7 +449,7 @@ function hasTemplatedOrFormalStoryVoice(text: string) {
   const repeatedWould = (text.match(/\bi would\b/gi) || []).length >= 4;
   const cardHeading = /\b(what catches my eye|what it brings up|a time of day|how people move here|how i use it|first impression|street timing|street manners|everyday use|shared space)\b/i.test(text);
   const abstractLanguage = /\b(identity|rhythm|social meaning|urban texture|public-facing environment|resonance|threshold|sense of belonging|layers of meaning|spatial context)\b/i.test(text);
-  const stiffPhrases = /\b(the timing matters more than the history|it is not a grand story|daily rhythm is the part i trust|gives me a handle on this little patch|the small rule is simple|use it first for orientation|use it for orientation|edge of the flow|one sign, one corner|stop feeling lost|keep the passage open|faster people pass|street manner i notice here)\b/i.test(text);
+  const stiffPhrases = /\b(the timing matters more than the history|timing matters more than history|it is not a grand story|daily rhythm is the part i trust|gives me a handle|how people move past|the small rule is simple|use it first for orientation|use it for orientation|edge of the flow|one sign, one corner|stop feeling lost|keep the passage open|faster people pass|street manner i notice here)\b/i.test(text);
   return repeatedWould || cardHeading || abstractLanguage || stiffPhrases;
 }
 

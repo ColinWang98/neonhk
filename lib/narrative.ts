@@ -34,18 +34,21 @@ Use the provided NarrativeEvidenceView, StoryFactPlan, persona, and PersonaFragm
 
 Core rules:
 - Write one first-person monologue, around 170 to 260 words. Do not stop after a few cautious observations.
-- The story needs at least four spoken beats: what I notice, who or what it reminds me of, the small thing happening today, and what I do next.
+- The story needs at least four spoken beats: what I notice, the person or memory it brings up, the small thing happening today, and what I do next.
+- Make it sound like a 35-second voice message to one friend. The narrator is not presenting findings. They are telling what this little place makes them do or remember.
 - Keep schema names hidden. Do not write section titles like "What catches my eye", "A time of day", "How people move here", "Functional-Use", or similar.
 - Mention one strong or medium-confidence place fact when it helps. Say it in normal speech, not evidence language.
 - Medium-confidence facts are optional. Use them carefully, with weak binding such as "Around here, X is the name I keep in mind" or "I use that name as a landmark".
 - Use Google review themes only as ordinary life texture. Do not say "reviews say" or quote reviewers.
 - Add one grounded everyday connection: family, friend, work, study, food, errand, queue, waiting, transport, rain, carrying bags, or a small payment. This can be fictional persona memory, but it must fit the visible place type or sourced place context.
+- Let one other person matter. A cousin, coworker, landlord, classmate, customer, passenger, child, or friend should affect what the narrator notices or does.
 - Treat StoryBrief.storySeeds as the strongest scene scaffolds. Pick one seed and adapt it to the persona and evidence, instead of inventing a generic street explanation.
 - Give the narrator one tiny scene, not advice. Someone is meeting a cousin, buying food, looking for an entrance, carrying bags, waiting out rain, going to class, heading to work, checking a message, or choosing where to wait.
 - Make that tiny scene feel like it is happening today or comes from a specific remembered day. The narrator should have a reason, a person, and a small consequence.
 - Use one concrete personal link when possible: "my cousin", "my old route", "a coworker", "my landlord", "my child", "a friend from home", "a passenger", "a customer", or "someone I am meeting". Do not keep the narrator as a generic observer.
 - Every kind of place can trigger ordinary personal knowledge. A campus, shop, clinic, estate, station, market, office block, footbridge, or blank-looking frontage can bring up a relative, coworker, delivery, meal, shortcut, rent, repair, queue, exam, appointment, or weather habit.
 - Make the tiny scene have a reason. The narrator is a little early, late, hungry, carrying something, meeting someone, avoiding rain, comparing it with another city, or checking a message. Do not just describe how to stand or move.
+- Give the story a small before-and-after. The narrator arrives with one tiny problem, notices the selected detail, then makes one decision.
 - Let the place fact cause a small memory or errand. For example, a campus name can lead to a relative's course, canteen talk, studio deadlines, labs, exams, or waiting at the wrong entrance. A shop name can lead to taste, price, queue, family errands, or a quick purchase before transport.
 - Follow a simple spoken arc: visible clue, personal connection, small complication, then a next action. A complication can be rain, being late, a queue, the wrong entrance, a message, a heavy bag, a busy lunch break, or a person waiting.
 - Avoid turning the story into movement advice. At most one sentence can be about standing aside, finding bearings, or following the crowd. The rest must be about a person, errand, taste, class, work shift, family, queue, rain, or waiting.
@@ -56,7 +59,7 @@ Core rules:
 - Avoid repeated "I would". Prefer direct voice: "I slow down", "I use the sign", "I step aside", "I learned this after a few weeks here".
 - Avoid repeating the same opening pattern across stories. Do not always start with "Okay" or "X is the name I hold onto".
 - Avoid stiff evidence phrases: "the map and image make", "possible match here", "candidate", "Evidence Packet", "primary claims", "keep the reading modest", "frontage has a simple identity".
-- Avoid generic orientation filler: "I use it first for orientation", "edge of the flow", "one sign, one corner", "stop feeling lost", "keep the passage open", "the daily rhythm is the part I trust".
+- Avoid generic orientation filler: "I use it first for orientation", "edge of the flow", "one sign, one corner", "stop feeling lost", "keep the passage open", "the daily rhythm is the part I trust", "gives me a handle", "timing matters more than history", "how people move past".
 - Avoid abstract or literary words: identity, rhythm, resonance, threshold, urban texture, social meaning, layers, traces, belonging, atmosphere.
 - Avoid em dashes, semicolons, and long sentences. Most sentences should be short and speakable.
 
@@ -124,7 +127,7 @@ export async function generateNarratives(
             lng: visualContext.image?.lng
           },
           languageStyle:
-            "Default to English. Use conversational Hong Kong street-life English without forcing Cantonese. One continuous first-person monologue of roughly 170 to 260 words. No headings. No academic phrases. No disclaimers. Use storyBrief as a menu, not a checklist. Pick one concrete micro-scene with a person, a reason, a small complication, and a next action. Make the place fact feel lived: family, study, work, food, queue, rain, transport, payment, message, or waiting. Return only spokenStory."
+            "Default to English. Use conversational Hong Kong street-life English without forcing Cantonese. One continuous first-person monologue of roughly 170 to 260 words. No headings. No academic phrases. No disclaimers. Use storyBrief as a menu, not a checklist. Write it like a short voice message to a friend. Pick one concrete micro-scene with a person, a reason, a small complication, and a next action. Make the place fact feel lived: family, study, work, food, queue, rain, transport, payment, message, or waiting. Return only spokenStory."
         })
       }
     ],

@@ -32,6 +32,7 @@ Repair goals:
 7. Return only spokenStory. It is the source of truth for subtitles and internal fields.
 8. Direct and high-confidence facts are anchors. Medium-confidence facts are optional. Keep only the ones that make the story sound more specific and natural.
 9. The repaired story should be roughly 170 to 260 words, with enough room for a visible cue, a personal connection, a small complication, and a next action.
+10. Make it sound like a short voice message to one friend, not like a place analysis.
 
 Persona style:
 - Do not label the persona in the sentence. Never write "as a temporary-resident", "as a tourist", or "as a local resident".
@@ -42,6 +43,7 @@ Persona style:
 - Add one tiny everyday scene when possible: checking a sign, arriving from transport, holding a drink, keeping out of a doorway, leaving space for a delivery, waiting in rain, or comparing the place with a street near home.
 - Add one small personal or social connection when it fits: a cousin at school, a friend talking about food, a family errand, a worker's delivery route, a regular queue, a wet pavement habit, or a place to wait.
 - Make the repaired story feel like a specific small moment, not a general explanation. It needs a person, a reason, and a small consequence.
+- Let one other person matter whenever possible: cousin, friend, coworker, landlord, classmate, customer, passenger, child, family member, or someone waiting.
 - This applies to any place type, not just famous buildings. Campuses, shops, clinics, estates, stations, markets, office blocks, footbridges, and plain frontages can all carry a small human errand or relationship.
 - Make the scene have a reason: the narrator is a little early, late, hungry, carrying something, meeting someone, avoiding rain, comparing it with another city, or checking a message.
 - Do not repair the story into pure route advice. Keep one thing the narrator cares about personally, even if the place fact is only medium confidence.
@@ -61,6 +63,7 @@ Do not mention forbiddenVisibleNames as visible, selected, or identical to the f
 Do not make news or official notices explain the selected fragment.
 Avoid stiff evidence phrases such as "the map and image make", "possible match here", "visual-map verifier", "candidate", "keep the reading modest", "frontage has a simple identity", and "without pretending I know the whole place".
 Avoid generic filler such as "I use it first for orientation", "edge of the flow", "one sign, one corner", "stop feeling lost", "keep the passage open", and "the daily rhythm is the part I trust".
+Also avoid "gives me a handle", "the timing matters more than the history", "how people move past", and any sentence that sounds like a general street rule.
 
 Return strict JSON:
 {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, ChevronLeft, ImageIcon, Loader2, MapPin, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronLeft, ImageIcon, Loader2, MapPin, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { SelectedFragmentList } from "@/components/SelectedFragmentList";
@@ -1513,6 +1513,12 @@ function NearbyContinuationPanel({
   onRetry: () => void;
 }) {
   const zh = language === "zh";
+  const [expanded, setExpanded] = useState(false);
+  const primaryRecommendation = recommendations[0];
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [primaryRecommendation?.placeId, status]);
 
   return (
     <div className="surface-panel p-3">
@@ -1528,11 +1534,23 @@ function NearbyContinuationPanel({
               : "Nearby places that can continue this thread."}
           </p>
         </div>
-        {status === "loading" ? <Loader2 className="mt-1 h-4 w-4 animate-spin text-ink/45" /> : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {status === "loading" ? <Loader2 className="h-4 w-4 animate-spin text-ink/45" /> : null}
+          {recommendations.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setExpanded((value) => !value)}
+              className="soft-button inline-flex h-8 w-8 items-center justify-center p-0"
+              aria-label={expanded ? (zh ? "收起附近延展" : "Collapse nearby continuation") : zh ? "展开附近延展" : "Expand nearby continuation"}
+            >
+              <ChevronDown className={`h-4 w-4 transition ${expanded ? "rotate-180" : ""}`} />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {status === "loading" ? (
-        <div className="mt-3 rounded-[16px] border-2 border-dashed border-ink/15 bg-field/55 px-3 py-4 text-sm leading-6 text-ink/58">
+        <div className="mt-3 rounded-[14px] border border-ink/10 bg-field/55 px-3 py-2 text-xs leading-5 text-ink/58">
           {zh ? "正在查找附近可继续探索的位置。" : "Finding nearby places to continue the story."}
         </div>
       ) : null}
@@ -1567,9 +1585,43 @@ function NearbyContinuationPanel({
         </div>
       ) : null}
 
-      {recommendations.length > 0 ? (
+      {primaryRecommendation ? (
+        <div className="mt-3 rounded-[16px] border border-ink/10 bg-field/55 p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-semibold text-ink">{primaryRecommendation.name}</h3>
+              <p className="mt-1 flex items-center gap-1 text-xs text-ink/58">
+                <MapPin className="h-3 w-3" />
+                {formatDistance(primaryRecommendation.distanceMeters, zh)}
+                {primaryRecommendation.category ? <span className="truncate">· {primaryRecommendation.category}</span> : null}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onOpen(primaryRecommendation)}
+              className="soft-button-primary inline-flex h-8 shrink-0 items-center justify-center px-3 text-xs font-semibold"
+            >
+              {zh ? "打开" : "Open"}
+            </button>
+          </div>
+          <p className={`mt-2 text-xs leading-5 text-ink/68 ${expanded ? "" : "line-clamp-2"}`}>
+            {primaryRecommendation.reason}
+          </p>
+          {!expanded && recommendations.length > 1 ? (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="mt-2 text-[11px] font-semibold text-signal transition hover:text-[var(--leaf-dark)]"
+            >
+              {zh ? `还有 ${recommendations.length - 1} 个地点` : `${recommendations.length - 1} more nearby`}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {expanded && recommendations.length > 1 ? (
         <div className="mt-3 grid gap-2">
-          {recommendations.slice(0, 2).map((recommendation) => (
+          {recommendations.slice(1, 3).map((recommendation) => (
             <article key={recommendation.placeId} className="cozy-card p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -1601,6 +1653,16 @@ function NearbyContinuationPanel({
                 {zh ? "打开街景" : "Open Street View"}
               </button>
             </article>
+          ))}
+        </div>
+      ) : null}
+      {expanded && primaryRecommendation ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {primaryRecommendation.evidenceSources.slice(0, 3).map((source) => (
+            <span key={source} className="inline-flex items-center gap-1 rounded-full bg-field/75 px-2 py-1 text-[10px] font-semibold text-ink/62">
+              <CheckCircle2 className="h-3 w-3 text-signal" />
+              {evidenceSourceLabel(source)}
+            </span>
           ))}
         </div>
       ) : null}
