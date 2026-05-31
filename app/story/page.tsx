@@ -1005,7 +1005,7 @@ export default function StoryPage() {
             ) : null}
           </div>
         </div>
-        <div className="min-h-[132px] lg:min-h-0">
+        <div className="min-h-[104px] lg:min-h-0">
           <SelectedFragmentList
             fragments={fragments}
             language={uiLanguage}

@@ -16,32 +16,34 @@ export function SelectedFragmentList({
 }) {
   const zh = language === "zh";
   return (
-    <div className="surface-panel flex min-h-0 flex-col gap-3 overflow-hidden p-3 sm:flex-row sm:items-center">
-      <div className="shrink-0 sm:w-52">
-        <p className="fine-label">{zh ? "碎片" : "Fragments"}</p>
-        <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "已框选片段" : "Selected fragments"}</h2>
-        <p className="mt-1 text-xs leading-5 text-ink/58">
-          {zh ? `${fragments.length} 个白框，可点选回到原位` : `${fragments.length} saved boxes. Select one to return.`}
+    <div className="surface-panel flex min-h-0 flex-col gap-2 overflow-hidden p-2.5 sm:flex-row sm:items-center sm:gap-3">
+      <div className="flex shrink-0 items-center justify-between gap-3 sm:w-44 sm:flex-col sm:items-start">
+        <div>
+          <p className="fine-label">{zh ? "白框" : "Boxes"}</p>
+          <h2 className="mt-0.5 text-sm font-semibold text-ink">{zh ? "已保存" : "Saved"}</h2>
+        </div>
+        <p className="rounded-full bg-field/75 px-2.5 py-1 text-[11px] font-semibold text-ink/58">
+          {zh ? `${fragments.length} 个` : `${fragments.length} saved`}
         </p>
       </div>
       <div className="min-w-0 flex-1 overflow-x-auto pb-1">
         {fragments.length === 0 ? (
-          <div className="flex min-h-[5.75rem] items-center justify-center rounded-[16px] border-2 border-dashed border-ink/20 bg-paper/45 px-4 text-center text-sm leading-6 text-ink/55">
+          <div className="flex min-h-[4.75rem] items-center justify-center rounded-[16px] border-2 border-dashed border-ink/20 bg-paper/45 px-4 text-center text-sm leading-6 text-ink/55">
             {zh ? "在全景图里框选一个公共细节，白框会保存在这里。" : "Select one public detail in the panorama. Saved boxes will appear here."}
           </div>
         ) : (
           <div className="flex min-w-max gap-2">
-            {fragments.map((fragment) => (
+            {fragments.map((fragment, index) => (
               <button
                 type="button"
                 key={fragment.id}
                 onClick={() => onSelect?.(fragment)}
-                className={`quiet-panel w-[15.5rem] shrink-0 p-2.5 text-left transition hover:border-brass/45 ${
+                className={`quiet-panel w-[12.25rem] shrink-0 p-2 text-left transition hover:border-brass/45 ${
                   activeFragmentId === fragment.id ? "cozy-card-active" : ""
                 }`}
               >
-                <div className="flex gap-3">
-                  <div className="flex h-20 w-24 shrink-0 items-center justify-center overflow-hidden rounded-[12px] border-2 border-ink/10 bg-field">
+                <div className="flex gap-2">
+                  <div className="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[12px] border-2 border-ink/10 bg-field">
                     {fragment.cropImageUrl ? (
                       <img
                         src={fragment.cropImageUrl}
@@ -55,7 +57,7 @@ export function SelectedFragmentList({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="truncate text-xs font-semibold text-ink">
-                        {fragment.visionDescription?.mainFeature || fragment.id}
+                        {fragment.visionDescription?.mainFeature || (zh ? `片段 ${index + 1}` : `Box ${index + 1}`)}
                       </h3>
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                         activeFragmentId === fragment.id ? "bg-signal text-white" : "bg-field/80 text-ink/65"
@@ -66,13 +68,8 @@ export function SelectedFragmentList({
                     <p className="mt-1 text-xs text-ink/60">
                       {new Date(fragment.selectedAt).toLocaleTimeString()}
                     </p>
-                    {fragment.visionDescription ? (
-                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/70">
-                        {fragment.visionDescription.mainFeature}
-                      </p>
-                    ) : null}
                     {fragment.audioGenerations && Object.keys(fragment.audioGenerations).length > 0 ? (
-                      <p className="mt-2 text-[11px] font-medium text-signal">
+                      <p className="mt-1 text-[11px] font-medium text-signal">
                         {zh ? "已有音频" : "Audio saved"}
                       </p>
                     ) : null}
