@@ -37,6 +37,7 @@ import type {
 
 const selectedImageStorageKey = "hk-spatial-story.selected-image";
 const storySessionStorageKey = "hk-spatial-story.session";
+const playedOpeningStorageKey = "hk-spatial-story.played-openings";
 
 export default function StoryPage() {
   const {
@@ -147,6 +148,11 @@ export default function StoryPage() {
       if (savedSession) {
         setStorySession(savedSession);
       }
+    }
+
+    const savedPlayedOpenings = readSessionJson<Record<string, true>>(playedOpeningStorageKey);
+    if (savedPlayedOpenings) {
+      setPlayedOpeningKeys(savedPlayedOpenings);
     }
 
     setStorageHydrated(true);
@@ -977,10 +983,14 @@ export default function StoryPage() {
                 onCaptionChange={setCaption}
                 onIntroPlayed={() => {
                   if (!activeOpeningKey) return;
-                  setPlayedOpeningKeys((current) => ({
-                    ...current,
-                    [activeOpeningKey]: true
-                  }));
+                  setPlayedOpeningKeys((current) => {
+                    const next: Record<string, true> = {
+                      ...current,
+                      [activeOpeningKey]: true
+                    };
+                    sessionStorage.setItem(playedOpeningStorageKey, JSON.stringify(next));
+                    return next;
+                  });
                 }}
                 onAudioGenerated={(entry) => {
                   if (!readyFragment) return;
