@@ -1118,13 +1118,6 @@ function PersonaSwitcher({
             );
           })}
         </div>
-      ) : selectedPersona ? (
-        <div className="mt-3 rounded-[16px] border border-ink/10 bg-field/55 px-3 py-2.5">
-          <p className="text-xs leading-5 text-ink/68">
-            {selectedPersona.userIntro ||
-              (zh ? "这个讲述人会从自己的日常关系来读这个地方。" : "This narrator reads the place through an everyday relationship.")}
-          </p>
-        </div>
       ) : null}
     </div>
   );

@@ -39,11 +39,14 @@ Core rules:
 - Use Google review themes only as ordinary life texture. Do not say "reviews say" or quote reviewers.
 - Add one grounded everyday connection: family, friend, work, study, food, errand, queue, waiting, transport, rain, carrying bags, or a small payment. This can be fictional persona memory, but it must fit the visible place type or sourced place context.
 - Give the narrator one tiny scene, not advice. Someone is meeting a cousin, buying food, looking for an entrance, carrying bags, waiting out rain, going to class, heading to work, checking a message, or choosing where to wait.
+- Make that tiny scene feel like it is happening today or comes from a specific remembered day. The narrator should have a reason, a person, and a small consequence.
+- Use one concrete personal link when possible: "my cousin", "my old route", "a coworker", "my landlord", "my child", "a friend from home", "a passenger", "a customer", or "someone I am meeting". Do not keep the narrator as a generic observer.
 - Every kind of place can trigger ordinary personal knowledge. A campus, shop, clinic, estate, station, market, office block, footbridge, or blank-looking frontage can bring up a relative, coworker, delivery, meal, shortcut, rent, repair, queue, exam, appointment, or weather habit.
 - Make the tiny scene have a reason. The narrator is a little early, late, hungry, carrying something, meeting someone, avoiding rain, comparing it with another city, or checking a message. Do not just describe how to stand or move.
 - Let the place fact cause a small memory or errand. For example, a campus name can lead to a relative's course, canteen talk, studio deadlines, labs, exams, or waiting at the wrong entrance. A shop name can lead to taste, price, queue, family errands, or a quick purchase before transport.
-- Follow a simple spoken arc: visible clue, personal connection, one local-life detail, then a small next action.
+- Follow a simple spoken arc: visible clue, personal connection, small complication, then a next action. A complication can be rain, being late, a queue, the wrong entrance, a message, a heavy bag, a busy lunch break, or a person waiting.
 - Avoid turning the story into movement advice. At most one sentence can be about standing aside, finding bearings, or following the crowd. The rest must be about a person, errand, taste, class, work shift, family, queue, rain, or waiting.
+- Do not write a sequence of general street rules. If a sentence sounds like advice for any street, replace it with what happened to this narrator at this place.
 - Keep uncertainty only for real-world facts. The persona's own habits and memories can be direct.
 - Never say "not enough evidence", "I cannot know", "I will not guess", "I will not invent", or similar policy language.
 - Never label the narrator as "as a tourist", "as a temporary resident", or "as a local".
@@ -118,7 +121,7 @@ export async function generateNarratives(
             lng: visualContext.image?.lng
           },
           languageStyle:
-            "Default to English. Use conversational Hong Kong street-life English without forcing Cantonese. One continuous first-person monologue. No headings. No academic phrases. No disclaimers. Use storyBrief as a menu, not a checklist. Pick one concrete micro-scene and make the place fact feel lived: family, study, work, food, queue, rain, transport, payment, message, or waiting. Return only spokenStory."
+            "Default to English. Use conversational Hong Kong street-life English without forcing Cantonese. One continuous first-person monologue. No headings. No academic phrases. No disclaimers. Use storyBrief as a menu, not a checklist. Pick one concrete micro-scene with a person, a reason, and a small complication. Make the place fact feel lived: family, study, work, food, queue, rain, transport, payment, message, or waiting. Return only spokenStory."
         })
       }
     ],

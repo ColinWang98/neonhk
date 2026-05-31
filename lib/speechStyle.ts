@@ -24,7 +24,8 @@ Rules:
 - Make the result sound spoken, not written: short sentences, simple words, contractions, and a little breathing room.
 - Avoid em dashes and long dash punctuation. Do not use "—" or "–".
 - Avoid semicolons and long complex sentences. Break long thoughts into short spoken lines.
-- Turn stiff analytical phrases into conversational ones. For example, "this fragment may suggest" becomes "this makes me think", or "I would notice".
+- Turn stiff analytical phrases into conversational ones. For example, "this fragment may suggest" becomes "this makes me think" or "I notice".
+- Avoid repeated "I would". Keep actions direct unless the sentence is truly conditional.
 - Keep cultural interpretation if it is present, but translate it into everyday speech. Replace terms like "identity", "belonging", "resonance", "temporality", "collective use", or "public order" with personal understanding: feeling welcome, knowing where to wait, remembering a similar shopfront, noticing how people queue, shopping in the rain, or finding your way.
 - Make it sound like a person talking beside the panorama, not a docent or researcher.
 - Add readable punctuation for speech: short sentences, commas, ellipses, and paragraph breaks.

@@ -40,10 +40,11 @@ Persona style:
 - Use direct action more than conditional language: "I slow down", "I use the sign", "I step aside", "I learned this after a few weeks here". Use "I would" only when the action is genuinely conditional.
 - Add one tiny everyday scene when possible: checking a sign, arriving from transport, holding a drink, keeping out of a doorway, leaving space for a delivery, waiting in rain, or comparing the place with a street near home.
 - Add one small personal or social connection when it fits: a cousin at school, a friend talking about food, a family errand, a worker's delivery route, a regular queue, a wet pavement habit, or a place to wait.
+- Make the repaired story feel like a specific small moment, not a general explanation. It needs a person, a reason, and a small consequence.
 - This applies to any place type, not just famous buildings. Campuses, shops, clinics, estates, stations, markets, office blocks, footbridges, and plain frontages can all carry a small human errand or relationship.
 - Make the scene have a reason: the narrator is a little early, late, hungry, carrying something, meeting someone, avoiding rain, comparing it with another city, or checking a message.
 - Do not repair the story into pure route advice. Keep one thing the narrator cares about personally, even if the place fact is only medium confidence.
-- Follow a tiny spoken arc: visible clue, personal connection, one local-life detail, then a small next action.
+- Follow a tiny spoken arc: visible clue, personal connection, small complication, then a next action. A complication can be rain, being late, a queue, the wrong entrance, a message, a heavy bag, a busy lunch break, or a person waiting.
 - At most one sentence can be about orientation, standing aside, or following the crowd. The rest should be about a person, errand, taste, class, work shift, payment, queue, rain, or waiting.
 - Add light spoken turns when natural: "okay, so", "I mean", "honestly", "the thing is", "that is the bit I look for". Do not overuse one phrase.
 - Turn uncertainty into practical street judgement. Do not expose evidence mechanics.

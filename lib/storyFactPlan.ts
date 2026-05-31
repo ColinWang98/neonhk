@@ -57,6 +57,7 @@ function pickRelatedContextClaims(evidenceView: NarrativeEvidenceView, likelyLab
     .filter((claim) =>
       claim.source === "wikipedia" ||
       claim.source === "wikidata" ||
+      claim.source === "google_reviews" ||
       claim.source === "place_memory" ||
       claim.source === "hk_amo" ||
       claim.source === "hk_landsd"
@@ -121,6 +122,9 @@ function anchorScore(claim: EvidenceClaim, identityClaimId?: string) {
 }
 
 function storyFactText(claim: EvidenceClaim) {
+  if (claim.source === "google_reviews") {
+    return reviewThemeFactText(claim);
+  }
   const label = extractNamedIdentity(claim);
   if (label) return wordingForClaim(claim, label);
   return claim.text.replace(/\s+/g, " ").trim();
@@ -128,15 +132,33 @@ function storyFactText(claim: EvidenceClaim) {
 
 function wordingForClaim(claim: EvidenceClaim, label: string) {
   if (claim.allowedUse === "direct_fact") {
-    return `${label} is a name the narrator can pick up naturally at the start.`;
+    return `${label} is a name the narrator can catch naturally, then turn into a small errand, meeting point, class, meal, or waiting scene.`;
   }
   if (claim.source === "candidate_verifier") {
-    return `${label} can be used as a likely landmark in casual words, without sounding certain.`;
+    return `${label} can be used as a likely landmark in casual words, then connected to one ordinary reason for being here.`;
   }
   if (/footprint|sight line|viewing cone/i.test(claim.text)) {
-    return `This view points toward ${label}, so it can be used as a careful landmark, not a hard identification.`;
+    return `The view points toward ${label}, so the narrator can use the name carefully as a landmark, not a hard identification.`;
   }
   return `${label} can be mentioned only if it helps the narrator's everyday story.`;
+}
+
+function reviewThemeFactText(claim: EvidenceClaim) {
+  const compact = claim.text.replace(/\s+/g, " ").trim();
+  const placeName = compact.match(/^(.+?) has selected Google Places review context:/i)?.[1]?.trim();
+  const theme = compact.match(/mention (.+?)(?:\.|, especially| Treat this)/i)?.[1]?.trim();
+  const concrete = compact.match(/especially (.+?)\. Treat this/i)?.[1]?.trim();
+  const texture = [theme, concrete].filter(Boolean).join(", especially ");
+  if (placeName && texture) {
+    return `${placeName} can bring in everyday talk about ${texture}. Use it as life texture, not as a review citation.`;
+  }
+  if (placeName) {
+    return `${placeName} can bring in one small everyday detail from public visitor talk, without saying "reviews say".`;
+  }
+  return compact
+    .replace(/Public Google reviews for /gi, "")
+    .replace(/Treat this as everyday visitor talk, not as proof about the selected fragment\./gi, "")
+    .trim();
 }
 
 function claimLabel(claim: EvidenceClaim) {
