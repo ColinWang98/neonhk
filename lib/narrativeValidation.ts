@@ -365,23 +365,23 @@ function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: Narrativ
 
 function factSceneSentence(name: string, sourceText: string, certainty: "direct" | "cautious") {
   const lower = `${name} ${sourceText}`.toLowerCase();
-  const prefix = certainty === "direct" ? `${name} is the name I catch here` : `Around here, I treat ${name} as the likely name`;
+  const prefix = certainty === "direct" ? `I catch the name ${name} here` : `Around here, I keep ${name} in mind`;
   if (/\b(university|polytechnic|polyu|campus|school|college|student)\b/.test(lower)) {
-    return `${prefix}, and my mind goes straight to classes, canteens, and someone trying to find the right entrance.`;
+    return `${prefix}, and I think of someone texting from the wrong entrance after class, asking where to meet and whether the canteen is still open.`;
   }
   if (/\b(restaurant|cafe|food|snack|egg waffle|bakery|noodle|market|茶餐|food court)\b/.test(lower)) {
-    return `${prefix}, and it already feels like a quick food stop, the kind people check before the next bus or train.`;
+    return `${prefix}, and I start thinking about whether there is time to grab one thing for a friend before the next bus or train.`;
   }
   if (/\b(pharmacy|dispensary|clinic|medical|藥房|药房)\b/.test(lower)) {
-    return `${prefix}, and I picture a very normal family errand, picking something up quickly and getting out of the doorway.`;
+    return `${prefix}, and it feels like the kind of family errand where somebody messages, buy this quickly, then come straight back.`;
   }
   if (/\b(station|bus|tram|mtr|taxi|transport|crossing)\b/.test(lower)) {
-    return `${prefix}, so I read this spot through transfers, messages, and people checking which way to go next.`;
+    return `${prefix}, then I check my message again because one missed exit can turn a simple meet-up into ten extra minutes.`;
   }
   if (/\b(shop|store|mall|sign|storefront|frontage|entrance)\b/.test(lower)) {
-    return `${prefix}, the sort of sign someone uses when they say, meet me by that shop.`;
+    return `${prefix}, the sort of sign someone uses in a lazy message, wait by that shop and I will be there in five.`;
   }
-  return `${prefix}, and I use it as a small hook for the errand happening right in front of me.`;
+  return `${prefix}, and I tie it to the small errand in my head, the message I am answering, and where I should wait without getting in the way.`;
 }
 
 function confidenceForPlan(plan: PersonaFragmentPlan): NarrativeBlock["confidence"] {

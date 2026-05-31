@@ -22,6 +22,7 @@ type StoryBrief = {
   personaMode: string;
   placeHooks: string[];
   microSceneOptions: string[];
+  storySeeds: string[];
   avoidPatterns: string[];
 };
 
@@ -38,6 +39,7 @@ Core rules:
 - Medium-confidence facts are optional. Use them carefully, with weak binding such as "Around here, X is the name I keep in mind" or "I use that name as a landmark".
 - Use Google review themes only as ordinary life texture. Do not say "reviews say" or quote reviewers.
 - Add one grounded everyday connection: family, friend, work, study, food, errand, queue, waiting, transport, rain, carrying bags, or a small payment. This can be fictional persona memory, but it must fit the visible place type or sourced place context.
+- Treat StoryBrief.storySeeds as the strongest scene scaffolds. Pick one seed and adapt it to the persona and evidence, instead of inventing a generic street explanation.
 - Give the narrator one tiny scene, not advice. Someone is meeting a cousin, buying food, looking for an entrance, carrying bags, waiting out rain, going to class, heading to work, checking a message, or choosing where to wait.
 - Make that tiny scene feel like it is happening today or comes from a specific remembered day. The narrator should have a reason, a person, and a small consequence.
 - Use one concrete personal link when possible: "my cousin", "my old route", "a coworker", "my landlord", "my child", "a friend from home", "a passenger", "a customer", or "someone I am meeting". Do not keep the narrator as a generic observer.
@@ -215,34 +217,42 @@ function buildStoryBrief(input: {
 
   const placeHooks: string[] = [];
   const microSceneOptions: string[] = [];
+  const storySeeds: string[] = [];
 
   if (matchesAny(text, ["university", "polytechnic", "polyu", "campus", "school", "college", "student"])) {
     placeHooks.push("campus life, entrances, students, canteens, studio or lab deadlines, exams, waiting for someone after class");
     microSceneOptions.push("connect the visible name to a cousin, friend, child, classmate, or younger relative studying nearby");
+    storySeeds.push("The narrator is early to meet a younger relative or friend after class. A message mentions the wrong entrance, so the visible campus name becomes the thing they use to settle down, wait, and talk about canteen food, deadlines, or finding the right gate.");
   }
   if (matchesAny(text, ["restaurant", "cafe", "茶餐", "food", "snack", "egg waffle", "bakery", "noodle", "market"])) {
     placeHooks.push("taste, queue length, takeaway bags, cash or Octopus, buying something before transport");
     microSceneOptions.push("make the narrator remember ordering for someone, checking the queue, or deciding whether there is time to buy food");
+    storySeeds.push("The narrator is buying a small snack or drink for someone before a bus or train. The queue, smell, price, or payment moment creates the tiny decision: wait, give up, or grab it quickly and move on.");
   }
   if (matchesAny(text, ["pharmacy", "dispensary", "clinic", "hospital", "medical", "藥房", "药房"])) {
     placeHooks.push("family errands, quick medicine purchase, older relatives, bright shop signs, not blocking the entrance");
     microSceneOptions.push("make it about picking something up for family, not about medical claims");
+    storySeeds.push("The narrator has been asked to pick up something simple for family. The bright shop or clinic cue matters because they are trying to finish the errand quickly without blocking the doorway.");
   }
   if (matchesAny(text, ["station", "bus", "tram", "mtr", "taxi", "stop", "transport", "crossing"])) {
     placeHooks.push("transfers, missed exits, rain, checking a route message, where people pause before moving on");
     microSceneOptions.push("make the narrator check a message or meet someone near a transport cue");
+    storySeeds.push("The narrator is checking a message about where to meet after transport. The selected detail becomes a practical marker because rain, traffic, or a missed exit has made the meeting slightly messy.");
   }
   if (matchesAny(text, ["shop", "store", "mall", "market", "sign", "storefront", "frontage", "entrance"])) {
     placeHooks.push("shop sign as meeting point, errands, price checking, doorway crowd, quick purchase");
     microSceneOptions.push("make the narrator use the sign because someone gave a casual direction, like 'wait by that shop'");
+    storySeeds.push("Someone has told the narrator to wait near this shop or entrance. They notice the sign, a small crowd, or the doorway, then decide whether to stand there, buy something, or move a few steps away.");
   }
   if (matchesAny(text, ["estate", "residential", "building", "tower", "apartment", "public housing"])) {
     placeHooks.push("visiting family, finding the right lift lobby, delivery, security desk, wet umbrellas");
     microSceneOptions.push("make it about arriving for a visit or delivery, not architectural description");
+    storySeeds.push("The narrator is visiting someone or making a delivery. The building cue matters because they are checking the lift lobby, asking the security desk, or trying not to arrive with wet bags.");
   }
   if (!placeHooks.length) {
     placeHooks.push("a specific visible clue, a small errand, waiting, rain, a message, and how people use the pavement");
     microSceneOptions.push("make the selected detail matter because it helps with one ordinary task today");
+    storySeeds.push("The narrator is doing one small task today: waiting for a message, carrying something, avoiding rain, or meeting someone. The selected detail becomes useful because it gives that task a place to happen.");
   }
 
   const personaMode = personaStoryMode(personaText);
@@ -251,6 +261,7 @@ function buildStoryBrief(input: {
     personaMode,
     placeHooks: uniqueShort(placeHooks, 4),
     microSceneOptions: uniqueShort([...personaOptions, ...microSceneOptions], 5),
+    storySeeds: uniqueShort(storySeeds, 4),
     avoidPatterns: [
       "do not make the whole story about orientation",
       "do not repeat standing aside or following the crowd",
