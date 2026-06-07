@@ -33,7 +33,6 @@ type Props = {
 export function TtsControls({
   narratives,
   introText,
-  introSegments,
   includeIntro = false,
   persona,
   config,
@@ -59,20 +58,6 @@ export function TtsControls({
   const storyText = useMemo(() => {
     return spokenStory;
   }, [spokenStory]);
-  const storyCaptionSegments = useMemo(() => {
-    const blockSegments = narratives?.subtitleBlocks
-      ?.map((block) => block.text.trim())
-      .filter(Boolean) || [];
-    return blockSegments.length ? blockSegments : splitCaptionSegments(storyText);
-  }, [narratives?.subtitleBlocks, storyText]);
-  const captionSegments = useMemo(() => {
-    if (includeIntro && introText) {
-      const intro = introSegments?.length ? introSegments : splitCaptionSegments(introText);
-      return [...intro, ...storyCaptionSegments];
-    }
-    return storyCaptionSegments;
-  }, [includeIntro, introSegments, introText, storyCaptionSegments]);
-  const captionTiming = useMemo(() => buildCaptionTiming(captionSegments), [captionSegments]);
   const speechText = useMemo(() => {
     if (includeIntro && introText) {
       return `${introText.trim()}\n\n${storyText}`.trim();
@@ -125,8 +110,7 @@ export function TtsControls({
       if (cachedAudio?.audioUrl) {
         await playAudioUrl(
           cachedAudio.audioUrl,
-          captionSegments,
-          captionTiming,
+          splitCaptionSegments(cachedAudio.speechText || cachedAudio.sourceText || speechText),
           requestId,
           requestIdRef,
           audioRef,
@@ -170,8 +154,7 @@ export function TtsControls({
       });
       await playAudioUrl(
         data.audioUrl,
-        captionSegments,
-        captionTiming,
+        splitCaptionSegments(data.speechText || data.sourceText || speechText),
         requestId,
         requestIdRef,
         audioRef,
@@ -188,7 +171,7 @@ export function TtsControls({
       setMessage(zh ? "这段音频暂时放不出来，故事文字还可以看。" : "This audio is not playing right now. The story text is still readable.");
       onCaptionChange?.(null);
     }
-  }, [cachedAudio, captionSegments, captionTiming, config, fragmentId, includeIntro, onAudioGenerated, onCaptionChange, onIntroPlayed, persona, selectedProvider, speechText, stop, zh]);
+  }, [cachedAudio, config, fragmentId, includeIntro, onAudioGenerated, onCaptionChange, onIntroPlayed, persona, selectedProvider, speechText, stop, zh]);
 
   useEffect(() => {
     stop();
@@ -269,7 +252,6 @@ function normalizeFrontendTtsProvider(provider?: string) {
 async function playAudioUrl(
   audioUrl: string,
   captionSegments: string[],
-  captionTiming: number[],
   requestId: number,
   requestIdRef: MutableRefObject<number>,
   audioRef: MutableRefObject<HTMLAudioElement | null>,
@@ -278,6 +260,7 @@ async function playAudioUrl(
   setProgress: Dispatch<SetStateAction<number>>,
   setDurationLabel: Dispatch<SetStateAction<string>>
 ) {
+  const captionTiming = buildCaptionTiming(captionSegments);
   const audio = new Audio(audioUrl);
   if (requestId !== requestIdRef.current) {
     audio.pause();

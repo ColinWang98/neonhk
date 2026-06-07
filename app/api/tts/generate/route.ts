@@ -158,7 +158,7 @@ function buildTtsCacheKey(
     localEndpoint: provider === "local-open-source" ? config.localTtsEndpoint || process.env.LOCAL_TTS_ENDPOINT : undefined,
     accentPreset: config.voiceAccentPreset || process.env.VOICE_ACCENT_PRESET,
     text: body.text.trim(),
-    version: 1
+    version: 2
   };
   return createHash("sha256").update(JSON.stringify(voiceConfig)).digest("hex");
 }

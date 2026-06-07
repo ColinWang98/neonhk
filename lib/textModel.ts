@@ -84,6 +84,7 @@ export async function generateTextJson(params: GenerateTextJsonParams) {
 }
 
 function buildTextPayload(params: GenerateTextJsonParams, model: string, attempt: number) {
+  const messages = ensureJsonModeInstruction(params.messages);
   const retryMessage: TextModelMessage | undefined = attempt
     ? {
         role: "user",
@@ -93,13 +94,27 @@ function buildTextPayload(params: GenerateTextJsonParams, model: string, attempt
 
   return JSON.stringify({
     model,
-    messages: retryMessage ? [...params.messages, retryMessage] : params.messages,
+    messages: retryMessage ? [...messages, retryMessage] : messages,
     temperature: params.temperature ?? 0.2,
     response_format: { type: "json_object" },
     ...(maxTokensForAttempt(params.maxOutputTokens, attempt)
       ? { max_tokens: maxTokensForAttempt(params.maxOutputTokens, attempt) }
       : {})
   });
+}
+
+function ensureJsonModeInstruction(messages: TextModelMessage[]) {
+  if (messages.some((message) => /\bjson\b/i.test(message.content))) {
+    return messages;
+  }
+
+  return [
+    {
+      role: "system" as const,
+      content: "Return only one valid JSON object. Do not include markdown, comments, or extra text."
+    },
+    ...messages
+  ];
 }
 
 function maxTokensForAttempt(value: number | undefined, attempt: number) {

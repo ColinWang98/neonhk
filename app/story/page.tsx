@@ -31,6 +31,7 @@ import type {
   SelectedFragment,
   StorySession,
   StreetImage,
+  TtsAudioGeneration,
   TtsProvider,
   VisionDescription
 } from "@/types";
@@ -86,10 +87,6 @@ export default function StoryPage() {
     ? `${storySession.id}:${selectedPersona.id}`
     : undefined;
   const activeOpeningText = activeOpening?.openingText || "";
-  const activeOpeningSegments = useMemo(
-    () => activeOpening?.openingBlocks?.map((block) => block.text).filter(Boolean) || [],
-    [activeOpening?.openingBlocks]
-  );
   const activeStoryReady = Boolean(
     readyFragment?.narratives?.spokenStory?.trim() &&
     selectedPersona?.id &&
@@ -970,7 +967,6 @@ export default function StoryPage() {
                 language={uiLanguage}
                 fragmentId={readyFragment.id}
                 introText={activeOpeningText}
-                introSegments={activeOpeningSegments}
                 includeIntro={includeOpeningInStoryAudio}
                 cachedAudio={findCachedAudio(readyFragment, selectedPersona, apiConfig, currentStoryText)}
                 description={
@@ -1381,8 +1377,8 @@ function FragmentFirstPanel({
       <p className="mt-3 text-sm leading-6 text-ink/62">
         {hasNarrator
           ? zh
-            ? "现在可以旋转全景图，把细节放进中间白框，或直接拖拽一个框。"
-            : "Now rotate the panorama, place a detail in the center frame, or drag your own box."
+            ? "现在可以旋转全景图，然后直接拖拽一个框，框住想听的细节。"
+            : "Now rotate the panorama, then drag a box over the detail you want to hear about."
           : zh
             ? "先选择一个讲述人。之后“开始框选”按钮才会打开。"
             : "Choose a narrator first. The Select fragment button will unlock after that."}
@@ -1981,7 +1977,22 @@ function findCachedAudio(
     .filter((entry) => entry.provider === provider)
     .filter((entry) => !persona?.id || entry.personaId === persona.id)
     .filter((entry) => entry.sourceText === storyText)
+    .filter((entry) => cachedAudioCoversSource(entry, storyText))
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+}
+
+function cachedAudioCoversSource(entry: TtsAudioGeneration, storyText: string) {
+  const sourceUnits = audioTextUnits(storyText);
+  if (sourceUnits < 45) return true;
+  const spokenUnits = audioTextUnits(entry.speechText || entry.sourceText || "");
+  return spokenUnits >= sourceUnits * 0.82;
+}
+
+function audioTextUnits(text: string) {
+  const chineseChars = text.match(/[\u3400-\u9fff]/g)?.length || 0;
+  const englishWords = text.match(/[A-Za-z0-9']+/g)?.length || 0;
+  const numbers = text.match(/\d+(?:[.,]\d+)*/g)?.length || 0;
+  return englishWords + chineseChars * 0.65 + numbers * 0.5;
 }
 
 function storyTextForAudio(

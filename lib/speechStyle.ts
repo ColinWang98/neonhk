@@ -107,9 +107,16 @@ export async function adaptSpeechText(params: AdaptSpeechTextParams): Promise<Sp
     throw new Error("DeepSeek speech adaptation returned no speechText.");
   }
 
+  const guardedSpeechText = completeEnoughForSpeech(input, speechText)
+    ? speechText
+    : localPreservingSpeechText(input);
+
   return {
-    speechText: limitRunawayPauses(speechText),
-    strategy: "deepseek"
+    speechText: limitRunawayPauses(guardedSpeechText),
+    strategy: guardedSpeechText === speechText ? "deepseek" : "local-rules",
+    note: guardedSpeechText === speechText
+      ? undefined
+      : "Speech adaptation was too short, so TTS used a full preserving cleanup."
   };
 }
 
@@ -142,6 +149,29 @@ function speechGuidance(persona?: GeneratedPersona, provider?: TtsProvider, conf
 
 function limitRunawayPauses(text: string) {
   return text.replace(/\.{4,}/g, "...").replace(/(\.\.\.\s*){3,}/g, "... ");
+}
+
+function completeEnoughForSpeech(source: string, adapted: string) {
+  const sourceUnits = speechCoverageUnits(source);
+  const adaptedUnits = speechCoverageUnits(adapted);
+  if (sourceUnits < 45) return adaptedUnits >= Math.max(1, sourceUnits * 0.65);
+  return adaptedUnits >= sourceUnits * 0.82;
+}
+
+function speechCoverageUnits(text: string) {
+  const chineseChars = text.match(/[\u3400-\u9fff]/g)?.length || 0;
+  const englishWords = text.match(/[A-Za-z0-9']+/g)?.length || 0;
+  const numbers = text.match(/\d+(?:[.,]\d+)*/g)?.length || 0;
+  return englishWords + chineseChars * 0.65 + numbers * 0.5;
+}
+
+function localPreservingSpeechText(text: string) {
+  return text
+    .replace(/[—–]/g, ", ")
+    .replace(/;/g, ".")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.!?。！？])/g, "$1")
+    .trim();
 }
 
 function extractJsonObject(content: string) {
