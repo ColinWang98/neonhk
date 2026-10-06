@@ -1,6 +1,6 @@
 "use client";
 
-import { Crosshair, ImageIcon, MousePointer2 } from "lucide-react";
+import { Crosshair, ImageIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BoxSelectionLayer } from "@/components/BoxSelectionLayer";
 import { LoadingState } from "@/components/LoadingState";
@@ -17,6 +17,7 @@ type Props = {
   activeFragmentId?: string;
   selectionEnabled?: boolean;
   selectionDisabledReason?: string;
+  onSelectionStart?: () => void;
   onFragmentClick?: (fragment: SelectedFragment) => void;
   onFragmentSelected: (
     screenBox: ScreenBox,
@@ -81,6 +82,7 @@ export function StreetImageViewer({
   activeFragmentId,
   selectionEnabled = true,
   selectionDisabledReason,
+  onSelectionStart,
   onFragmentClick,
   onFragmentSelected
 }: Props) {
@@ -266,41 +268,32 @@ export function StreetImageViewer({
   };
 
   return (
-    <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex flex-col gap-3 border-b border-ink/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-4">
+    <div className="panorama-viewer surface-panel flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="panorama-toolbar">
         <div className="min-w-0">
-          <p className="fine-label">{zh ? "全景图" : "Panorama"}</p>
-          <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "街景细节选择" : "Street detail selection"}</h2>
-          <p className="mt-1 break-all text-xs text-ink/58">
+          <h2>{zh ? "全景图" : "Panorama"}</h2>
+          <p>
             {image
-              ? zh ? `${providerLabel(image.provider)} 街景` : `${providerLabel(image.provider)} street view`
+              ? providerLabel(image.provider)
               : zh ? "先在地图上选择一个街景点" : "Select a marker to begin"}
           </p>
-          {image ? (
-            <p className="mt-1 text-[11px] text-ink/45">
-              {image.lat.toFixed(5)}, {image.lng.toFixed(5)}
-              {image.provider === "google" ? ` · heading ${Math.round(pov.heading)}° · pitch ${Math.round(pov.pitch)}°` : ""}
-            </p>
-          ) : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
-          {busy ? <LoadingState label={zh ? "正在处理片段" : "Processing fragment"} /> : null}
-          {image?.provider === "google" && googleMapsApiKey ? (
+          {image && (image.provider !== "google" || googleMapsApiKey) ? (
             <button
               type="button"
-              disabled={busy || googleStatus !== "ready" || !selectionEnabled}
-              onClick={() => setGoogleSelecting((value) => !value)}
-              title={!selectionEnabled ? selectionDisabledReason : undefined}
+              disabled={busy || (image.provider === "google" && googleStatus !== "ready") || !selectionEnabled}
+              onClick={() => {
+                if (!googleSelecting) onSelectionStart?.();
+                setGoogleSelecting((value) => !value);
+              }}
+              aria-pressed={googleSelecting}
+              title={!selectionEnabled ? selectionDisabledReason : zh ? "框选细节" : "Select fragment"}
               className="soft-button-primary inline-flex h-10 items-center gap-2 px-3 text-sm font-semibold sm:px-4"
             >
               <Crosshair className="h-4 w-4" />
               {googleSelecting ? (zh ? "退出框选" : "Exit selection") : zh ? "开始框选" : "Select fragment"}
             </button>
-          ) : null}
-          {image && !selectionEnabled && selectionDisabledReason ? (
-            <p className="basis-full text-xs font-medium text-ink/55 sm:basis-auto">
-              {selectionDisabledReason}
-            </p>
           ) : null}
         </div>
       </div>
@@ -326,16 +319,16 @@ export function StreetImageViewer({
                   />
                 ) : null}
                 {googleSelecting ? (
-                  <div className="pointer-events-none absolute inset-0 z-[60] border-[3px] border-signal bg-signal/10">
-                    <div className="absolute left-3 right-3 top-3 inline-flex max-w-[360px] items-center gap-2 rounded-[16px] border-2 border-white/35 bg-ink/90 px-3 py-2 text-xs font-semibold text-white shadow-lg sm:left-4 sm:right-auto sm:top-4 sm:px-4 sm:py-3 sm:text-sm">
-                      <MousePointer2 className="h-4 w-4 shrink-0" />
-                      {zh ? "在街景上拖拽，框住一个想听的细节" : "Drag over one street detail you want to hear about"}
-                    </div>
-                  </div>
+                  <div className="pointer-events-none absolute inset-0 z-[60] border-[3px] border-signal bg-signal/10" />
                 ) : null}
                 {googleStatus === "loading" ? (
-                  <div className="absolute bottom-3 left-3 rounded-[16px] border-2 border-white/30 bg-paper/95 px-3 py-2 shadow-sm backdrop-blur">
+                  <div className="absolute bottom-3 left-3 rounded border border-white/30 bg-paper/95 px-3 py-2">
                     <LoadingState label={zh ? "正在加载街景" : "Loading Street View"} />
+                  </div>
+                ) : null}
+                {googleStatus === "error" ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-ink px-6 text-center text-sm text-white/80" role="alert">
+                    {zh ? "街景暂时未能加载，请稍后重试。" : "Street View could not be loaded. Please try again later."}
                   </div>
                 ) : null}
               </>
@@ -360,7 +353,7 @@ export function StreetImageViewer({
                 })
               }
             />
-            <BoxSelectionLayer
+            {googleSelecting ? <BoxSelectionLayer
               disabled={busy || !selectionEnabled}
               onSelect={(screenBox) => {
                 const img = imgRef.current;
@@ -380,6 +373,7 @@ export function StreetImageViewer({
 
                 if (displayWidth < 8 || displayHeight < 8) return;
 
+                setGoogleSelecting(false);
                 onFragmentSelected(screenBox, {
                   x: (clippedX / rect.width) * naturalSize.width,
                   y: (clippedY / rect.height) * naturalSize.height,
@@ -387,7 +381,7 @@ export function StreetImageViewer({
                   height: (displayHeight / rect.height) * naturalSize.height
                 });
               }}
-            />
+            /> : null}
           </div>
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/70">

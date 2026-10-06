@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Play, Square } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction, type ReactNode } from "react";
 import { runtimeConfigToHeaders, type RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { GeneratedPersona, SchemaNarratives, TtsAudioGeneration } from "@/types";
 
@@ -22,9 +22,8 @@ type Props = {
   language?: "en" | "zh";
   fragmentId?: string;
   cachedAudio?: TtsAudioGeneration;
-  fineLabel?: string;
-  title?: string;
-  description?: string;
+  beforeStory?: ReactNode;
+  afterStory?: ReactNode;
   onCaptionChange?: (caption: CaptionState | null) => void;
   onAudioGenerated?: (entry: TtsAudioGeneration) => void;
   onIntroPlayed?: () => void;
@@ -39,9 +38,8 @@ export function TtsControls({
   language = "en",
   fragmentId,
   cachedAudio,
-  fineLabel,
-  title,
-  description,
+  beforeStory,
+  afterStory,
   onCaptionChange,
   onAudioGenerated,
   onIntroPlayed
@@ -51,7 +49,6 @@ export function TtsControls({
   const [message, setMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [durationLabel, setDurationLabel] = useState("0:00");
-  const [storyExpanded, setStoryExpanded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const requestIdRef = useRef(0);
   const spokenStory = narratives?.spokenStory?.trim() || "";
@@ -65,19 +62,8 @@ export function TtsControls({
     return storyText;
   }, [includeIntro, introText, storyText]);
 
-  const previewText = speechText || storyText || introText || "";
-  const canExpandStory = previewText.trim().length > 280;
   const selectedProvider = normalizeFrontendTtsProvider(config.ttsProvider);
   const hasSavedAudio = Boolean(cachedAudio?.audioUrl);
-  const defaultFineLabel = zh ? "听故事" : "Listen";
-  const defaultTitle = zh ? "播放这一段" : "Play this story";
-  const defaultDescription = hasSavedAudio
-    ? zh
-      ? "已有保存的音频，直接播放。"
-      : "Saved audio is ready."
-    : zh
-      ? "听当前讲述人怎么讲这个细节。"
-      : "Hear how this narrator reads the selected detail.";
   const statusLabel =
     status === "playing"
       ? zh ? "播放中" : "Playing"
@@ -117,9 +103,9 @@ export function TtsControls({
           onCaptionChange,
           setStatus,
           setProgress,
-          setDurationLabel
+          setDurationLabel,
+          includeIntro ? onIntroPlayed : undefined
         );
-        if (includeIntro) onIntroPlayed?.();
         return;
       }
 
@@ -161,9 +147,9 @@ export function TtsControls({
         onCaptionChange,
         setStatus,
         setProgress,
-        setDurationLabel
+        setDurationLabel,
+        includeIntro ? onIntroPlayed : undefined
       );
-      if (includeIntro) onIntroPlayed?.();
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
       console.error("Story playback failed", error);
@@ -175,69 +161,51 @@ export function TtsControls({
 
   useEffect(() => {
     stop();
-    setStoryExpanded(false);
     return stop;
-  }, [persona?.id, stop, speechText]);
+  }, [fragmentId, persona?.id, stop, speechText]);
 
   return (
-    <div className="surface-panel p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="fine-label">{fineLabel || defaultFineLabel}</p>
-          <h3 className="mt-1 text-sm font-semibold text-ink">{title || defaultTitle}</h3>
-          <p className="mt-1 text-xs text-ink/60">
-            {description || defaultDescription}
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+    <div className="story-player">
+      <article className="story-copy" aria-label={zh ? "故事全文" : "Full story"} tabIndex={0}>
+        {beforeStory}
+        <h3>{zh ? "故事" : "Story"}</h3>
+        {includeIntro && introText ? (
+          <div className="opening-copy">
+            <span>{zh ? "开场" : "Opening"}</span>
+            <p>{introText.trim()}</p>
+          </div>
+        ) : null}
+        <p>{storyText}</p>
+        {afterStory}
+      </article>
+      <div className="player-footer">
+        <div className="playback-row">
           <button
             type="button"
-            disabled={!speechText || status === "loading"}
+            disabled={!speechText || status === "loading" || status === "playing"}
             onClick={() => play()}
-            className="soft-button-primary inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-semibold"
+            className="reader-icon-button !border-signal !bg-signal !text-white"
+            aria-label={zh ? "播放故事" : "Play story"}
+            title={zh ? "播放故事" : "Play story"}
           >
             {status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            {zh ? "播放" : "Listen"}
           </button>
           <button
             type="button"
             onClick={stop}
-            className="soft-button inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-semibold"
+            disabled={status !== "playing" && status !== "loading"}
+            className="reader-icon-button"
+            aria-label={zh ? "停止播放" : "Stop playback"}
+            title={zh ? "停止播放" : "Stop playback"}
           >
             <Square className="h-4 w-4" />
-            {zh ? "停止" : "Stop"}
           </button>
+          <span className="playback-status" role="status">{statusLabel}</span>
+          <span className="text-[13px] tabular-nums text-ink/60">{durationLabel}</span>
         </div>
+        <progress value={progress} max={1} aria-label={zh ? "播放进度" : "Playback progress"} />
+        {message ? <p className="player-error" role="alert">{message}</p> : null}
       </div>
-      <div className="cozy-card mt-4 p-3">
-        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.12em] text-ink/50">
-          <span>{statusLabel}</span>
-          <span>{durationLabel}</span>
-        </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-field/70">
-          <div className="h-full rounded-full bg-signal transition-[width]" style={{ width: `${progress * 100}%` }} />
-        </div>
-        <div className="mt-3 border-t border-ink/10 pt-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/45">
-              {zh ? "故事文字" : "Story text"}
-            </p>
-            {canExpandStory ? (
-              <button
-                type="button"
-                onClick={() => setStoryExpanded((value) => !value)}
-                className="text-[11px] font-semibold text-signal transition hover:text-[var(--leaf-dark)]"
-              >
-                {storyExpanded ? (zh ? "收起" : "Collapse") : zh ? "展开全文" : "Full text"}
-              </button>
-            ) : null}
-          </div>
-          <p className={`mt-1 text-xs leading-5 text-ink/70 ${storyExpanded ? "max-h-56 overflow-auto pr-1" : "line-clamp-4"}`}>
-            {previewText || (zh ? "故事准备好后可播放旁白。" : "Once the story is ready, narration can be played.")}
-          </p>
-        </div>
-      </div>
-      {message ? <p className="mt-3 text-xs leading-5 text-amber-800">{message}</p> : null}
     </div>
   );
 }
@@ -258,7 +226,8 @@ async function playAudioUrl(
   onCaptionChange: Props["onCaptionChange"],
   setStatus: Dispatch<SetStateAction<"idle" | "loading" | "playing" | "error">>,
   setProgress: Dispatch<SetStateAction<number>>,
-  setDurationLabel: Dispatch<SetStateAction<string>>
+  setDurationLabel: Dispatch<SetStateAction<string>>,
+  onPlaybackComplete?: () => void
 ) {
   const captionTiming = buildCaptionTiming(captionSegments);
   const audio = new Audio(audioUrl);
@@ -285,6 +254,7 @@ async function playAudioUrl(
     }
   };
   audio.onended = () => {
+    if (requestId !== requestIdRef.current) return;
     setStatus("idle");
     setProgress(1);
     const lastIndex = Math.max(0, captionSegments.length - 1);
@@ -296,6 +266,7 @@ async function playAudioUrl(
         active: false
       });
     }
+    onPlaybackComplete?.();
   };
   audio.onerror = () => {
     setStatus("error");

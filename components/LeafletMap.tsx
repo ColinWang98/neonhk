@@ -18,14 +18,14 @@ type Props = {
 
 const markerIcon = new L.DivIcon({
   className: "",
-  html: '<div class="h-4 w-4 rounded-full border-2 border-white bg-[#256f86] shadow"></div>',
+  html: '<div class="h-4 w-4 rounded-full border-2 border-white bg-signal shadow"></div>',
   iconSize: [16, 16],
   iconAnchor: [8, 8]
 });
 
 const selectedMarkerIcon = new L.DivIcon({
   className: "",
-  html: '<div class="h-5 w-5 rounded-full border-2 border-white bg-[#a0712b] shadow"></div>',
+  html: '<div class="h-5 w-5 rounded-full border-2 border-white bg-[#a52e2e] shadow"></div>',
   iconSize: [20, 20],
   iconAnchor: [10, 10]
 });
@@ -68,7 +68,7 @@ export function LeafletMap({
   }, []);
 
   return (
-    <div className="surface-panel relative h-full overflow-hidden rounded-md bg-field">
+    <div className="relative h-full overflow-hidden bg-field">
       {mounted ? (
         <MapContainer key={mapKey} center={center} zoom={17} scrollWheelZoom className="z-0">
           <TileLayer
@@ -111,14 +111,6 @@ export function LeafletMap({
             </Marker>
           ))}
         </MapContainer>
-      ) : null}
-      <div className="pointer-events-none absolute left-4 top-4 z-[500] rounded-md border border-ink/10 bg-paper/95 px-3 py-2 text-xs text-ink shadow-sm">
-        Click the map to find nearby {provider === "google" ? "Google Street View" : "Mapillary"} scenes.
-      </div>
-      {savedSessions.length ? (
-        <div className="pointer-events-none absolute bottom-4 right-4 z-[500] rounded-md border border-ink/10 bg-paper/95 px-3 py-2 text-xs text-ink shadow-sm">
-          Green points are saved story places.
-        </div>
       ) : null}
     </div>
   );

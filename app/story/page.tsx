@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronLeft, ImageIcon, Loader2, MapPin, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, CheckCircle2, ChevronDown, History, ImageIcon, Loader2, Maximize2, Minimize2, PanelBottom, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ErrorMessage } from "@/components/ErrorMessage";
-import { SelectedFragmentList } from "@/components/SelectedFragmentList";
+import { ReaderDialog } from "@/components/ReaderDialog";
 import { StreetImageViewer, type FragmentSelectionMeta } from "@/components/StreetImageViewer";
 import { TtsControls, type CaptionState } from "@/components/TtsControls";
 import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
@@ -64,10 +63,13 @@ export default function StoryPage() {
   const [uiLanguage, setUiLanguage] = useState<"en" | "zh">("en");
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [storyDrawerOpen, setStoryDrawerOpen] = useState(false);
+  const [narratorDialogOpen, setNarratorDialogOpen] = useState(false);
+  const [sheetState, setSheetState] = useState<"collapsed" | "half" | "full">("half");
   const [sceneStatus, setSceneStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [openingStatus, setOpeningStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [storyStatus, setStoryStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [nearbyStatus, setNearbyStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [nearbyRetry, setNearbyRetry] = useState(0);
   const [nearbyRecommendations, setNearbyRecommendations] = useState<NearbyContinuationRecommendation[]>([]);
   const [nearbyError, setNearbyError] = useState<string | null>(null);
   const [playedOpeningKeys, setPlayedOpeningKeys] = useState<Record<string, true>>({});
@@ -101,10 +103,6 @@ export default function StoryPage() {
     !playedOpeningKeys[activeOpeningKey]
   );
   const storyVoiceReady = Boolean(activeStoryReady);
-  const showOpeningContext = Boolean(
-    selectedPersona &&
-    (!storyVoiceReady || openingStatus === "loading" || openingStatus === "error")
-  );
   const currentStage = !selectedPersona
     ? "narrator"
     : storyVoiceReady
@@ -260,7 +258,7 @@ export default function StoryPage() {
         console.error("Narrator preparation failed", err);
         setSceneStatus("error");
         setPersonaStatus("error");
-        setError(uiLanguage === "zh" ? "这个场景暂时读不出来。可以换一个街景再试。" : "This scene could not be read clearly. Try another street view.");
+        setError(uiLanguage === "zh" ? "讲述人暂时未能准备完成，请稍后重试。" : "Narrators could not be prepared. Please try again later.");
       });
   }, [
     apiConfig,
@@ -304,6 +302,7 @@ export default function StoryPage() {
   }, [runtimeHeaders, setFragments, storageHydrated, storySession?.id]);
 
   function choosePersona(persona: GeneratedPersona) {
+    setSheetState("half");
     setSelectedPersona(persona);
     setCaption(null);
     openingPersonaIdRef.current = undefined;
@@ -375,7 +374,7 @@ export default function StoryPage() {
         if (openingRequestIdRef.current !== requestId) return;
         console.error("Narrator context failed", err);
         setOpeningStatus("error");
-        setError(uiLanguage === "zh" ? "这个讲述人暂时读不出这一带。可以换一个讲述人，或者直接重新框选。" : "This narrator could not read the wider area. Try another narrator or select a clearer detail.");
+        setError(uiLanguage === "zh" ? "这一带的开场暂时未能准备完成。" : "The opening could not be prepared right now.");
       });
   }, [
     openingStatus,
@@ -533,7 +532,7 @@ export default function StoryPage() {
         if (cancelled) return;
         console.error("Story preparation failed", err);
         setStoryStatus("error");
-        setError(uiLanguage === "zh" ? "这段讲述没有组织好。可以换一个讲述人，或者重新框选一个更清楚的公共细节。" : "This story did not come together. Try another narrator, or select a clearer public detail.");
+        setError(uiLanguage === "zh" ? "故事暂时未能准备完成，请稍后重试。" : "The story could not be prepared. Please try again later.");
       });
 
     return () => {
@@ -572,7 +571,6 @@ export default function StoryPage() {
     if (!activeStoryReady || !selectedImage || !selectedPersona || !storySession?.id) return;
     const fragment = readyFragment;
     if (!fragment) return;
-    if (nearbyStatus === "loading" || nearbyStatus === "ready") return;
 
     let cancelled = false;
     setNearbyStatus("loading");
@@ -618,7 +616,7 @@ export default function StoryPage() {
     };
   }, [
     activeSchemasForRecommendation,
-    nearbyStatus,
+    nearbyRetry,
     readyFragment?.id,
     readyFragment,
     activeStoryReady,
@@ -726,6 +724,7 @@ export default function StoryPage() {
     setNearbyRecommendations([]);
     setNearbyError(null);
     setNearbyStatus("idle");
+    setNearbyRetry((attempt) => attempt + 1);
   }
 
   async function handleFragmentSelected(
@@ -741,6 +740,7 @@ export default function StoryPage() {
     }
 
     setProcessing(true);
+    setSheetState("half");
     setError(null);
     setStoryStatus("idle");
     setCaption(null);
@@ -835,7 +835,7 @@ export default function StoryPage() {
     } catch (err) {
       console.error("Fragment reading failed", err);
       updateFragment(activeFragmentId, { status: "error" });
-      setError(uiLanguage === "zh" ? "这个细节暂时读不清楚。试试招牌、入口、公共设施或更完整的建筑局部。" : "This detail is hard to read. Try a sign, entrance, public fixture, or clearer building detail.");
+      setError(uiLanguage === "zh" ? "片段处理未能完成，请稍后重试。" : "The selected detail could not be processed. Please try again later.");
     } finally {
       setProcessing(false);
     }
@@ -843,7 +843,7 @@ export default function StoryPage() {
 
   if (!selectedImage) {
     return (
-      <main className="story-shell flex min-h-dvh items-center justify-center p-4 text-ink sm:p-6">
+      <main className="editorial-shell flex min-h-dvh items-center justify-center p-4 text-ink sm:p-6">
         <div className="surface-panel max-w-md p-7 text-center">
           <p className="fine-label">Start Required</p>
           <h1 className="text-xl font-semibold">No scene selected</h1>
@@ -855,43 +855,40 @@ export default function StoryPage() {
       </main>
     );
   }
+  const readerContext = (
+    <>
+      <PersonaSwitcher
+        personas={personas}
+        selectedPersona={selectedPersona}
+        personaStatus={personaStatus}
+        sceneStatus={sceneStatus}
+        language={uiLanguage}
+        onSelect={choosePersona}
+        open={narratorDialogOpen}
+        onOpenChange={setNarratorDialogOpen}
+      />
+      {activeFragment ? <CurrentDetailCard fragment={activeFragment} language={uiLanguage} /> : null}
+      {error ? <div className="reader-error" role="alert">{error}</div> : null}
+    </>
+  );
 
   return (
-    <main className="story-shell flex min-h-dvh flex-col p-3 text-ink sm:p-5 lg:h-screen">
-      <header className="surface-panel mb-4 flex flex-col gap-3 px-4 py-4 sm:mb-5 sm:px-5 md:flex-row md:items-end md:justify-between">
-        <div>
-          <Link href="/" className="mb-2 inline-flex items-center gap-1 text-xs font-semibold text-ink/58 transition hover:text-ink">
-            <ArrowLeft className="h-3 w-3" />
-            {uiLanguage === "zh" ? "地图" : "Map"}
+    <main className="editorial-shell story-layout">
+      <header className="editorial-masthead">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link href="/" className="reader-icon-button" aria-label={uiLanguage === "zh" ? "返回地图" : "Back to map"} title={uiLanguage === "zh" ? "返回地图" : "Back to map"}>
+            <ArrowLeft size={20} />
           </Link>
-          <p className="fine-label mb-2">{uiLanguage === "zh" ? "街景阅读" : "Guided panorama reading"}</p>
-          <h1 className="text-[1.75rem] font-semibold tracking-normal sm:text-[2rem] md:text-[2.4rem]">HK Spatial Story</h1>
-          <p className="mt-2 text-sm leading-6 text-ink/62">
-            {uiLanguage === "zh"
-              ? currentStage === "narrator"
-                ? "先选一个讲述人，从他的视角进入这条街。"
-                : currentStage === "select"
-                  ? "在全景图上框选一个你想听的细节。"
-                  : "听这一段故事，也可以切换讲述人或回到其他白框。"
-              : currentStage === "narrator"
-                ? "Choose a narrator for this panorama."
-                : currentStage === "select"
-                  ? "Select one detail in the panorama for this narrator to read."
-                  : "Listen to this story, or switch narrator and return to saved boxes."}
-          </p>
-          <StoryProgress stage={currentStage} language={uiLanguage} />
+          <div className="editorial-brand">
+            <h1>HK Spatial Story</h1>
+            <p>Hong Kong / 香港街景</p>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex h-10 overflow-hidden soft-pill">
+        <StoryProgress stage={currentStage} language={uiLanguage} />
+        <div className="masthead-tools">
+          <div className="language-switch" aria-label={uiLanguage === "zh" ? "语言" : "Language"}>
             {(["en", "zh"] as const).map((language) => (
-              <button
-                key={language}
-                type="button"
-                onClick={() => setUiLanguage(language)}
-                className={`px-3 text-xs font-semibold transition ${
-                  uiLanguage === language ? "bg-[var(--leaf)] text-white" : "text-ink/65 hover:bg-[var(--paper-warm)]"
-                }`}
-              >
+              <button key={language} type="button" aria-pressed={uiLanguage === language} onClick={() => setUiLanguage(language)}>
                 {language === "en" ? "EN" : "中文"}
               </button>
             ))}
@@ -899,66 +896,56 @@ export default function StoryPage() {
         </div>
       </header>
 
-      {error ? (
-        <div className="mb-3">
-          <ErrorMessage message={error} />
+      <section className="story-workspace">
+        <div className="panorama-column">
+          <StreetImageViewer
+            image={selectedImage}
+            busy={processing}
+            googleMapsApiKey={apiConfig.googleMapsApiKey}
+            language={uiLanguage}
+            selectionEnabled={Boolean(selectedPersona)}
+            selectionDisabledReason={uiLanguage === "zh" ? "先选择讲述人" : "Choose a narrator first"}
+            onSelectionStart={() => setSheetState("collapsed")}
+            targetPov={activeFragment?.panoramaPov}
+            fragments={fragments.filter((fragment) => fragment.imageId === selectedImage.id)}
+            activeFragmentId={activeFragment?.id}
+            onFragmentClick={(fragment) => {
+              selectFragment(fragment.id);
+              setCaption(null);
+              setSheetState("collapsed");
+            }}
+            onFragmentSelected={handleFragmentSelected}
+          />
+          <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(storyVoiceReady)} />
         </div>
-      ) : null}
 
-      <section className="grid flex-1 gap-4 lg:min-h-0 lg:grid-rows-[minmax(640px,1fr)_auto] lg:gap-4">
-        <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(720px,1fr)_360px] lg:gap-5">
-          <div className="grid min-h-[56vh] grid-rows-[minmax(420px,1fr)_auto] gap-3 sm:min-h-[62vh] sm:grid-rows-[minmax(500px,1fr)_auto] lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto]">
-            <StreetImageViewer
-              image={selectedImage}
-              busy={processing}
-              googleMapsApiKey={apiConfig.googleMapsApiKey}
-              language={uiLanguage}
-              selectionEnabled={Boolean(selectedPersona)}
-              selectionDisabledReason={uiLanguage === "zh" ? "先选择讲述人" : "Choose a narrator first"}
-              targetPov={activeFragment?.panoramaPov}
-              fragments={fragments.filter((fragment) => fragment.imageId === selectedImage.id)}
-              activeFragmentId={activeFragment?.id}
-              onFragmentClick={(fragment) => {
-                selectFragment(fragment.id);
-                setCaption(null);
-              }}
-              onFragmentSelected={handleFragmentSelected}
-            />
-            <LiveCaption caption={caption} language={uiLanguage} ready={Boolean(storyVoiceReady)} />
+        <aside className="story-reader" data-sheet={sheetState} data-caption={Boolean(caption)} aria-label={uiLanguage === "zh" ? "故事阅读" : "Story reader"}>
+          <div className="sheet-heading">
+            <p>{selectedPersona?.name || (uiLanguage === "zh" ? "街景故事" : "Street story")}</p>
+            <div className="sheet-controls">
+              <button type="button" className="reader-icon-button" disabled={!personas.length} aria-label={uiLanguage === "zh" ? "选择讲述人" : "Choose narrator"} title={uiLanguage === "zh" ? "选择讲述人" : "Choose narrator"} onClick={() => setNarratorDialogOpen(true)}><Users size={18} /></button>
+              <button type="button" className="reader-icon-button" aria-pressed={sheetState === "collapsed"} aria-label={uiLanguage === "zh" ? "收起面板" : "Collapse panel"} title={uiLanguage === "zh" ? "收起面板" : "Collapse panel"} onClick={() => setSheetState("collapsed")}><Minimize2 size={18} /></button>
+              <button type="button" className="reader-icon-button" aria-pressed={sheetState === "half"} aria-label={uiLanguage === "zh" ? "半屏面板" : "Half panel"} title={uiLanguage === "zh" ? "半屏面板" : "Half panel"} onClick={() => setSheetState("half")}><PanelBottom size={18} /></button>
+              <button type="button" className="reader-icon-button" aria-pressed={sheetState === "full"} aria-label={uiLanguage === "zh" ? "展开面板" : "Expand panel"} title={uiLanguage === "zh" ? "展开面板" : "Expand panel"} onClick={() => setSheetState("full")}><Maximize2 size={18} /></button>
+              <button type="button" className="reader-icon-button" aria-label={uiLanguage === "zh" ? "已保存故事" : "Saved stories"} title={uiLanguage === "zh" ? "已保存故事" : "Saved stories"} onClick={() => setStoryDrawerOpen(true)}><History size={18} /></button>
+            </div>
           </div>
-          <div className="grid gap-3 lg:max-h-[calc(100dvh-190px)] lg:min-h-0 lg:auto-rows-min lg:content-start lg:overflow-y-auto lg:pr-1">
-            <PersonaSwitcher
-              personas={personas}
-              selectedPersona={selectedPersona}
-              personaStatus={personaStatus}
-              sceneStatus={sceneStatus}
-              storyStatus={storyStatus}
-              fragment={activeFragment}
-              language={uiLanguage}
-              onSelect={choosePersona}
-            />
-            {showOpeningContext ? (
-              <SceneOpeningPreview
-                status={openingStatus}
-                opening={activeOpening}
-                language={uiLanguage}
-              />
-            ) : null}
-            {activeFragment ? (
-              <CurrentDetailCard
-                fragment={activeFragment}
-                persona={selectedPersona}
-                language={uiLanguage}
-              />
-            ) : null}
+          <div className="reading-panel-main">
             {!storyVoiceReady || !readyFragment || !activeNarratives ? (
-                <FragmentFirstPanel
-                  language={uiLanguage}
-                  fragment={activeFragment}
-                  processing={processing}
-                  hasNarrator={Boolean(selectedPersona)}
-                  storyStatus={storyStatus}
-                />
+              <div className="reader-scroll">
+                {readerContext}
+              <FragmentFirstPanel
+                language={uiLanguage}
+                fragment={activeFragment}
+                processing={processing}
+                hasNarrator={Boolean(selectedPersona)}
+                storyStatus={storyStatus}
+                openingStatus={openingStatus}
+                sceneStatus={sceneStatus}
+                personaStatus={personaStatus}
+                hasError={Boolean(error)}
+              />
+              </div>
             ) : (
               <TtsControls
                 narratives={activeNarratives}
@@ -969,21 +956,22 @@ export default function StoryPage() {
                 introText={activeOpeningText}
                 includeIntro={includeOpeningInStoryAudio}
                 cachedAudio={findCachedAudio(readyFragment, selectedPersona, apiConfig, currentStoryText)}
-                description={
-                  includeOpeningInStoryAudio
-                    ? uiLanguage === "zh"
-                      ? "这次故事会带上讲述人对这一带的背景，然后直接讲你框选的细节。同一讲述人之后不重复这段背景。"
-                      : "This story includes the narrator's wider context once, then moves straight into your selected detail."
-                    : undefined
-                }
+                beforeStory={readerContext}
+                afterStory={activeStoryReady ? (
+                  <NearbyContinuationPanel
+                    status={nearbyStatus}
+                    recommendations={nearbyRecommendations}
+                    error={nearbyError}
+                    language={uiLanguage}
+                    onOpen={openNearbyRecommendation}
+                    onRetry={retryNearbyRecommendations}
+                  />
+                ) : null}
                 onCaptionChange={setCaption}
                 onIntroPlayed={() => {
                   if (!activeOpeningKey) return;
                   setPlayedOpeningKeys((current) => {
-                    const next: Record<string, true> = {
-                      ...current,
-                      [activeOpeningKey]: true
-                    };
+                    const next: Record<string, true> = { ...current, [activeOpeningKey]: true };
                     sessionStorage.setItem(playedOpeningStorageKey, JSON.stringify(next));
                     return next;
                   });
@@ -991,37 +979,13 @@ export default function StoryPage() {
                 onAudioGenerated={(entry) => {
                   if (!readyFragment) return;
                   updateFragment(readyFragment.id, {
-                    audioGenerations: {
-                      ...(readyFragment.audioGenerations || {}),
-                      [entry.cacheKey]: entry
-                    }
+                    audioGenerations: { ...(readyFragment.audioGenerations || {}), [entry.cacheKey]: entry }
                   });
                 }}
               />
             )}
-            {activeStoryReady ? (
-              <NearbyContinuationPanel
-                status={nearbyStatus}
-                recommendations={nearbyRecommendations}
-                error={nearbyError}
-                language={uiLanguage}
-                onOpen={openNearbyRecommendation}
-                onRetry={retryNearbyRecommendations}
-              />
-            ) : null}
           </div>
-        </div>
-        <div className="min-h-[104px] lg:min-h-0">
-          <SelectedFragmentList
-            fragments={fragments}
-            language={uiLanguage}
-            activeFragmentId={activeFragment?.id}
-            onSelect={(fragment) => {
-              selectFragment(fragment.id);
-              setCaption(null);
-            }}
-          />
-        </div>
+        </aside>
         <StoryArchiveDrawer
           open={storyDrawerOpen}
           fragments={fragments}
@@ -1031,6 +995,8 @@ export default function StoryPage() {
           onSelect={(fragment) => {
             selectFragment(fragment.id);
             setCaption(null);
+            setSheetState("collapsed");
+            setStoryDrawerOpen(false);
           }}
         />
       </section>
@@ -1043,260 +1009,85 @@ function PersonaSwitcher({
   selectedPersona,
   personaStatus,
   sceneStatus,
-  storyStatus,
-  fragment,
   language,
-  onSelect
+  onSelect,
+  open,
+  onOpenChange
 }: {
   personas: GeneratedPersona[];
   selectedPersona?: GeneratedPersona;
   personaStatus: "idle" | "loading" | "ready" | "error";
   sceneStatus: "idle" | "loading" | "ready" | "error";
-  storyStatus: "idle" | "loading" | "ready" | "error";
-  fragment?: SelectedFragment;
   language: "en" | "zh";
   onSelect: (persona: GeneratedPersona) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   const zh = language === "zh";
-  const [expanded, setExpanded] = useState(false);
+  const selectedPersonaId = selectedPersona?.id;
   useEffect(() => {
-    setExpanded(false);
-  }, [selectedPersona?.id]);
-  const showList = !selectedPersona || expanded;
+    onOpenChange(!selectedPersonaId && personas.length > 0);
+  }, [selectedPersonaId, personas.length, onOpenChange]);
+  const loading = personaStatus === "loading" || sceneStatus === "loading";
 
   return (
-    <div className="surface-panel min-h-0 overflow-hidden p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="fine-label">{selectedPersona ? (zh ? "讲述人" : "Narrator") : (zh ? "开始" : "Start")}</p>
-          <h2 className="mt-1 text-sm font-semibold text-ink">
-            {selectedPersona ? selectedPersona.name : (zh ? "选择讲述人" : "Choose narrator")}
-          </h2>
-          <p className="mt-1 text-xs leading-5 text-ink/58">
-            {selectedPersona?.userIntro ||
-              fragment?.visionDescription?.mainFeature ||
-              (zh ? "先从讲述人的角度进入这个街景。" : "Start with a narrator's view of this panorama.")}
-          </p>
-        </div>
-        {selectedPersona && personas.length > 1 ? (
+    <>
+      <section className="narrator-summary">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <span className="fine-label">{zh ? "讲述人" : "Narrator"}</span>
+            <h2>{selectedPersona?.name || (zh ? "选择一个视角" : "Choose a perspective")}</h2>
+          </div>
           <button
             type="button"
-            onClick={() => setExpanded((value) => !value)}
-            className="soft-button h-8 shrink-0 px-3 text-xs font-semibold"
+            className="reader-icon-button"
+            onClick={() => onOpenChange(true)}
+            disabled={personas.length === 0 || loading}
+            aria-label={zh ? "选择讲述人" : "Choose narrator"}
+            title={zh ? "选择讲述人" : "Choose narrator"}
+          ><Users size={20} /></button>
+        </div>
+        {selectedPersona?.userIntro ? <p>{selectedPersona.userIntro}</p> : null}
+      </section>
+      <ReaderDialog open={open} onClose={() => onOpenChange(false)} title={zh ? "选择讲述人" : "Choose narrator"} closeLabel={zh ? "关闭" : "Close"}>
+        {personas.map((persona) => (
+          <button
+            type="button"
+            key={persona.id}
+            className="narrator-option"
+            aria-pressed={selectedPersona?.id === persona.id}
+            onClick={() => { onOpenChange(false); onSelect(persona); }}
           >
-            {expanded ? (zh ? "收起" : "Done") : (zh ? "切换" : "Change")}
+            <div className="flex items-start justify-between gap-3">
+              <h3>{persona.name}</h3>
+              {selectedPersona?.id === persona.id ? <CheckCircle2 size={18} className="shrink-0 text-signal" /> : null}
+            </div>
+            <p>{persona.userIntro}</p>
           </button>
-        ) : null}
-      </div>
-      {(personaStatus === "loading" || sceneStatus === "loading") && personas.length === 0 ? (
-        <div className="mt-5 flex items-center gap-2 text-sm text-ink/62">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>{zh ? "正在准备讲述人" : "Preparing narrators"}</span>
-        </div>
-      ) : null}
-      {storyStatus === "loading" && fragment?.status === "ready" && selectedPersona ? (
-        <div className="cozy-card mt-4 flex items-center gap-2 px-3 py-2 text-xs text-ink/62">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>{zh ? "正在准备故事" : "Preparing story"}</span>
-        </div>
-      ) : null}
-      {showList ? (
-        <div className="mt-3 grid max-h-[42vh] gap-2 overflow-auto pr-1 lg:max-h-[30vh]">
-          {personas.map((persona) => {
-            const selected = selectedPersona?.id === persona.id;
-            return (
-              <button
-                type="button"
-                key={persona.id}
-                onClick={() => onSelect(persona)}
-                className={`p-3 text-left transition ${
-                  selected
-                    ? "cozy-card cozy-card-active"
-                    : "cozy-card hover:border-brass/45 hover:bg-[#fff3d8]"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-ink">{persona.name}</h3>
-                  {selected ? <span className="rounded-full bg-signal px-2 py-0.5 text-[11px] font-semibold text-white">{zh ? "当前" : "Active"}</span> : null}
-                </div>
-                <p className="mt-1 text-xs leading-5 text-ink/68">{persona.userIntro}</p>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
+        ))}
+      </ReaderDialog>
+    </>
   );
 }
 
-function SceneOpeningPreview({
-  status,
-  opening,
-  language
-}: {
-  status: "idle" | "loading" | "ready" | "error";
-  opening?: SceneOpeningGeneration;
+function CurrentDetailCard({ fragment, language }: {
+  fragment: SelectedFragment;
   language: "en" | "zh";
 }) {
   const zh = language === "zh";
-  if (status === "idle" && !opening) return null;
-  const ready = Boolean(opening);
+  const mainFeature = fragment.visionDescription?.mainFeature || (zh ? "街景细节" : "Street detail");
   return (
-    <div className="cozy-card flex items-start gap-3 px-3 py-2.5">
-      {status === "loading" && !ready ? (
-        <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-ink/45" />
-      ) : ready ? (
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
+    <section className="current-detail" aria-label={zh ? "当前片段" : "Current fragment"}>
+      {fragment.cropImageUrl ? (
+        <img src={fragment.cropImageUrl} alt={zh ? "当前框选画面" : "Selected street detail"} />
       ) : (
-        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-ink/42" />
+        <div className="crop-placeholder flex items-center justify-center"><ImageIcon size={20} className="text-ink/40" /></div>
       )}
       <div className="min-w-0">
-        <p className="text-xs font-semibold text-ink">
-          {ready
-            ? zh ? "这一带已准备好" : "Wider place is ready"
-            : status === "error"
-              ? zh ? "这一带暂时读不出来" : "This area could not be read"
-              : zh ? "正在阅读这一带" : "Reading this area"}
-        </p>
-        <p className="mt-0.5 text-xs leading-5 text-ink/58">
-          {ready
-            ? zh
-              ? "播放时会把这一带的背景自然接到你框选的细节里。"
-              : "The story will naturally carry this wider context into your selected detail."
-            : status === "error"
-              ? zh
-                ? "换一个讲述人，或者重新选一个更清楚的细节。"
-                : "Try another narrator, or select a clearer detail."
-              : zh
-                ? "不用等待，也可以先框选细节。"
-                : "You can keep moving and select a detail now."}
-        </p>
+        <span className="fine-label">{zh ? "当前片段" : "Current detail"}</span>
+        <h2>{mainFeature}</h2>
       </div>
-    </div>
-  );
-}
-
-function GroundingSummaryCard({
-  fragment,
-  language,
-  compact = false
-}: {
-  fragment: SelectedFragment;
-  language: "en" | "zh";
-  compact?: boolean;
-}) {
-  const zh = language === "zh";
-  const hints = groundingHints(fragment);
-  if (!hints.length) return null;
-
-  return (
-    <div className={`cozy-card ${compact ? "px-3 py-2.5" : "px-3 py-3"}`}>
-      <div className="flex items-start gap-3">
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold text-ink">{zh ? "有这些线索" : "Story clues"}</p>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/42">
-              {zh ? `${hints.length}条` : `${hints.length} found`}
-            </span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {hints.slice(0, compact ? 2 : 3).map((hint) => (
-              <span
-                key={`${hint.kind}-${hint.label}`}
-                title={hint.label}
-                className={`inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${
-                  hint.confidence === "high" ? "bg-[#eef7f4] text-signal" : "bg-field/80 text-ink/62"
-                }`}
-              >
-                <span>{zh ? hint.zhKind : hint.kind}</span>
-                <span className="max-w-[8rem] truncate font-medium opacity-75">{hint.label}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CurrentDetailCard({
-  fragment,
-  persona,
-  language
-}: {
-  fragment: SelectedFragment;
-  persona?: GeneratedPersona;
-  language: "en" | "zh";
-}) {
-  const zh = language === "zh";
-  const hints = groundingHints(fragment);
-  const visibleHints = hints.slice(0, 2);
-  const hiddenHintCount = Math.max(0, hints.length - visibleHints.length);
-  const statusText = fragmentStatusLabel(fragment.status, zh);
-  const mainFeature = fragment.visionDescription?.mainFeature || (zh ? "街景细节" : "Street detail");
-
-  return (
-    <div className="cozy-card overflow-hidden p-3">
-      <div className="flex gap-3">
-        <div
-          className={`flex h-20 w-24 shrink-0 items-center justify-center rounded-[14px] border-2 bg-field bg-cover bg-center shadow-[inset_0_0_0_1px_rgba(54,43,25,0.08)] ${
-            fragment.cropImageUrl ? "border-white/80" : "border-dashed border-ink/18"
-          }`}
-          style={fragment.cropImageUrl ? { backgroundImage: `url(${fragment.cropImageUrl})` } : undefined}
-          aria-label={zh ? "当前框选画面" : "Current selected crop"}
-        >
-          {!fragment.cropImageUrl ? <ImageIcon className="h-5 w-5 text-ink/38" /> : null}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <p className="fine-label">{zh ? "当前白框" : "Current detail"}</p>
-            <span className="rounded-full bg-field/80 px-2 py-0.5 text-[10px] font-semibold text-ink/60">
-              {statusText}
-            </span>
-          </div>
-          <h2 className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-ink">{mainFeature}</h2>
-          <p className="mt-1 line-clamp-1 text-xs text-ink/55">
-            {persona
-              ? zh ? `讲述人：${persona.name}` : `Narrator: ${persona.name}`
-              : zh ? "先选择讲述人" : "Choose a narrator first"}
-          </p>
-        </div>
-      </div>
-      {hints.length ? (
-        <div className="mt-2 border-t border-ink/10 pt-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold text-ink/62">{zh ? "地点线索" : "Place clues"}</p>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/38">
-              {zh ? `${hints.length}条` : `${hints.length} clues`}
-            </span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {visibleHints.map((hint) => (
-              <span
-                key={`${hint.kind}-${hint.label}`}
-                title={hint.label}
-                className={`inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${
-                  hint.confidence === "high" ? "bg-[#eef7f4] text-signal" : "bg-field/80 text-ink/62"
-                }`}
-              >
-                <span>{zh ? hint.zhKind : hint.kind}</span>
-                <span className="max-w-[9rem] truncate font-medium opacity-75">{hint.label}</span>
-              </span>
-            ))}
-            {hiddenHintCount ? (
-              <span className="inline-flex items-center rounded-full bg-field/70 px-2 py-1 text-[10px] font-semibold text-ink/45">
-                +{hiddenHintCount}
-              </span>
-            ) : null}
-          </div>
-        </div>
-      ) : (
-        <p className="mt-3 border-t border-ink/10 pt-2 text-xs leading-5 text-ink/55">
-          {zh ? "故事准备好后，这里会显示地点线索。" : "Place clues will appear here once the story is ready."}
-        </p>
-      )}
-    </div>
+    </section>
   );
 }
 
@@ -1313,92 +1104,55 @@ function fragmentStatusLabel(status: SelectedFragment["status"], zh: boolean) {
   return zh ? item.zh : item.en;
 }
 
-function StoryProgress({
-  stage,
-  language
-}: {
+function StoryProgress({ stage, language }: {
   stage: "narrator" | "select" | "listen";
   language: "en" | "zh";
 }) {
-  const zh = language === "zh";
-  const steps = zh
-    ? ["选择讲述人", "框选细节", "播放故事"]
-    : ["Choose narrator", "Select detail", "Listen"];
+  const steps = language === "zh" ? ["讲述人", "框选", "收听"] : ["Narrator", "Select", "Listen"];
   const activeIndex = stage === "narrator" ? 0 : stage === "select" ? 1 : 2;
-
   return (
-    <div className="soft-pill mt-4 flex max-w-xl overflow-hidden text-xs text-ink/58">
-      {steps.map((step, index) => {
-        const active = index === activeIndex;
-        const done = index < activeIndex;
-        return (
-          <div
-            key={step}
-            className={`flex min-w-0 flex-1 items-center justify-center gap-2 px-2 py-2 sm:px-3 ${
-              active ? "bg-[var(--leaf)] text-white" : done ? "bg-[#eef7df] text-ink" : "bg-transparent"
-            }`}
-          >
-            <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] ${
-                active ? "bg-white text-ink" : done ? "bg-signal text-white" : "bg-[#f7ebc9] text-ink/55"
-              }`}
-            >
-              {index + 1}
-            </span>
-            <span className="truncate font-medium">{step}</span>
-          </div>
-        );
-      })}
-    </div>
+    <ol className="reader-progress" aria-label={language === "zh" ? "当前进度" : "Current progress"}>
+      {steps.map((step, index) => (
+        <li key={step} aria-current={index === activeIndex ? "step" : undefined}>
+          <span className="step-number">{index + 1}.</span><span>{step}</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
 function FragmentFirstPanel({
-  language,
-  fragment,
-  processing,
-  hasNarrator,
-  storyStatus
+  language, fragment, processing, hasNarrator, storyStatus, openingStatus,
+  sceneStatus, personaStatus, hasError
 }: {
   language: "en" | "zh";
   fragment?: SelectedFragment;
   processing: boolean;
   hasNarrator: boolean;
   storyStatus: "idle" | "loading" | "ready" | "error";
+  openingStatus: "idle" | "loading" | "ready" | "error";
+  sceneStatus: "idle" | "loading" | "ready" | "error";
+  personaStatus: "idle" | "loading" | "ready" | "error";
+  hasError: boolean;
 }) {
   const zh = language === "zh";
+  if (hasError) return null;
   const flow = fragmentFlowState(fragment, processing, storyStatus, zh, hasNarrator);
+  const preparingNarrators = !hasNarrator && (sceneStatus === "loading" || personaStatus === "loading");
+  const readingArea = hasNarrator && !fragment && openingStatus === "loading";
+  const title = preparingNarrators
+    ? zh ? "正在准备讲述人" : "Preparing narrators"
+    : readingArea ? zh ? "正在阅读这一带" : "Reading this area"
+    : flow.title;
+  const loading = preparingNarrators || readingArea || flow.loading;
   return (
-    <div className="surface-panel p-4">
-      <p className="fine-label">{zh ? "下一步" : "Next"}</p>
-      <h2 className="mt-1 text-sm font-semibold text-ink">
-        {zh ? "框选一个片段" : "Select a fragment"}
-      </h2>
-      <p className="mt-3 text-sm leading-6 text-ink/62">
-        {hasNarrator
-          ? zh
-            ? "现在可以旋转全景图，然后直接拖拽一个框，框住想听的细节。"
-            : "Now rotate the panorama, then drag a box over the detail you want to hear about."
-          : zh
-            ? "先选择一个讲述人。之后“开始框选”按钮才会打开。"
-            : "Choose a narrator first. The Select fragment button will unlock after that."}
-      </p>
-      <div className="cozy-card mt-4 p-3">
-        <div className="flex items-start gap-3">
-          {flow.loading ? (
-            <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-ink/45" />
-          ) : flow.done ? (
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-signal" />
-          ) : (
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-ink/42" />
-          )}
-          <div>
-            <p className="text-sm font-semibold text-ink">{flow.title}</p>
-            <p className="mt-1 text-xs leading-5 text-ink/60">{flow.detail}</p>
-          </div>
-        </div>
+    <section className="empty-story" role="status">
+      <div className="flex items-center gap-2">
+        {loading ? <Loader2 size={18} className="shrink-0 animate-spin text-signal" /> : null}
+        <h2>{title}</h2>
       </div>
-    </div>
+      {!loading && fragment?.status === "blocked" ? <p>{flow.detail}</p> : null}
+    </section>
   );
 }
 
@@ -1494,12 +1248,7 @@ function fragmentFlowState(
 }
 
 function NearbyContinuationPanel({
-  status,
-  recommendations,
-  error,
-  language,
-  onOpen,
-  onRetry
+  status, recommendations, error, language, onOpen, onRetry
 }: {
   status: "idle" | "loading" | "ready" | "error";
   recommendations: NearbyContinuationRecommendation[];
@@ -1510,159 +1259,39 @@ function NearbyContinuationPanel({
 }) {
   const zh = language === "zh";
   const [expanded, setExpanded] = useState(false);
-  const primaryRecommendation = recommendations[0];
-
-  useEffect(() => {
-    setExpanded(false);
-  }, [primaryRecommendation?.placeId, status]);
-
+  const primaryPlaceId = recommendations[0]?.placeId;
+  useEffect(() => { setExpanded(false); }, [primaryPlaceId, status]);
+  if (status === "idle") return null;
   return (
-    <div className="surface-panel p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="fine-label">{zh ? "附近延展" : "Explore Nearby"}</p>
-          <h2 className="mt-1 text-sm font-semibold text-ink">
-            {zh ? "继续理解这一带" : "Continue nearby"}
-          </h2>
-          <p className="mt-1 text-xs leading-5 text-ink/58">
-            {zh
-              ? "和这个片段有关、附近还能继续看的地方。"
-              : "Nearby places that can continue this thread."}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {status === "loading" ? <Loader2 className="h-4 w-4 animate-spin text-ink/45" /> : null}
-          {recommendations.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => setExpanded((value) => !value)}
-              className="soft-button inline-flex h-8 w-8 items-center justify-center p-0"
-              aria-label={expanded ? (zh ? "收起附近延展" : "Collapse nearby continuation") : zh ? "展开附近延展" : "Expand nearby continuation"}
-            >
-              <ChevronDown className={`h-4 w-4 transition ${expanded ? "rotate-180" : ""}`} />
-            </button>
-          ) : null}
-        </div>
+    <section className="nearby-continuation" aria-label={zh ? "附近延展" : "Continue nearby"}>
+      <div className="flex items-center justify-between gap-2">
+        <h4>{zh ? "附近延展" : "Continue nearby"}</h4>
+        {recommendations.length > 0 ? (
+          <button type="button" className="reader-icon-button" aria-expanded={expanded} aria-label={zh ? "地点详情" : "Place details"} title={zh ? "地点详情" : "Place details"} onClick={() => setExpanded((value) => !value)}>
+            <ChevronDown size={18} className={expanded ? "rotate-180" : ""} />
+          </button>
+        ) : null}
       </div>
-
-      {status === "loading" ? (
-        <div className="mt-3 rounded-[14px] border border-ink/10 bg-field/55 px-3 py-2 text-xs leading-5 text-ink/58">
-          {zh ? "正在查找附近可继续探索的位置。" : "Finding nearby places to continue the story."}
+      {status === "loading" ? <p role="status" className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" />{zh ? "正在查找附近地点" : "Finding nearby places"}</p> : null}
+      {status === "error" || (status === "ready" && !recommendations.length) ? (
+        <div className="flex items-start gap-2 py-2">
+          <p className="flex-1">{status === "error" ? error || (zh ? "附近地点暂时不可用。" : "Nearby places are unavailable.") : zh ? "附近没有合适的延展地点。" : "No nearby continuation found."}</p>
+          <button type="button" className="soft-button min-h-11 px-3 text-[13px]" onClick={onRetry}>{zh ? "重试" : "Retry"}</button>
         </div>
       ) : null}
-
-      {status === "error" ? (
-        <div className="mt-3 rounded-[16px] border-2 border-red-200 bg-red-50 px-3 py-3 text-xs leading-5 text-red-800">
-          <p>{error || (zh ? "附近延展暂时不可用。" : "Nearby continuation is unavailable.")}</p>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="mt-2 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-red-800 shadow-sm"
-          >
-            {zh ? "再试一次" : "Try again"}
-          </button>
-        </div>
-      ) : null}
-
-      {status === "ready" && recommendations.length === 0 ? (
-        <div className="mt-3 rounded-[16px] border-2 border-dashed border-ink/15 bg-field/55 px-3 py-4 text-sm leading-6 text-ink/58">
-          <p>
-            {zh
-              ? "这次附近没有找到足够合适、可直接进入街景的延展点。你可以换一个细节，或稍后再试。"
-              : "No good nearby continuation was found for this detail yet. Try another fragment, or check again in a moment."}
-          </p>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="soft-button mt-3 inline-flex h-8 items-center justify-center px-3 text-xs font-semibold"
-          >
-            {zh ? "重新查找" : "Search again"}
-          </button>
-        </div>
-      ) : null}
-
-      {primaryRecommendation ? (
-        <div className="mt-3 rounded-[16px] border border-ink/10 bg-field/55 p-3">
+      {recommendations.slice(0, expanded ? 3 : 1).map((place) => (
+        <div key={place.placeId} className="nearby-place">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="truncate text-sm font-semibold text-ink">{primaryRecommendation.name}</h3>
-              <p className="mt-1 flex items-center gap-1 text-xs text-ink/58">
-                <MapPin className="h-3 w-3" />
-                {formatDistance(primaryRecommendation.distanceMeters, zh)}
-                {primaryRecommendation.category ? <span className="truncate">· {primaryRecommendation.category}</span> : null}
-              </p>
+              <h4>{place.name}</h4>
+              <p className="mt-1">{formatDistance(place.distanceMeters, zh)}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => onOpen(primaryRecommendation)}
-              className="soft-button-primary inline-flex h-8 shrink-0 items-center justify-center px-3 text-xs font-semibold"
-            >
-              {zh ? "打开" : "Open"}
-            </button>
+            <button type="button" className="reader-icon-button" onClick={() => onOpen(place)} aria-label={zh ? `打开 ${place.name} 的街景` : `Open Street View at ${place.name}`} title={zh ? "打开街景" : "Open Street View"}><ArrowUpRight size={20} /></button>
           </div>
-          <p className={`mt-2 text-xs leading-5 text-ink/68 ${expanded ? "" : "line-clamp-2"}`}>
-            {primaryRecommendation.reason}
-          </p>
-          {!expanded && recommendations.length > 1 ? (
-            <button
-              type="button"
-              onClick={() => setExpanded(true)}
-              className="mt-2 text-[11px] font-semibold text-signal transition hover:text-[var(--leaf-dark)]"
-            >
-              {zh ? `还有 ${recommendations.length - 1} 个地点` : `${recommendations.length - 1} more nearby`}
-            </button>
-          ) : null}
+          {expanded ? <p className="mt-2">{place.reason}</p> : null}
         </div>
-      ) : null}
-
-      {expanded && recommendations.length > 1 ? (
-        <div className="mt-3 grid gap-2">
-          {recommendations.slice(1, 3).map((recommendation) => (
-            <article key={recommendation.placeId} className="cozy-card p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold text-ink">{recommendation.name}</h3>
-                  <p className="mt-1 flex items-center gap-1 text-xs text-ink/58">
-                    <MapPin className="h-3 w-3" />
-                    {formatDistance(recommendation.distanceMeters, zh)}
-                    {recommendation.category ? <span className="truncate">· {recommendation.category}</span> : null}
-                  </p>
-                </div>
-                <span className="rounded-full bg-[#eef7df] px-2 py-1 text-[10px] font-semibold text-signal">
-                  {recommendation.recommendedSchema || "Street"}
-                </span>
-              </div>
-              <p className="mt-2 line-clamp-2 text-xs leading-5 text-ink/68">{recommendation.reason}</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {recommendation.evidenceSources.slice(0, 3).map((source) => (
-                  <span key={source} className="inline-flex items-center gap-1 rounded-full bg-field/75 px-2 py-1 text-[10px] font-semibold text-ink/62">
-                    <CheckCircle2 className="h-3 w-3 text-signal" />
-                    {evidenceSourceLabel(source)}
-                  </span>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => onOpen(recommendation)}
-                className="soft-button-primary mt-2 inline-flex h-8 items-center justify-center px-3 text-xs font-semibold"
-              >
-                {zh ? "打开街景" : "Open Street View"}
-              </button>
-            </article>
-          ))}
-        </div>
-      ) : null}
-      {expanded && primaryRecommendation ? (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {primaryRecommendation.evidenceSources.slice(0, 3).map((source) => (
-            <span key={source} className="inline-flex items-center gap-1 rounded-full bg-field/75 px-2 py-1 text-[10px] font-semibold text-ink/62">
-              <CheckCircle2 className="h-3 w-3 text-signal" />
-              {evidenceSourceLabel(source)}
-            </span>
-          ))}
-        </div>
-      ) : null}
-    </div>
+      ))}
+    </section>
   );
 }
 
@@ -1684,30 +1313,6 @@ function formatDistance(distance: number | undefined, zh: boolean) {
   return zh ? `${km}公里` : `${km}km away`;
 }
 
-function evidenceSourceLabel(source: NearbyContinuationRecommendation["evidenceSources"][number]) {
-  switch (source) {
-    case "google_places":
-      return "Google Places";
-    case "hk_landsd":
-      return "Public records";
-    case "hk_fehd":
-      return "Food licence";
-    case "hk_amo":
-      return "Heritage record";
-    case "osm":
-      return "OSM";
-    case "wikidata":
-      return "Wikidata";
-    case "wikipedia":
-      return "Wikipedia";
-    case "street_view":
-      return "Street View";
-    case "news":
-      return "Nearby news";
-    default:
-      return source;
-  }
-}
 
 function LiveCaption({
   caption,
@@ -1720,21 +1325,12 @@ function LiveCaption({
 }) {
   const zh = language === "zh";
   return (
-    <div className="notebook-panel min-h-[76px] px-4 py-3 text-brass sm:px-5">
-      <div className="mb-1 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.14em] text-brass/65">
+    <div className="live-caption" data-empty={!caption}>
+      <div className="caption-meta">
         <span>{zh ? "故事字幕" : "Story captions"}</span>
-        <span>{caption ? `${caption.index + 1}/${caption.total}` : zh ? "待播放" : "Waiting"}</span>
+        <span>{caption ? `${caption.index + 1}/${caption.total}` : ready ? (zh ? "待播放" : "Ready") : ""}</span>
       </div>
-      <p className="line-clamp-3 text-[15px] font-medium leading-6 text-brass sm:line-clamp-2 sm:text-[17px] sm:leading-7">
-        {caption?.text ||
-          (ready
-            ? zh
-              ? "点击播放后，故事会像字幕一样逐句出现在这里。"
-              : "Press Listen; the story will appear here one subtitle line at a time."
-            : zh
-              ? "生成故事后，字幕会显示在这里。"
-              : "Once the story is ready, captions will appear here.")}
-      </p>
+      <p className="caption-text">{caption?.text || ""}</p>
     </div>
   );
 }
@@ -1742,12 +1338,7 @@ function LiveCaption({
 const openingCacheVersion = 3;
 
 function StoryArchiveDrawer({
-  open,
-  fragments,
-  activeFragmentId,
-  language,
-  onOpenChange,
-  onSelect
+  open, fragments, activeFragmentId, language, onOpenChange, onSelect
 }: {
   open: boolean;
   fragments: SelectedFragment[];
@@ -1758,113 +1349,33 @@ function StoryArchiveDrawer({
 }) {
   const zh = language === "zh";
   const storyFragments = fragments.filter((fragment) => fragment.cropImageUrl || fragment.narratives);
-  const activeStory =
-    storyFragments.find((fragment) => fragment.id === activeFragmentId) || storyFragments[0];
-
   return (
     <>
-      <button
-        type="button"
-        onClick={() => onOpenChange(true)}
-        className={`fixed right-0 top-1/2 z-[850] flex -translate-y-1/2 items-center gap-2 rounded-l-[18px] border-2 border-r-0 border-[rgba(39,90,66,0.35)] bg-[var(--leaf)] px-2 py-3 text-xs font-semibold text-white shadow-[0_4px_0_rgba(39,90,66,0.25),0_16px_30px_rgba(54,43,25,0.16)] transition hover:bg-[var(--leaf-dark)] ${
-          open ? "translate-x-full opacity-0" : "translate-x-0 opacity-100"
-        }`}
-        aria-label={zh ? "打开保存的故事" : "Open saved stories"}
-      >
-        <ChevronLeft className="h-4 w-4" />
-        <span className="[writing-mode:vertical-rl]">{zh ? "故事" : "Stories"}</span>
-        <span className="rounded bg-white/16 px-1.5 py-0.5 text-[10px]">{storyFragments.length}</span>
-      </button>
-
-      <aside
-        className={`surface-panel fixed inset-x-3 bottom-3 top-auto z-[860] flex max-h-[76dvh] flex-col overflow-hidden transition duration-300 sm:bottom-5 sm:left-auto sm:right-5 sm:top-24 sm:max-h-[calc(100dvh-7rem)] sm:w-[min(25rem,calc(100vw-1.5rem))] ${
-          open ? "translate-x-0 opacity-100" : "translate-x-[calc(100%+1.5rem)] opacity-0"
-        }`}
-        aria-hidden={!open}
-      >
-        <div className="flex items-start justify-between gap-3 border-b border-ink/10 px-4 py-4">
-          <div>
-            <p className="fine-label">{zh ? "已保存" : "Saved"}</p>
-            <h2 className="mt-1 text-sm font-semibold text-ink">{zh ? "街景故事" : "Street Stories"}</h2>
-            <p className="mt-1 text-xs leading-5 text-ink/58">
-              {zh ? `${storyFragments.length} 个已保存片段` : `${storyFragments.length} saved fragments`}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="soft-button inline-flex h-9 w-9 items-center justify-center text-ink/58 hover:text-ink"
-            aria-label={zh ? "关闭" : "Close"}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-auto p-4">
-          {storyFragments.length === 0 ? (
-            <div className="flex h-full items-center justify-center rounded-[16px] border-2 border-dashed border-ink/18 bg-field/45 px-5 text-center text-sm leading-6 text-ink/56">
-              {zh ? "框选一个片段后，会自动保存在这里。" : "After a selected fragment is saved, it will appear here."}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                {storyFragments.map((fragment, index) => {
-                  const active = activeStory?.id === fragment.id;
-                  const storyIds = new Set(Object.keys(fragment.narrativeGenerations || {}));
-                  if (fragment.narratives && fragment.narrativePersonaId) storyIds.add(fragment.narrativePersonaId);
-                  const storyCount = storyIds.size;
-                  const audioCount = Object.keys(fragment.audioGenerations || {}).length;
-                  return (
-                    <button
-                      type="button"
-                      key={fragment.id}
-                      onClick={() => onSelect(fragment)}
-                      className={`p-3 text-left transition ${
-                        active
-                          ? "cozy-card cozy-card-active"
-                          : "cozy-card hover:border-brass/40 hover:bg-[#fff3d8]"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs font-semibold text-ink">
-                          {zh ? `片段 ${index + 1}` : `Fragment ${index + 1}`}
-                        </span>
-                        {active ? <span className="rounded-full bg-signal px-2 py-0.5 text-[10px] font-semibold text-white">{zh ? "当前" : "Active"}</span> : null}
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink/62">
-                        {fragment.visionDescription?.mainFeature || (zh ? "街景片段" : "Street fragment")}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-medium text-ink/58">
-                        <span className="rounded-full bg-field/75 px-2 py-1">{zh ? `${fragment.personas?.length || 0} 位讲述人` : `${fragment.personas?.length || 0} narrators`}</span>
-                        <span className="rounded-full bg-field/75 px-2 py-1">{zh ? `${storyCount} 个故事` : `${storyCount} stories`}</span>
-                        <span className="rounded-full bg-field/75 px-2 py-1">{zh ? `${audioCount} 段音频` : `${audioCount} audio`}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {activeStory?.narratives?.spokenStory?.trim() ? (
-                <div className="space-y-3 border-t border-ink/10 pt-4">
-                  <GroundingSummaryCard fragment={activeStory} language={language} compact />
-                  <article className="cozy-card p-4">
-                    <h3 className="text-xs font-semibold text-brass">{zh ? "故事" : "Story"}</h3>
-                    <p className="mt-2 whitespace-pre-line text-sm leading-6 text-ink/74">
-                      {storyTextForFragment(activeStory)}
-                    </p>
-                  </article>
+        <button type="button" className="archive-tab" style={{ visibility: open ? "hidden" : "visible" }} onClick={() => onOpenChange(true)} aria-label={zh ? "已保存故事" : "Saved stories"} title={zh ? "已保存故事" : "Saved stories"}>
+          <History size={16} />{zh ? "故事" : "Stories"}<span>{storyFragments.length}</span>
+        </button>
+      <ReaderDialog open={open} archive onClose={() => onOpenChange(false)} title={zh ? "已保存故事" : "Saved stories"} closeLabel={zh ? "关闭" : "Close"}>
+        {!storyFragments.length ? (
+          <p className="py-8 text-sm text-ink/60">{zh ? "还没有保存的片段。" : "No saved fragments yet."}</p>
+        ) : storyFragments.map((fragment) => {
+          const storyIds = new Set(Object.keys(fragment.narrativeGenerations || {}));
+          if (fragment.narratives && fragment.narrativePersonaId) storyIds.add(fragment.narrativePersonaId);
+          const audioCount = Object.keys(fragment.audioGenerations || {}).length;
+          return (
+            <button type="button" key={fragment.id} className="archive-entry" aria-pressed={fragment.id === activeFragmentId} onClick={() => onSelect(fragment)}>
+              <div className="flex items-start gap-3">
+                {fragment.cropImageUrl ? <img src={fragment.cropImageUrl} alt="" className="h-14 w-16 shrink-0 rounded-sm object-cover" /> : null}
+                <div className="min-w-0">
+                  <h3>{fragment.visionDescription?.mainFeature || (zh ? "街景片段" : "Street fragment")}</h3>
+                  <p>{storyIds.size ? (zh ? `${storyIds.size} 个故事` : `${storyIds.size} stories`) : fragmentStatusLabel(fragment.status, zh)}{audioCount ? (zh ? " / 有音频" : " / Audio saved") : ""}</p>
                 </div>
-              ) : null}
-            </div>
-          )}
-        </div>
-      </aside>
+              </div>
+            </button>
+          );
+        })}
+      </ReaderDialog>
     </>
   );
-}
-
-function storyTextForFragment(fragment: SelectedFragment) {
-  return fragment.narratives?.spokenStory?.trim() || "";
 }
 
 async function fetchPlaceContext(
@@ -2007,51 +1518,6 @@ function storyTextForAudio(
   return storyText;
 }
 
-function groundingHints(fragment: SelectedFragment) {
-  const hints: Array<{
-    kind: string;
-    zhKind: string;
-    label: string;
-    confidence: "high" | "medium" | "low";
-  }> = [];
-
-  for (const entity of fragment.visionDescription?.publicEntityCandidates || []) {
-    hints.push({
-      kind: "Visual clue",
-      zhKind: "画面线索",
-      label: entity.nameEnglish || entity.name,
-      confidence: entity.confidence >= 0.82 ? "high" : "medium"
-    });
-  }
-  for (const candidate of fragment.placeContext?.publicDataCandidates || []) {
-    if (candidate.spatialMatch === "footprint_intersection" || candidate.viewAlignment === "inside_fragment_view") {
-      hints.push({
-        kind: candidate.spatialMatch === "footprint_intersection" ? "Map outline" : "Public record",
-        zhKind: candidate.spatialMatch === "footprint_intersection" ? "地图轮廓" : "公共记录",
-        label: candidate.label,
-        confidence: candidate.spatialMatch === "footprint_intersection" ? "high" : "medium"
-      });
-    }
-  }
-  for (const place of fragment.placeContext?.places || []) {
-    if (place.viewAlignment === "inside_fragment_view" || place.viewAlignment === "near_fragment_view") {
-      hints.push({
-        kind: "Map clue",
-        zhKind: "地图线索",
-        label: place.name,
-        confidence: place.viewAlignment === "inside_fragment_view" ? "medium" : "low"
-      });
-    }
-  }
-
-  const seen = new Set<string>();
-  return hints.filter((hint) => {
-    const key = `${hint.kind}:${hint.label.toLowerCase()}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
 
 function pickSchemaNarratives(narratives: SchemaNarratives): SchemaNarratives {
   return {

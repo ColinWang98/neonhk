@@ -151,55 +151,52 @@ export default function Home() {
   }
 
   return (
-    <main className="story-shell flex min-h-dvh flex-col p-3 text-ink sm:p-5 lg:h-screen">
-      <header className="surface-panel mb-4 flex flex-col gap-4 px-4 py-4 sm:mb-5 sm:px-5 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="fine-label mb-2">Hong Kong street reading</p>
-          <h1 className="text-[1.75rem] font-semibold tracking-normal text-ink sm:text-[2rem] md:text-[2.4rem]">
-            HK Spatial Story
-          </h1>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-ink/62">
-            Pick a street view, choose a narrator, then listen to one selected detail.
-          </p>
+    <main className="editorial-shell map-shell">
+      <header className="editorial-masthead">
+        <div className="editorial-brand">
+          <h1>HK Spatial Story</h1>
+          <p>Hong Kong / 香港街景</p>
         </div>
-        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+        <div className="map-tools">
           <select
+            aria-label="Street view source"
             value={imageProvider}
             onChange={(event) => {
               setImageProvider(event.target.value as ImageProvider);
               setImages([]);
               setSelectedImage(undefined);
             }}
-            className="soft-button h-10 px-3 text-sm text-ink outline-none"
+            className="soft-button h-11 px-3 text-sm text-ink"
           >
             <option value="google">Google Street View</option>
             <option value="mapillary">Mapillary</option>
           </select>
-          <form onSubmit={handleSearchSubmit} className="flex w-full gap-2 md:w-[420px]">
+          <form onSubmit={handleSearchSubmit} className="coordinate-search">
             <input
+              aria-label="Coordinates"
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
-              className="h-10 min-w-0 flex-1 rounded-full border-2 border-ink/15 bg-paper px-4 text-sm outline-none transition focus:border-signal"
               placeholder="Search by lat, lng"
             />
             <button
               type="submit"
-              className="soft-button-primary inline-flex h-10 shrink-0 items-center gap-2 px-3 text-sm font-semibold sm:px-4"
+              className="reader-icon-button !border-signal !bg-signal !text-white"
+              aria-label="Search coordinates"
+              title="Search coordinates"
             >
-              <Search className="h-4 w-4" />
-              Search
+              <Search className="h-5 w-5" />
             </button>
           </form>
         </div>
       </header>
 
       {error ? (
-        <div className="mb-3">
+        <div className="mt-3">
           <ErrorMessage message={error} />
         </div>
       ) : null}
 
-      <section className="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[minmax(560px,1fr)_380px] lg:gap-5">
+      <section className="map-workspace">
         <div className="quiet-panel relative min-h-[58vh] overflow-hidden bg-field lg:min-h-0">
           <LeafletMap
             images={images}
@@ -218,35 +215,27 @@ export default function Home() {
             onSavedSessionSelect={enterSavedStory}
           />
           {isSearching ? (
-            <div className="absolute bottom-3 left-3 z-[600] rounded-[16px] border-2 border-ink/10 bg-paper/95 px-3 py-2 shadow-sm backdrop-blur">
-              <LoadingState label={`Searching ${providerLabel(imageProvider)}`} />
+            <div className="absolute bottom-3 left-3 z-[600] rounded border border-ink/10 bg-paper/95 px-3 py-2">
+              <LoadingState label="Finding street views" />
             </div>
           ) : null}
         </div>
 
-        <aside className="surface-panel flex min-h-[240px] flex-col lg:min-h-0 lg:self-start">
-          <div className="border-b border-ink/10 px-5 py-4">
-            <p className="fine-label">Start here</p>
-            <h2 className="mt-1 text-base font-semibold text-ink">Choose a street view</h2>
-            <p className="mt-1 text-xs leading-5 text-ink/58">The next screen opens the panorama and saved story boxes.</p>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5">
+        <aside className="map-preview">
+          <h2 className="editorial-title">{selectedImage ? "Selected street view" : "Choose a street view"}</h2>
             {selectedImage ? (
               <>
-                <div className="overflow-hidden rounded-[16px] border-2 border-ink/10 bg-field">
                   <img
                     src={selectedImage.thumbUrl}
                     alt="Selected street scene"
-                    className="aspect-[16/10] w-full object-cover lg:aspect-square"
                   />
-                </div>
                 <div className="space-y-1 text-sm text-ink/75">
                   <p className="font-medium text-ink">{providerLabel(selectedImage.provider)}</p>
                   <p className="inline-flex items-center gap-2">
                     <MapPin className="h-3.5 w-3.5 text-brass" />
                     {selectedImage.lat.toFixed(5)}, {selectedImage.lng.toFixed(5)}
                   </p>
-                  <p className="text-xs text-ink/55">
+                  <p className="text-[13px] text-ink/55">
                     {selectedImage.capturedAt
                       ? `Captured ${new Date(selectedImage.capturedAt).toLocaleDateString()}`
                       : "Street-view point selected"}
@@ -255,18 +244,18 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={enterStory}
-                  className="soft-button-primary mt-auto inline-flex h-11 items-center justify-center gap-2 px-5 text-sm font-semibold"
+                  className="soft-button-primary preview-action inline-flex items-center justify-center gap-2 px-5 text-sm font-semibold"
                 >
                   Read this place
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </>
             ) : (
-              <div className="flex min-h-[9.5rem] items-center justify-center rounded-[16px] border-2 border-dashed border-ink/20 px-5 text-center text-sm leading-6 text-ink/55">
-                Search coordinates or click the map, then choose a street-view marker.
+              <div className="map-empty">
+                <MapPin size={24} className="text-signal" />
+                <p>No street view selected.</p>
               </div>
             )}
-          </div>
         </aside>
       </section>
     </main>

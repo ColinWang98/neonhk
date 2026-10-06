@@ -5,11 +5,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#20332b",
-        field: "#ead9ad",
-        brass: "#9a6d2d",
-        signal: "#4f8d62",
-        paper: "#fff9ea"
+        ink: "rgb(var(--color-ink, 32 51 43) / <alpha-value>)",
+        field: "rgb(var(--color-field, 234 217 173) / <alpha-value>)",
+        brass: "rgb(var(--color-brass, 154 109 45) / <alpha-value>)",
+        signal: "rgb(var(--color-signal, 79 141 98) / <alpha-value>)",
+        paper: "rgb(var(--color-paper, 255 249 234) / <alpha-value>)"
       }
     }
   },
