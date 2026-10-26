@@ -3,9 +3,10 @@
 import dynamic from "next/dynamic";
 import { ArrowRight, MapPin, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { LoadingState } from "@/components/LoadingState";
+import { Open3dhkPanorama } from "@/components/Open3dhkPanorama";
 import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
 import {
   publicRuntimeConfig,
@@ -15,7 +16,7 @@ import {
 import { useExplorerStore } from "@/lib/store";
 import type { StorySession, StreetImage } from "@/types";
 
-type ImageProvider = "mapillary" | "google";
+type ImageProvider = StreetImage["provider"];
 
 const LeafletMap = dynamic(
   () => import("@/components/LeafletMap").then((module) => module.LeafletMap),
@@ -43,6 +44,7 @@ export default function Home() {
   const apiConfig = useMemo<RuntimeApiConfig>(() => publicRuntimeConfig(), []);
   const [imageProvider, setImageProvider] = useState<ImageProvider>("google");
   const [savedSessions, setSavedSessions] = useState<StorySession[]>([]);
+  const searchRequest = useRef(0);
 
   const runtimeHeaders = useMemo(() => runtimeConfigToHeaders(apiConfig), [apiConfig]);
 
@@ -68,6 +70,7 @@ export default function Home() {
   }, [runtimeHeaders]);
 
   async function searchAt(lat: number, lng: number) {
+    const requestId = ++searchRequest.current;
     setIsSearching(true);
     setError(null);
 
@@ -76,9 +79,12 @@ export default function Home() {
       const endpoint =
         imageProvider === "google"
           ? `/api/google/streetview/search?lat=${lat}&lng=${lng}&radius=80`
+          : imageProvider === "open3dhk"
+          ? `/api/open3dhk/search?lat=${lat}&lng=${lng}&radius=120`
           : `/api/mapillary/search?lat=${lat}&lng=${lng}&radius=120`;
       const res = await fetch(endpoint, { headers: runtimeHeaders });
       const data = await res.json();
+      if (requestId !== searchRequest.current) return;
       if (!res.ok) {
         throw new Error(data.error || `${providerLabel(imageProvider)} search failed.`);
       }
@@ -91,10 +97,11 @@ export default function Home() {
         runtimeHeaders
       );
     } catch (err) {
+      if (requestId !== searchRequest.current) return;
       console.error("Street-view search failed", err);
       setError(searchErrorMessage(err, imageProvider));
     } finally {
-      setIsSearching(false);
+      if (requestId === searchRequest.current) setIsSearching(false);
     }
   }
 
@@ -134,7 +141,19 @@ export default function Home() {
   }
 
   async function enterSavedStory(session: StorySession) {
-    const image = storySessionToImage(session, apiConfig);
+    let image = storySessionToImage(session, apiConfig);
+    if (session.provider === "open3dhk") {
+      try {
+        const params = new URLSearchParams({ lat: String(session.lat), lng: String(session.lng), radius: "120", panoId: session.panoId || session.imageId.replace(/^open3dhk:/, "") });
+        const response = await fetch(`/api/open3dhk/search?${params}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Saved Streetscape scene could not be loaded.");
+        image = data.images?.[0];
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Saved Streetscape scene could not be loaded.");
+        return;
+      }
+    }
     if (!image) {
       setError("This saved story cannot be reopened without its original provider data.");
       return;
@@ -162,6 +181,9 @@ export default function Home() {
             aria-label="Street view source"
             value={imageProvider}
             onChange={(event) => {
+              searchRequest.current += 1;
+              setIsSearching(false);
+              setError(null);
               setImageProvider(event.target.value as ImageProvider);
               setImages([]);
               setSelectedImage(undefined);
@@ -169,6 +191,7 @@ export default function Home() {
             className="soft-button h-11 px-3 text-sm text-ink"
           >
             <option value="google">Google Street View</option>
+            <option value="open3dhk">Streetscape 360 (Hong Kong)</option>
             <option value="mapillary">Mapillary</option>
           </select>
           <form onSubmit={handleSearchSubmit} className="coordinate-search">
@@ -225,10 +248,15 @@ export default function Home() {
           <h2 className="editorial-title">{selectedImage ? "Selected street view" : "Choose a street view"}</h2>
             {selectedImage ? (
               <>
-                  <img
+                  {selectedImage.provider === "open3dhk" ? (
+                    <div className="relative aspect-[4/3] w-full">
+                      <Open3dhkPanorama key={selectedImage.id} image={selectedImage}
+                        onReady={(snapshot) => setSelectedImage({ ...selectedImage, thumbUrl: snapshot, fullUrl: snapshot })} />
+                    </div>
+                  ) : <img
                     src={selectedImage.thumbUrl}
                     alt="Selected street scene"
-                  />
+                  />}
                 <div className="space-y-1 text-sm text-ink/75">
                   <p className="font-medium text-ink">{providerLabel(selectedImage.provider)}</p>
                   <p className="inline-flex items-center gap-2">
@@ -244,6 +272,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={enterStory}
+                  disabled={selectedImage.provider === "open3dhk" && !selectedImage.fullUrl}
                   className="soft-button-primary preview-action inline-flex items-center justify-center gap-2 px-5 text-sm font-semibold"
                 >
                   Read this place
@@ -270,6 +299,7 @@ function parseLatLng(input: string) {
 
 function searchErrorMessage(error: unknown, provider: ImageProvider) {
   const message = error instanceof Error ? error.message : "";
+  if (provider === "open3dhk") return message || "Streetscape 360 could not load this location. Please try again later.";
   if (/api_key|key|not configured|unauthorized|forbidden/i.test(message)) {
     return provider === "google"
       ? "Street View search is not available here right now. Try Mapillary, or use the live site with Street View enabled."
@@ -281,6 +311,7 @@ function searchErrorMessage(error: unknown, provider: ImageProvider) {
 }
 
 function providerLabel(provider: ImageProvider) {
+  if (provider === "open3dhk") return "Streetscape 360 · Lands Department";
   return provider === "google" ? "Google Street View" : "Mapillary";
 }
 

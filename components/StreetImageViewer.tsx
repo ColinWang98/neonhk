@@ -4,6 +4,7 @@ import { Crosshair, ImageIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BoxSelectionLayer } from "@/components/BoxSelectionLayer";
 import { LoadingState } from "@/components/LoadingState";
+import { Open3dhkPanorama } from "@/components/Open3dhkPanorama";
 import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
 import type { ImageCropBox, PanoramaPov, ScreenBox, SelectedFragment, StreetImage } from "@/types";
 
@@ -18,6 +19,7 @@ type Props = {
   selectionEnabled?: boolean;
   selectionDisabledReason?: string;
   onSelectionStart?: () => void;
+  onSceneSnapshot?: (snapshot: string) => void;
   onFragmentClick?: (fragment: SelectedFragment) => void;
   onFragmentSelected: (
     screenBox: ScreenBox,
@@ -83,6 +85,7 @@ export function StreetImageViewer({
   selectionEnabled = true,
   selectionDisabledReason,
   onSelectionStart,
+  onSceneSnapshot,
   onFragmentClick,
   onFragmentSelected
 }: Props) {
@@ -97,9 +100,11 @@ export function StreetImageViewer({
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [googleStatus, setGoogleStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [googleSelecting, setGoogleSelecting] = useState(false);
+  const [open3dhkReady, setOpen3dhkReady] = useState(false);
 
   useEffect(() => {
     setGoogleSelecting(false);
+    setOpen3dhkReady(false);
   }, [image?.id]);
 
   useEffect(() => {
@@ -282,7 +287,7 @@ export function StreetImageViewer({
           {image && (image.provider !== "google" || googleMapsApiKey) ? (
             <button
               type="button"
-              disabled={busy || (image.provider === "google" && googleStatus !== "ready") || !selectionEnabled}
+              disabled={busy || (image.provider === "google" && googleStatus !== "ready") || (image.provider === "open3dhk" && !open3dhkReady) || !selectionEnabled}
               onClick={() => {
                 if (!googleSelecting) onSelectionStart?.();
                 setGoogleSelecting((value) => !value);
@@ -298,7 +303,25 @@ export function StreetImageViewer({
         </div>
       </div>
       <div className="relative min-h-0 flex-1 bg-[#121514]">
-        {image?.provider === "google" ? (
+        {image?.provider === "open3dhk" ? (
+          <div className="absolute inset-0">
+            <Open3dhkPanorama
+              key={image.id}
+              image={image}
+              targetPov={targetPov}
+              fragments={fragments}
+              activeFragmentId={activeFragmentId}
+              selecting={googleSelecting && !busy && selectionEnabled}
+              onReady={(snapshot) => { setOpen3dhkReady(true); onSceneSnapshot?.(snapshot); }}
+              onError={() => { setOpen3dhkReady(false); setGoogleSelecting(false); }}
+              onFragmentClick={onFragmentClick}
+              onFragmentSelected={(box, crop, url, meta) => {
+                setGoogleSelecting(false);
+                onFragmentSelected(box, crop, url, meta);
+              }}
+            />
+          </div>
+        ) : image?.provider === "google" ? (
           <div className="absolute inset-0">
             {googleMapsApiKey ? (
               <>
@@ -693,6 +716,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function providerLabel(provider: StreetImage["provider"]) {
+  if (provider === "open3dhk") return "Streetscape 360 · Lands Department";
   return provider === "google" ? "Google Street View" : "Mapillary";
 }
 

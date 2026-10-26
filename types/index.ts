@@ -1,6 +1,6 @@
 export type StreetImage = {
   id: string;
-  provider: "mapillary" | "google";
+  provider: "mapillary" | "google" | "open3dhk";
   lat: number;
   lng: number;
   compassAngle?: number;
@@ -8,6 +8,16 @@ export type StreetImage = {
   thumbUrl: string;
   fullUrl?: string;
   panoId?: string;
+  open3dhk?: {
+    folderUrl: string;
+    panoName: string;
+    rotationX: number;
+    rotationY: number;
+    rotationZ: number;
+    x: number;
+    y: number;
+    z: number;
+  };
 };
 
 export type GeneratedPersona = {

@@ -1,6 +1,7 @@
 import { getLocalContext } from "@/lib/localContext";
 import { distanceMeters } from "@/lib/geoMath";
 import { searchGoogleStreetView } from "@/lib/googleStreetView";
+import { searchOpen3dhk } from "@/lib/open3dhk";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type {
   EvidencePacket,
@@ -74,7 +75,7 @@ export async function recommendNearbyContinuations(input: NearbyContinuationInpu
   for (const candidate of candidates) {
     if (recommendations.length >= 3) break;
 
-    const hasStreetView = await hasNearbyStreetView(candidate, input.config);
+    const hasStreetView = await hasNearbyStreetView(candidate, input.config, input.evidencePacket?.pano.provider === "open3dhk");
     if (!hasStreetView) continue;
 
     candidate.evidenceSources.add("street_view");
@@ -278,9 +279,11 @@ function scoreEverydayRelevance(candidate: ContinuationCandidate) {
   return 0.45;
 }
 
-async function hasNearbyStreetView(candidate: ContinuationCandidate, config?: RuntimeApiConfig) {
+async function hasNearbyStreetView(candidate: ContinuationCandidate, config?: RuntimeApiConfig, open3dhk = false) {
   try {
-    const images = await searchGoogleStreetView(candidate.lat, candidate.lng, 360, config);
+    const images = open3dhk
+      ? await searchOpen3dhk(candidate.lat, candidate.lng, 360)
+      : await searchGoogleStreetView(candidate.lat, candidate.lng, 360, config);
     return images.length > 0;
   } catch {
     return false;

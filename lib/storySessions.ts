@@ -140,7 +140,7 @@ function rowToSession(row: StorySessionRow): StorySession | null {
     id: row.id,
     provider: row.provider,
     imageId: row.image_id,
-    panoId: row.provider === "google" ? row.image_id : undefined,
+    panoId: row.provider === "open3dhk" ? row.image_id.replace(/^open3dhk:/, "") : row.provider === "google" ? row.image_id : undefined,
     lat: row.lat,
     lng: row.lng,
     selectedPersona: row.selected_persona || undefined,

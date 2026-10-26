@@ -182,6 +182,8 @@ export default function StoryPage() {
       return;
     }
 
+    if (selectedImage.provider === "open3dhk" && !selectedImage.fullUrl) return;
+
     if (storySession.personas?.length && storySession.sceneVisualDescription && storySession.placeContext) {
       setPersonas(storySession.personas);
       setPersonaStatus("ready");
@@ -640,7 +642,8 @@ export default function StoryPage() {
         lng: String(recommendation.lng),
         radius: "480"
       });
-      const res = await fetch(`/api/google/streetview/search?${params.toString()}`, {
+      const searchPath = selectedImage.provider === "open3dhk" ? "/api/open3dhk/search" : "/api/google/streetview/search";
+      const res = await fetch(`${searchPath}?${params.toString()}`, {
         headers: runtimeHeaders
       });
       const data = (await res.json()) as { images?: StreetImage[]; error?: string };
@@ -902,6 +905,13 @@ export default function StoryPage() {
             image={selectedImage}
             busy={processing}
             googleMapsApiKey={apiConfig.googleMapsApiKey}
+            onSceneSnapshot={(snapshot) => {
+              if (selectedImage && !selectedImage.fullUrl) {
+                const image = { ...selectedImage, thumbUrl: snapshot, fullUrl: snapshot };
+                setSelectedImage(image);
+                sessionStorage.setItem(selectedImageStorageKey, JSON.stringify(image));
+              }
+            }}
             language={uiLanguage}
             selectionEnabled={Boolean(selectedPersona)}
             selectionDisabledReason={uiLanguage === "zh" ? "先选择讲述人" : "Choose a narrator first"}
@@ -1384,7 +1394,7 @@ async function fetchPlaceContext(
   runtimeHeaders: Record<string, string>,
   visionDescription?: VisionDescription
 ): Promise<PlaceContext | undefined> {
-  if (image.provider !== "google") return undefined;
+  if (image.provider === "mapillary") return undefined;
 
   const params = new URLSearchParams({
     lat: String(image.lat),

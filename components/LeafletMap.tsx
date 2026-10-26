@@ -9,7 +9,7 @@ import type { StorySession, StreetImage } from "@/types";
 type Props = {
   images: StreetImage[];
   selectedImage?: StreetImage;
-  provider: "mapillary" | "google";
+  provider: StreetImage["provider"];
   savedSessions?: StorySession[];
   onLocationClick: (lat: number, lng: number) => void;
   onImageSelect: (image: StreetImage) => void;

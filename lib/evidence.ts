@@ -244,7 +244,7 @@ function panoClaims(params: BuildEvidencePacketParams): EvidenceClaim[] {
     {
       id: "p1",
       text: `The selected panorama point is around ${params.image.lat.toFixed(5)}, ${params.image.lng.toFixed(5)}.`,
-      source: "google_streetview",
+      source: params.image.provider === "open3dhk" ? "hk_landsd" : params.image.provider === "google" ? "google_streetview" : "system",
       claimType: "pano_metadata",
       confidence: 0.9,
       visibilityStatus: "unknown",
