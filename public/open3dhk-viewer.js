@@ -125,14 +125,27 @@ window.addEventListener("message", async (event) => {
       loadTimer = setTimeout(() => fail(new Error("Streetscape imagery could not be loaded. Please reopen this scene.")), 45000);
       viewer.on("render", projectBoxes);
       viewer.on("panoLoad", () => {
-        clearTimeout(loadTimer);
-        loading = false;
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          try { projectBoxes(); send("ready", { snapshot: snapshot().url }); } catch (error) { fail(error); }
-        }));
+        let settledAt;
+        function finishLoading() {
+          if (!loading) return;
+          // panoLoad can enqueue more tiles for the final camera orientation.
+          // Wait for that queue too before capturing the scene for analysis.
+          const pano = viewer._panoObj;
+          if (pano && pano._tilesLoadingCount === 0 && pano._requests.length === 0) {
+            settledAt ??= performance.now();
+            if (performance.now() - settledAt >= 250) {
+              clearTimeout(loadTimer);
+              loading = false;
+              try { projectBoxes(); send("ready", { snapshot: snapshot().url }); } catch (error) { fail(error); }
+              return;
+            }
+          } else settledAt = undefined;
+          requestAnimationFrame(finishLoading);
+        }
+        requestAnimationFrame(finishLoading);
       });
       viewer.loadPano({ ...pano, id: message.image.panoId }, [], { heading: message.pov?.heading ?? 0 });
-      restore(message.pov);
+      restore(message.pov || { heading: 0, pitch: 0 });
     } else if (message.type === "boxes") {
       fragments = message.fragments || [];
       activeId = message.activeId;
