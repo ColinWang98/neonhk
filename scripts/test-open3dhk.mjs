@@ -21,7 +21,7 @@ vm.runInNewContext(compiled, {
       return Response.json(rejectAuth ? { code: 403 } : { code: 0, data: { token: "private-token", workspaceId: "workspace" } });
     }
     if (url.pathname.endsWith("/listByWorkspace")) return Response.json({ code: 0, data: [{ category: "PANORAMA", layerId: "layer" }] });
-    if (url.pathname.endsWith("/wms")) return Response.json({ features: [{ geometry: { coordinates: [114.172, 22.303, 2] }, properties: {} }] });
+    if (url.pathname.endsWith("/wfs")) return Response.json({ features: [{ geometry: { coordinates: [114.172, 22.303, 2] }, properties: {} }] });
     if (url.pathname.endsWith("/search/nearby")) return Response.json({ code: 0, data: [
       { panoId: "original", panoName: "image", url: "/geoface/MMS/pano/route", geom: JSON.stringify({ coordinates: [114.172, 22.303, 2] }), rotationZ: 0.3 },
       { panoId: "other", panoName: "42", url: "/geoface/MMS/pano/packed.gtpanos", geom: JSON.stringify({ coordinates: [114.1721, 22.3031, 2] }) }

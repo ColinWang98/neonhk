@@ -10,7 +10,7 @@ The key must have access to the Streetscape service. This is not a Google Maps k
 
 ## Integration
 
-- `/api/open3dhk/search`: Hong Kong coordinates to nearby panorama records. Authentication, workspace layers and nearby search follow the official MMS SDK. Public WMS metadata supplies a nearby surveyed camera location.
+- `/api/open3dhk/search`: Hong Kong coordinates to nearby panorama records. Authentication, workspace layers and nearby search follow the official MMS SDK. A public WFS bounding-box query supplies nearby surveyed camera locations, ranked by distance, so clicks off the road can still find imagery within the requested radius.
 - `/api/open3dhk/asset/...`: signed, expiring imagery references, restricted to the official imagery hosts. The proxy forwards byte ranges for packed `.gtpanos` imagery and serves individual `.pano` tiles. It does not persist source panoramas.
 - `public/open3dhk-viewer.js`: the official `GS.module-20250508.js` renderer, isolated in an iframe. The renderer already uses Three.js. No SDK source or demo API key is copied into the app.
 - Scene summaries and fragment crops use actual rendered canvas captures, not a Google Static image from a different camera. The existing crop storage and story pipeline are reused.

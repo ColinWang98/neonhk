@@ -57,12 +57,12 @@ type Pano = {
 export async function searchOpen3dhk(lat: number, lng: number, radius: number, panoId?: string): Promise<StreetImage[]> {
   const auth = await authenticate();
   const delta = radius / 111320;
-  const locationUrl = new URL("https://3d.map.gov.hk/geoserver/cite/wms");
+  const longitudeDelta = delta / Math.cos(lat * Math.PI / 180);
+  const locationUrl = new URL("https://3d.map.gov.hk/geoserver/cite/wfs");
   locationUrl.search = new URLSearchParams({
-    SERVICE: "WMS", VERSION: "1.1.1", REQUEST: "GetFeatureInfo",
-    QUERY_LAYERS: "cite:VMMS_PT", LAYERS: "cite:VMMS_PT", INFO_FORMAT: "application/json",
-    FEATURE_COUNT: "100", X: "50", Y: "50", SRS: "EPSG:4326", WIDTH: "101", HEIGHT: "101",
-    BBOX: `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`
+    service: "WFS", version: "1.0.0", request: "GetFeature", typeName: "cite:VMMS_PT",
+    outputFormat: "application/json", srsName: "EPSG:4326", maxFeatures: "2000", propertyName: "geom",
+    bbox: `${lng - longitudeDelta},${lat - delta},${lng + longitudeDelta},${lat + delta},EPSG:4326`
   }).toString();
   const response = await fetch(locationUrl, { cache: "no-store", signal: AbortSignal.timeout(30000) });
   if (!response.ok) throw new Error(`Streetscape 360 location search returned HTTP ${response.status}.`);
