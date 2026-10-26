@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
 import { persistFragment } from "@/lib/fragments";
-import { geminiDiagnostics } from "@/lib/gemini";
+import { visionModelDiagnostics } from "@/lib/visionModel";
 import { generatePersonas } from "@/lib/persona";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
 import { textModelDiagnostics } from "@/lib/textModel";
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     const config = runtimeConfigFromHeaders(request.headers);
-    const visionDiagnostics = geminiDiagnostics();
+    const visionDiagnostics = visionModelDiagnostics();
     const personaDiagnostics = textModelDiagnostics();
 
     console.info("[persona.generate] started", {

@@ -87,7 +87,7 @@ export function buildEvidencePacket(params: BuildEvidencePacketParams): Evidence
     claims,
     globalRules: [
       "Do not state that a nearby candidate is visible unless visibilityStatus is visible_confirmed.",
-      "Do not invent personal memories about the photographed place.",
+      "Fictional persona anecdotes may connect to supported scene details, but must not fabricate the place's history, businesses, private individuals, or witness knowledge of real news events.",
       "Do not identify private individuals or private routines.",
       "Use uncertainty language for cautious_possible and background_only claims.",
       "Separate visual observations from social interpretations.",

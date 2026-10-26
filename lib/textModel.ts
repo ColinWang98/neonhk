@@ -1,9 +1,12 @@
 import https from "node:https";
 
-export type TextModelMessage = {
-  role: "system" | "user" | "assistant";
-  content: string;
-};
+export type TextModelContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string; detail?: "low" | "original" } };
+
+export type TextModelMessage =
+  | { role: "system" | "assistant"; content: string }
+  | { role: "user"; content: string | TextModelContentPart[] };
 
 type TextModelResponse = {
   choices?: Array<{
@@ -30,7 +33,7 @@ export function textModelApiKey() {
 }
 
 export function textModelName() {
-  return process.env.DEEPSEEK_MODEL || "deepseek-chat";
+  return process.env.DEEPSEEK_MODEL || "deepseek-flash";
 }
 
 export function textModelProvider() {
@@ -97,6 +100,7 @@ function buildTextPayload(params: GenerateTextJsonParams, model: string, attempt
     messages: retryMessage ? [...messages, retryMessage] : messages,
     temperature: params.temperature ?? 0.2,
     response_format: { type: "json_object" },
+    thinking: { type: "disabled" },
     ...(maxTokensForAttempt(params.maxOutputTokens, attempt)
       ? { max_tokens: maxTokensForAttempt(params.maxOutputTokens, attempt) }
       : {})
@@ -104,7 +108,11 @@ function buildTextPayload(params: GenerateTextJsonParams, model: string, attempt
 }
 
 function ensureJsonModeInstruction(messages: TextModelMessage[]) {
-  if (messages.some((message) => /\bjson\b/i.test(message.content))) {
+  if (messages.some((message) => /\bjson\b/i.test(
+    typeof message.content === "string"
+      ? message.content
+      : message.content.filter((part) => part.type === "text").map((part) => part.text).join(" ")
+  ))) {
     return messages;
   }
 

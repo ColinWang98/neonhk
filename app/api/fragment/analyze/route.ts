@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logAiGeneration } from "@/lib/aiGenerationLogs";
 import { persistFragment } from "@/lib/fragments";
-import { geminiDiagnostics } from "@/lib/gemini";
+import { visionModelDiagnostics } from "@/lib/visionModel";
 import { logEvent } from "@/lib/logger";
 import { shouldBlockFragment } from "@/lib/privacyFilter";
 import { runtimeConfigFromHeaders } from "@/lib/runtimeConfig";
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   let body: Partial<AnalyzeRequest> = {};
   const startedAt = performance.now();
   const config = runtimeConfigFromHeaders(request.headers);
-  const aiDiagnostics = geminiDiagnostics();
+  const aiDiagnostics = visionModelDiagnostics();
   try {
     body = (await request.json()) as AnalyzeRequest;
 
@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Analysis failed.";
+    console.error("[fragment.analyze] failed", { fragmentId: body.fragmentId, message });
     await logAiGeneration(
       {
         sessionId: body.sessionId,

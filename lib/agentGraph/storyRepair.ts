@@ -1,5 +1,6 @@
 import { normalizeNarratives } from "@/lib/narrative";
 import { generateTextJson } from "@/lib/textModel";
+import { spokenStoryStyle } from "@/lib/spokenStoryStyle";
 import type {
   EvidencePacket,
   GeneratedPersona,
@@ -20,55 +21,27 @@ type StoryRepairInput = {
   persona?: GeneratedPersona;
 };
 
-const repairPrompt = `You repair a generated street-view story after a Story Judge found problems.
+const repairPrompt = `You edit a street-view story after the Story Judge found problems.
 
-Repair goals:
-1. Keep useful concrete facts and persona perspective.
-2. Remove misleading claims, meta-refusals, and overstatements.
-3. If evidence is weak, use smaller grounded observations and practical persona judgement.
-4. Do not say "not enough evidence", "I cannot know", "I will not guess", or similar policy language.
-5. Keep it natural, spoken, and first-person.
-6. Convert the story into one continuous monologue, not checklist answers or separate cards.
-7. Return only spokenStory. It is the source of truth for subtitles and internal fields.
-8. Direct and high-confidence facts are anchors. Medium-confidence facts are optional. Keep only the ones that make the story sound more specific and natural.
-9. The repaired story should be roughly 170 to 260 words, with enough room for a visible cue, a personal connection, a small complication, and a next action.
-10. Make it sound like a short voice message to one friend, not like a place analysis.
+Keep the strongest existing thread, the selected persona's voice, and useful supported details. Fix the warned-about claim or passage, not the whole account by replacing it with a generic street scene.
+If the original is mostly a place explanation or a list of actions, rebuild a connected account from the persona and the supplied place material. Do not simply add 'honestly' or another relative to the same explanation.
 
-Persona style:
-- Do not label the persona in the sentence. Never write "as a temporary-resident", "as a tourist", or "as a local resident".
-- Use the persona's role, userIntro, background, and voiceHint as speaking texture: route-finding, working nearby, local errands, short-term learning, travel comparison, age, pace, food, rain, queues, or transport habits.
-- Treat the persona as an active fictional role-play speaker. Their own habits and experiences can be direct: "I usually...", "I learned...", "after staying here...", "when I visit...", "on my usual route...".
-- Avoid role-play hypotheticals such as "if I were visiting", "if I were working nearby", and "if this were on my usual route".
-- Use direct action more than conditional language: "I slow down", "I use the sign", "I step aside", "I learned this after a few weeks here". Use "I would" only when the action is genuinely conditional.
-- Add one tiny everyday scene when possible: checking a sign, arriving from transport, holding a drink, keeping out of a doorway, leaving space for a delivery, waiting in rain, or comparing the place with a street near home.
-- Add one small personal or social connection when it fits: a cousin at school, a friend talking about food, a family errand, a worker's delivery route, a regular queue, a wet pavement habit, or a place to wait.
-- Make the repaired story feel like a specific small moment, not a general explanation. It needs a person, a reason, and a small consequence.
-- Let one other person matter whenever possible: cousin, friend, coworker, landlord, classmate, customer, passenger, child, family member, or someone waiting.
-- This applies to any place type, not just famous buildings. Campuses, shops, clinics, estates, stations, markets, office blocks, footbridges, and plain frontages can all carry a small human errand or relationship.
-- Make the scene have a reason: the narrator is a little early, late, hungry, carrying something, meeting someone, avoiding rain, comparing it with another city, or checking a message.
-- Do not repair the story into pure route advice. Keep one thing the narrator cares about personally, even if the place fact is only medium confidence.
-- Follow a tiny spoken arc: visible clue, personal connection, small complication, then a next action. A complication can be rain, being late, a queue, the wrong entrance, a message, a heavy bag, a busy lunch break, or a person waiting.
-- At most one sentence can be about orientation, standing aside, or following the crowd. The rest should be about a person, errand, taste, class, work shift, payment, queue, rain, or waiting.
-- Add light spoken turns when natural: "okay, so", "I mean", "honestly", "the thing is", "that is the bit I look for". Do not overuse one phrase.
-- Turn uncertainty into practical street judgement. Do not expose evidence mechanics.
-- Do not add headings like "What catches my eye", "A time of day", "How people move here", "Everyday use", or "Shared space".
-- Avoid abstract or formal phrases such as "identity", "rhythm", "social meaning", "urban texture", "public-facing environment", and "spatial context".
-- The system will derive subtitles from spokenStory, so never write cards, headings, or separate answers.
+${spokenStoryStyle}
 
-Do not add new factual claims beyond NarrativeEvidenceView.primaryClaims.
-NarrativeEvidenceView.optionalNearbyClaims are optional nearby context only. Omit them if they caused a warning.
-Medium-confidence primaryClaims are also optional for style. Omit them if they make the repaired story sound like a list.
-Do not turn nearby/background-only claims into directly visible facts.
-Do not mention forbiddenVisibleNames as visible, selected, or identical to the fragment.
-Do not make news or official notices explain the selected fragment.
-Avoid stiff evidence phrases such as "the map and image make", "possible match here", "visual-map verifier", "candidate", "keep the reading modest", "frontage has a simple identity", and "without pretending I know the whole place".
-Avoid generic filler such as "I use it first for orientation", "edge of the flow", "one sign, one corner", "stop feeling lost", "keep the passage open", and "the daily rhythm is the part I trust".
-Also avoid "gives me a handle", "the timing matters more than the history", "how people move past", and any sentence that sounds like a general street rule.
+Evidence boundary:
+- External facts about the selected fragment must come from NarrativeEvidenceView.primaryClaims.
+- Preserve specific supported information rather than replacing it with 'a useful landmark' or route advice.
+- Medium-confidence facts may be omitted or qualified briefly, without making all of the speaker's experiences hypothetical.
+- optionalNearbyClaims are optional background. Omit a weak named claim that caused a warning instead of building the account around it.
+- Do not describe forbiddenVisibleNames as visible, selected, or identical to the fragment.
+- Do not make news or official notices explain the selected fragment.
+- Fictional persona anecdotes are allowed, but not new place facts, exact menus or prices, historical events, private identities, or invented first-hand testimony about real news.
+- Public review themes are subjective impressions. Do not turn a reviewer's account into the narrator's personal testimony.
+- A coherent recollection or comparison need not contain an errand, a complication, or a final action.
+- Do not read the evidence restrictions or judge's warnings aloud.
 
-Return strict JSON:
-{
-  "spokenStory": string
-}`;
+Return strict JSON: {"spokenStory": string}.
+spokenStory remains the single source for subtitles. Do not return headings, separate cards, or an independently rewritten subtitle track.`;
 
 export async function repairNarrativeWithTextModel(input: StoryRepairInput): Promise<SchemaNarratives> {
   const raw = await generateTextJson({

@@ -40,13 +40,12 @@ export function buildStoryFactPlan(
     })),
     avoidFacts,
     guidance: [
-      "When there is a strong named place, use it early in plain speech.",
-      "Turn anchor facts into something the narrator would actually say on the pavement.",
-      "Use at most one extra fact if it helps the story feel specific.",
-      "Sourced background can become a small life detail, never a lecture.",
-      "For any place type, let the persona connect the visible clue to ordinary life: errands, family talk, food, study, work, queues, routes, waiting, repairs, delivery, visiting, or weather.",
+      "Use a relevant strong place fact naturally, wherever it belongs in the account, not as a mandatory opening sentence.",
+      "Keep the substance of sourced facts, not just the place name. Choose details that develop the narrator's account rather than reciting a list.",
+      "The selected persona's actual background and interests should determine which facts matter. Do not substitute a stock family errand or meeting-point scene.",
+      "Public context may enrich the account, but must retain its geographic and uncertainty boundaries.",
       "Do not mention avoidFacts as visible or selected.",
-      "If a fact is medium confidence, phrase it like a useful street clue rather than a confirmed identification."
+      "If a fact is medium confidence, qualify the specific fact briefly rather than treating it as a confirmed identification."
     ]
   };
 }
@@ -125,22 +124,20 @@ function storyFactText(claim: EvidenceClaim) {
   if (claim.source === "google_reviews") {
     return reviewThemeFactText(claim);
   }
-  const label = extractNamedIdentity(claim);
-  if (label) return wordingForClaim(claim, label);
   return claim.text.replace(/\s+/g, " ").trim();
 }
 
 function wordingForClaim(claim: EvidenceClaim, label: string) {
   if (claim.allowedUse === "direct_fact") {
-    return `${label} is a name the narrator can catch naturally, then turn into a small errand, meeting point, class, meal, or waiting scene.`;
+    return `${label} is supported as an identity of the selected detail.`;
   }
   if (claim.source === "candidate_verifier") {
-    return `${label} can be used as a likely landmark in casual words, then connected to one ordinary reason for being here.`;
+    return `The selected detail may be associated with ${label}. Keep the identification qualified.`;
   }
   if (/footprint|sight line|viewing cone/i.test(claim.text)) {
-    return `The view points toward ${label}, so the narrator can use the name carefully as a landmark, not a hard identification.`;
+    return `The selected sight line points toward ${label}, but this does not confirm the object's identity.`;
   }
-  return `${label} can be mentioned only if it helps the narrator's everyday story.`;
+  return `${label} is a possible association, not a confirmed identity.`;
 }
 
 function reviewThemeFactText(claim: EvidenceClaim) {
@@ -150,10 +147,10 @@ function reviewThemeFactText(claim: EvidenceClaim) {
   const concrete = compact.match(/especially (.+?)\. Treat this/i)?.[1]?.trim();
   const texture = [theme, concrete].filter(Boolean).join(", especially ");
   if (placeName && texture) {
-    return `${placeName} can bring in everyday talk about ${texture}. Use it as life texture, not as a review citation.`;
+    return `Public visitor impressions of ${placeName} mention ${texture}. These are subjective impressions, not confirmation of the selected detail.`;
   }
   if (placeName) {
-    return `${placeName} can bring in one small everyday detail from public visitor talk, without saying "reviews say".`;
+    return compact;
   }
   return compact
     .replace(/Public Google reviews for /gi, "")

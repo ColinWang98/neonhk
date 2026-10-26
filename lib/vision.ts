@@ -1,4 +1,4 @@
-import { generateGeminiJson, prepareGeminiImagePart, type GeminiPart } from "@/lib/gemini";
+import { generateVisionJson, prepareVisionImagePart, type VisionPart } from "@/lib/visionModel";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import { generateTextJson } from "@/lib/textModel";
 import type { SceneVisualDescription, StreetImage, VisionDescription } from "@/types";
@@ -63,14 +63,14 @@ export async function analyzeFragment(
         config.appUrl || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       ).toString();
 
-  const parts: GeminiPart[] = [
-    { text: visionPrompt },
-    await prepareGeminiImagePart(imageUrl, "Gemini fragment analysis")
+  const parts: VisionPart[] = [
+    { type: "text", text: visionPrompt },
+    await prepareVisionImagePart(imageUrl, "DeepSeek fragment analysis")
   ];
-  const raw = await generateGeminiJson({
+  const raw = await generateVisionJson({
     parts,
     temperature: 0.1,
-    errorPrefix: "Gemini fragment analysis"
+    errorPrefix: "DeepSeek fragment analysis"
   });
   const vision = JSON.parse(extractJsonObject(raw)) as VisionDescription;
 
@@ -86,9 +86,10 @@ export async function analyzeSceneSnapshot(params: {
     throw new Error("Scene analysis requires a panorama snapshot URL.");
   }
 
-  const parts: GeminiPart[] = [
-    { text: scenePrompt },
+  const parts: VisionPart[] = [
+    { type: "text", text: scenePrompt },
     {
+      type: "text",
       text: JSON.stringify({
         image: {
           provider: params.image.provider,
@@ -99,12 +100,12 @@ export async function analyzeSceneSnapshot(params: {
         }
       })
     },
-    await prepareGeminiImagePart(params.snapshotUrl, "Gemini scene analysis")
+    await prepareVisionImagePart(params.snapshotUrl, "DeepSeek scene analysis")
   ];
-  const raw = await generateGeminiJson({
+  const raw = await generateVisionJson({
     parts,
     temperature: 0.1,
-    errorPrefix: "Gemini scene analysis"
+    errorPrefix: "DeepSeek scene analysis"
   });
 
   return JSON.parse(extractJsonObject(raw)) as SceneVisualDescription;

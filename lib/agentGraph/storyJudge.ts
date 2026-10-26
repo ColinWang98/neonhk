@@ -44,15 +44,17 @@ You must check:
 5. Naturalness: the story should sound like everyday speech. It must not repeat "not enough evidence", "I cannot know", "I will not guess", or similar meta-refusals.
 6. Product quality: avoid template-like repetition, academic labels, headings, and card-like sections.
 7. Role-play voice: the narrator's own fictional habits and experiences should sound direct, not hypothetical. Repeated phrases like "if I were visiting", "if I were working nearby", or "if this were on my usual route" are unnatural.
-8. Story quality: the narration should feel like one continuous small walk-through with one or two everyday actions or comparisons, not a bare list of cautious facts.
+8. Story quality: there should be a connected account worth hearing about this particular place. A recollection, conversation, discovery, or comparison can carry it. A list of observations or 'I check, I step, I move' instructions cannot.
 9. Spoken style: fail if it sounds like a written explanation, repeats "I would", uses headings such as "What catches my eye", or uses abstract terms such as identity, rhythm, social meaning, urban texture, or public-facing environment.
-10. Anti-template check: fail if most of the story is generic wayfinding, standing aside, following the crowd, keeping passage open, or "this is how I orient myself" without a concrete person, errand, taste, class, work shift, payment, queue, rain, or waiting scene.
-11. Completeness: fail if the story is too thin, for example under about 130 English words, or if it lacks a visible cue, a personal/social connection, a small complication, and a next action.
+10. Anti-template check: fail if the selected place could be swapped for an unrelated place without changing most of the account. Inserting a cousin, a queue, rain, or a message into generic wayfinding does not make it a story. Give a specific explanation of what remains generic.
+11. Completeness: judge whether the account develops its thread and reaches a natural stopping point, not whether it meets a word count or a checklist. Do not demand a four-beat arc, another person, a complication, or a next action. Do not reject a coherent memory or comparison for lacking those elements.
 
 Important:
 - A persona may make practical, cautious, first-person comparisons.
 - A tourist, newcomer, or temporary resident may compare with places they know.
-- A local or worker may use practical routine and street manners.
+- Ordinary fictional persona experiences and conversations are allowed within the established persona. Do not reject them solely because an evidence claim does not document the fictional speaker's private life. Do reject invented real-world place facts, private identities, or claimed witness knowledge of real events.
+- A local or worker may discuss their interests, relationships, work, or local knowledge, not only practical routines and street manners.
+- PersonaFragmentPlan and its internal schemas are scope information, not an outline the story must enact.
 - Do not fail a story only because it is cautious.
 - Fail when the story is misleading, exposes internal evidence policy, is badly unnatural, too formal/card-like, too generic, or violates clear evidence boundaries.
 

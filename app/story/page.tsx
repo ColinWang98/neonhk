@@ -759,6 +759,7 @@ export default function StoryPage() {
     };
     addFragment(baseFragment);
     let activeFragmentId = tempId;
+    let processingStage: "saving" | "reading" = "saving";
 
     try {
       await logClientEvent(
@@ -785,7 +786,7 @@ export default function StoryPage() {
         })
       });
       const cropData = await cropRes.json();
-      if (!cropRes.ok) throw new Error("Fragment could not be saved. Please try again.");
+      if (!cropRes.ok) throw new Error(cropData.error || "Fragment could not be saved.");
 
       updateFragment(tempId, {
         id: cropData.fragmentId,
@@ -795,6 +796,7 @@ export default function StoryPage() {
         status: "analyzing"
       });
       activeFragmentId = cropData.fragmentId;
+      processingStage = "reading";
 
       const analyzeRes = await fetch("/api/fragment/analyze", {
         method: "POST",
@@ -836,9 +838,14 @@ export default function StoryPage() {
         void saveStorySession(nextSession, runtimeHeaders);
       }
     } catch (err) {
-      console.error("Fragment reading failed", err);
+      console.error("Fragment processing failed", { stage: processingStage, error: err });
       updateFragment(activeFragmentId, { status: "error" });
-      setError(uiLanguage === "zh" ? "片段处理未能完成，请稍后重试。" : "The selected detail could not be processed. Please try again later.");
+      const timedOut = err instanceof Error && /timed out|timeout/i.test(err.message);
+      setError(processingStage === "saving"
+        ? uiLanguage === "zh" ? "片段未能保存，请稍后重试。" : "This detail could not be saved. Please try again later."
+        : timedOut
+          ? uiLanguage === "zh" ? "读取片段超时，请重试。" : "Reading this detail took too long. Please try again."
+          : uiLanguage === "zh" ? "片段暂时未能读取，请稍后重试。" : "This detail could not be read. Please try again later.");
     } finally {
       setProcessing(false);
     }

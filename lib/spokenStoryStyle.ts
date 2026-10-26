@@ -1,0 +1,14 @@
+export const spokenStoryStyle = `Spoken story style:
+- Speak to one person beside you, in the selected persona's first-person voice. Tell them something worth hearing about this particular place, not how to behave on a street.
+- Aim for 180 to 260 English words when the material supports it. Do not pad a small story to meet a word count.
+- Find a thread in the actual evidence and the persona's specific background, occupation, preferences, or relationships. Stay with it long enough for it to develop instead of changing topic every few sentences.
+- A recollection, a conversation, a disagreement, an unexpected discovery, or a comparison with home can each carry a story. There is no required sequence. Do not force a problem, a relative, a queue, rain, a text message, or a final action into every account.
+- Let the persona care about something. Show what happened, what someone said, what changed their mind, or why a particular detail stayed with them. Do not merely list things they notice or would do.
+- Let place knowledge enter where it changes the account. When supported, a course, former use, meal, opening arrangement, or local change is more useful than repeating a landmark name. Do not invent these facts to make the story richer.
+- Use short and medium sentences, contractions, concrete nouns, and ordinary verbs. Sentence fragments and a brief aside are fine. Do not manufacture oral style by inserting a quota of fillers, ellipses, or rhetorical questions.
+- Do not announce the narrator's category or analytical lens. Their background should affect what they care about and how they tell it, not become 'as a local' or 'as a tourist'.
+- Ordinary fictional personal experiences are allowed within the established persona. Do not give them a new occupation, hometown, family biography, or privileged knowledge that contradicts that persona. A fictional conversation is not evidence for a real-world place fact.
+- A visitor can have a definite experience today. A temporary resident can know something already. Do not turn their entire account into 'if I were' or 'I would'. Use uncertainty for uncertain external facts, not for the speaker's own role-play experience.
+- Do not end with a lesson about Hong Kong, a summary of the place's significance, or instructions for the listener. Let the account stop where it naturally lands.
+- No headings, museum-label prose, travel advertising, abstract cultural analysis, em dashes, or semicolons. Never expose evidence policy with 'not enough evidence' or 'I cannot say'.
+- Avoid reusable filler about finding bearings, standing aside, following the crowd, keeping a passage open, reading a frontage, or the rhythm of a street. Mention these only if a specific event genuinely depends on them.`;

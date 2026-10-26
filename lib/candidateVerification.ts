@@ -1,4 +1,4 @@
-import { generateGeminiJson, geminiModel, prepareGeminiImagePart, stripJsonFence, type GeminiPart } from "@/lib/gemini";
+import { generateVisionJson, visionModelDiagnostics, prepareVisionImagePart, type VisionPart } from "@/lib/visionModel";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type {
   AllowedNarrativeUse,
@@ -94,24 +94,17 @@ export async function verifyCandidateMatches(params: VerifyParams): Promise<Cand
     return skipped("Visual-map verification skipped because the fragment has no strong public-place or sign/building cues.");
   }
 
-  try {
-    return await verifyWithGemini(params, candidates);
-  } catch (error) {
-    if (isRecoverableVerifierFormatError(error)) {
-      const message = error instanceof Error ? error.message : "Candidate verifier returned malformed output.";
-      return skipped(`Visual-map verification skipped after malformed Gemini output: ${message}`, "gemini", geminiModel());
-    }
-    throw error;
-  }
+  return verifyWithDeepSeek(params, candidates);
 }
 
-async function verifyWithGemini(params: VerifyParams, candidates: CandidateInput[]): Promise<CandidateVerification> {
-  const model = geminiModel();
-  const cropImage = await prepareGeminiImagePart(params.cropImageUrl || "", "Gemini candidate verification");
+async function verifyWithDeepSeek(params: VerifyParams, candidates: CandidateInput[]): Promise<CandidateVerification> {
+  const { model, provider } = visionModelDiagnostics();
+  const cropImage = await prepareVisionImagePart(params.cropImageUrl || "", "DeepSeek candidate verification");
   const wholeImageUrl = params.image?.fullUrl || params.image?.thumbUrl;
-  const parts: GeminiPart[] = [
-    { text: verificationPrompt },
+  const parts: VisionPart[] = [
+    { type: "text", text: verificationPrompt },
     {
+      type: "text",
       text: JSON.stringify({
         task: "Verify which map candidate, if any, matches the selected crop.",
         pano: {
@@ -137,19 +130,18 @@ async function verifyWithGemini(params: VerifyParams, candidates: CandidateInput
   ];
 
   if (wholeImageUrl) {
-    parts.push(await prepareGeminiImagePart(wholeImageUrl, "Gemini candidate verification"));
+    parts.push(await prepareVisionImagePart(wholeImageUrl, "DeepSeek candidate verification"));
   }
 
-  const raw = await generateGeminiJson({
+  const raw = await generateVisionJson({
     parts,
-    model,
     temperature: 0.1,
     maxOutputTokens: 1600,
     timeoutMs: 30000,
-    errorPrefix: "Gemini candidate verification"
+    errorPrefix: "DeepSeek candidate verification"
   });
 
-  return normalizeVerificationOutput(raw, candidates, "gemini", model);
+  return normalizeVerificationOutput(raw, candidates, provider, model);
 }
 
 function normalizeVerificationOutput(
@@ -158,7 +150,7 @@ function normalizeVerificationOutput(
   provider: string,
   model: string
 ): CandidateVerification {
-  const parsed = JSON.parse(stripJsonFence(raw)) as { matches?: Partial<CandidateVerificationMatch>[]; warnings?: string[] };
+  const parsed = JSON.parse(raw) as { matches?: Partial<CandidateVerificationMatch>[]; warnings?: string[] };
   const known = new Map(candidates.map((candidate) => [candidate.candidateId, candidate]));
   const matches = (parsed.matches || [])
     .map((match) => normalizeMatch(match, known))
@@ -173,11 +165,6 @@ function normalizeVerificationOutput(
     warnings: normalizeStringArray(parsed.warnings).slice(0, 5),
     createdAt: new Date().toISOString()
   };
-}
-
-function isRecoverableVerifierFormatError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error || "");
-  return /invalid JSON|returned no content|malformed output/i.test(message);
 }
 
 function collectCandidates(placeContext?: PlaceContext): CandidateInput[] {

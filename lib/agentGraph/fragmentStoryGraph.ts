@@ -2,9 +2,9 @@ import { logAgentRun } from "@/lib/agentRuns";
 import { verifyCandidateMatches } from "@/lib/candidateVerification";
 import { buildEvidencePacket } from "@/lib/evidence";
 import { getPlaceReviewContextForStory } from "@/lib/googlePlaceContext";
-import { geminiDiagnostics } from "@/lib/gemini";
+import { visionModelDiagnostics } from "@/lib/visionModel";
 import { generateNarratives } from "@/lib/narrative";
-import { buildNarrativeBlocks, reinforceConcreteFacts, validateNarrative } from "@/lib/narrativeValidation";
+import { buildNarrativeBlocks, validateNarrative } from "@/lib/narrativeValidation";
 import { buildNarrativeEvidenceView } from "@/lib/narrativeEvidenceView";
 import { buildPersonaFragmentPlan } from "@/lib/personaFragment";
 import { buildStoryFactPlan } from "@/lib/storyFactPlan";
@@ -56,7 +56,7 @@ const graphName = "fragment_story_graph";
 
 export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Promise<FragmentStoryGraphOutput> {
   const config = input.config || {};
-  const visionDiagnostics = geminiDiagnostics();
+  const visionDiagnostics = visionModelDiagnostics();
   const textDiagnostics = textModelDiagnostics();
   const runContext = {
     sessionId: input.sessionId,
@@ -235,7 +235,7 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
     );
   }
 
-  const generatedNarratives = await runAgent(
+  let narratives = await runAgent(
     "StoryWriterAgent",
     {
       personaId: input.persona?.id,
@@ -263,21 +263,6 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
       agentRuns,
       provider: textDiagnostics.provider,
       model: textDiagnostics.model
-    }
-  );
-
-  let narratives = await runAgent(
-    "FactReinforcementAgent",
-    {
-      claimCount: evidencePacket.claims.length
-    },
-    async () => reinforceConcreteFacts(generatedNarratives, evidencePacket, narrativeEvidenceView),
-    {
-      ...runContext,
-      config,
-      agentRuns,
-      provider: "system",
-      model: "fact-reinforcement-v1"
     }
   );
 
@@ -375,7 +360,6 @@ export async function runFragmentStoryGraph(input: FragmentStoryGraphInput): Pro
         model: textDiagnostics.model
       }
     );
-    narratives = reinforceConcreteFacts(narratives, evidencePacket, narrativeEvidenceView);
     narrativeBlocks = buildNarrativeBlocks(narratives, evidencePacket, personaFragmentPlan, narrativeEvidenceView);
     deterministicValidation = validateNarrative({
       narratives,

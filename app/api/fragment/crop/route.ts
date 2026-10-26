@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ fragmentId, ...result });
   } catch (error) {
+    console.error("[fragment.crop] failed", { message: error instanceof Error ? error.message : "Cropping failed." });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Cropping failed." },
       { status: 500 }

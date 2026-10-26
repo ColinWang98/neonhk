@@ -193,14 +193,14 @@ function narrativeModeForFit(
 
 function canSpeakAbout(affordances: FragmentAffordance[], lens: ReturnType<typeof lensForPersona>) {
   const topics = new Set<string>();
-  if (affordances.includes("wayfinding")) topics.add("how signs or visible cues help a person find their way");
-  if (affordances.includes("mobility")) topics.add("movement, passing, waiting, and where to stand");
-  if (affordances.includes("commercial")) topics.add("street-facing shops and everyday errands");
-  if (affordances.includes("infrastructure")) topics.add("small public rules created by rails, pipes, barriers, or civic fixtures");
-  if (lens.stance === "outsider_questioning") topics.add("visitor uncertainty and first-time orientation");
+  if (affordances.includes("wayfinding")) topics.add("the named places and personal associations connected to visible signs");
+  if (affordances.includes("mobility")) topics.add("a particular journey, encounter, or change of plan relevant to the persona");
+  if (affordances.includes("commercial")) topics.add("purchases, preferences, work, or relationships connected to the supported shop context");
+  if (affordances.includes("infrastructure")) topics.add("a specific personal experience shaped by this public fixture, not a list of street rules");
+  if (lens.stance === "outsider_questioning") topics.add("a visitor's actual present experience, curiosity, or discovery");
   if (lens.stance === "outsider_questioning") topics.add("careful comparisons with places the visitor already knows");
   if (lens.stance === "cautious_interpretation") topics.add("temporary resident or newcomer comparisons without claiming local memory");
-  if (lens.stance === "practical_commentary") topics.add("practical use and street manners");
+  if (lens.stance === "practical_commentary") topics.add("work knowledge, preferences, or encounters consistent with the persona's occupation");
   return Array.from(topics).slice(0, 5);
 }
 

@@ -142,62 +142,6 @@ function deterministicJitter(value: string) {
   return (hash % 1000) / 1000 * 0.08;
 }
 
-export function reinforceConcreteFacts(
-  narratives: SchemaNarratives,
-  evidencePacket: EvidencePacket,
-  evidenceView?: NarrativeEvidenceView
-): SchemaNarratives {
-  const fact = topConcreteFact(evidencePacket, evidenceView);
-  if (!fact) return narratives;
-  const userFacingText = userFacingNarrativeText(narratives).toLowerCase();
-  if (userFacingText.includes(fact.name.toLowerCase())) return narratives;
-  const spokenStory = narratives.spokenStory
-    ? `${fact.sentence} ${narratives.spokenStory}`.replace(/\s+/g, " ").trim()
-    : undefined;
-  const subtitleBlocks = narratives.subtitleBlocks?.length
-    ? [
-        {
-          ...narratives.subtitleBlocks[0],
-          text: `${fact.sentence} ${narratives.subtitleBlocks[0].text}`.replace(/\s+/g, " ").trim(),
-          groundedIn: Array.from(new Set([
-            ...narratives.subtitleBlocks[0].groundedIn,
-            ...(evidenceView?.primaryClaims.slice(0, 1).map((claim) => claim.id) || [])
-          ]))
-        },
-        ...narratives.subtitleBlocks.slice(1)
-      ]
-    : narratives.subtitleBlocks;
-  if (narratives.storyBeats?.length) {
-    const [first, ...rest] = narratives.storyBeats;
-    return {
-      ...narratives,
-      ...(spokenStory ? { spokenStory } : {}),
-      ...(subtitleBlocks ? { subtitleBlocks } : {}),
-      storyBeats: [
-        {
-          ...first,
-          text: `${fact.sentence} ${first.text}`.replace(/\s+/g, " ").trim(),
-          groundedIn: Array.from(new Set([...first.groundedIn, ...(evidenceView?.primaryClaims.slice(0, 1).map((claim) => claim.id) || [])]))
-        },
-        ...rest
-      ],
-      functionalUse: {
-        ...narratives.functionalUse,
-        text: `${fact.sentence} ${narratives.functionalUse.text}`.replace(/\s+/g, " ").trim()
-      }
-    };
-  }
-  return {
-    ...narratives,
-    ...(spokenStory ? { spokenStory } : {}),
-    ...(subtitleBlocks ? { subtitleBlocks } : {}),
-    functionalUse: {
-      ...narratives.functionalUse,
-      text: `${fact.sentence} ${narratives.functionalUse.text}`.replace(/\s+/g, " ").trim()
-    }
-  };
-}
-
 export function validateNarrative(params: {
   narratives: SchemaNarratives;
   narrativeBlocks: NarrativeBlock[];
@@ -241,9 +185,6 @@ export function validateNarrative(params: {
   if (hasTemplatedOrFormalStoryVoice(allText)) {
     warnings.push("Narrative sounds too formal, explanatory, or card-like for spoken story mode.");
   }
-  if (hasThinStoryShape(primaryNarrativeText(params.narratives))) {
-    warnings.push("Narrative is too short or lacks a full everyday story arc for spoken story mode.");
-  }
   const strongerCandidateNames = new Set(
     params.evidencePacket.claims
       .filter((claim) => claim.allowedUse !== "background_only" && claim.allowedUse !== "do_not_use")
@@ -277,7 +218,6 @@ export function validateNarrative(params: {
     warning.includes("disabled") ||
     warning.includes("evidence limits") ||
     warning.includes("backend evidence language") ||
-    warning.includes("too short") ||
     warning.includes("overstated as visible") ||
     warning.includes("direct cause")
   );
@@ -286,10 +226,6 @@ export function validateNarrative(params: {
     warnings,
     requiresRegeneration: failed
   };
-}
-
-function userFacingNarrativeText(narratives: SchemaNarratives) {
-  return primaryNarrativeText(narratives);
 }
 
 function primaryNarrativeText(narratives: SchemaNarratives) {
@@ -303,113 +239,6 @@ function primaryNarrativeText(narratives: SchemaNarratives) {
     narratives.socialCulturalResonance.text
   ].join(" ");
   return `${spokenText} ${blockText || schemaText}`.trim();
-}
-
-function topConcreteFact(evidencePacket: EvidencePacket, evidenceView?: NarrativeEvidenceView): { name: string; sentence: string } | undefined {
-  const claims = evidenceView?.primaryClaims || evidencePacket.claims;
-  const verifier = claims.find((claim) =>
-    claim.id.startsWith("cv") &&
-    (claim.allowedUse === "direct_fact" || claim.allowedUse === "cautious_possible") &&
-    claim.visibilityStatus !== "nearby_not_confirmed_visible" &&
-    claim.visibilityStatus !== "area_level_only" &&
-    (claim.allowedUse === "direct_fact" || claim.confidence >= 0.78)
-  );
-  if (verifier) {
-    const name = extractCandidateName(verifier.text);
-    if (name) {
-      return {
-        name,
-        sentence: factSceneSentence(name, verifier.text, verifier.allowedUse === "direct_fact" ? "direct" : "cautious")
-      };
-    }
-  }
-
-  const footprint = claims.find((claim) =>
-    claim.allowedUse === "cautious_possible" &&
-    claim.confidence >= 0.82 &&
-    /mapped building footprint intersects the selected sight line/i.test(claim.text)
-  );
-  if (footprint) {
-    const name = extractCandidateName(footprint.text);
-    if (name) {
-      return {
-        name,
-        sentence: factSceneSentence(name, footprint.text, "cautious")
-      };
-    }
-  }
-
-  const entity = evidencePacket.claims.find((claim) => claim.id.startsWith("ent") && claim.allowedUse !== "do_not_use");
-  if (entity) {
-    const match = entity.text.match(/"([^"]+)"/);
-    const name = match?.[1]?.trim();
-    if (name) {
-      return {
-        name,
-        sentence: entity.allowedUse === "direct_fact"
-          ? factSceneSentence(name, entity.text, "direct")
-          : factSceneSentence(name, entity.text, "cautious")
-      };
-    }
-  }
-
-  const text = evidencePacket.claims.find((claim) => claim.id.startsWith("txt"));
-  if (text) {
-    const match = text.text.match(/"([^"]+)"/);
-    const name = match?.[1]?.trim();
-    if (name && name.length <= 80) {
-      return {
-        name,
-        sentence: factSceneSentence(name, text.text, "direct")
-      };
-    }
-  }
-  return undefined;
-}
-
-function factSceneSentence(name: string, sourceText: string, certainty: "direct" | "cautious") {
-  const lower = `${name} ${sourceText}`.toLowerCase();
-  const prefix = factOpening(name, sourceText, certainty);
-  if (/\b(university|polytechnic|polyu|campus|school|college|student)\b/.test(lower)) {
-    return `${prefix}, and I think of someone texting from the wrong entrance after class, asking where to meet and whether the canteen is still open.`;
-  }
-  if (/\b(restaurant|cafe|food|snack|egg waffle|bakery|noodle|market|茶餐|food court)\b/.test(lower)) {
-    return `${prefix}, and I start thinking about whether there is time to grab one thing for a friend before the next bus or train.`;
-  }
-  if (/\b(pharmacy|dispensary|clinic|medical|藥房|药房)\b/.test(lower)) {
-    return `${prefix}, and it feels like the kind of family errand where somebody messages, buy this quickly, then come straight back.`;
-  }
-  if (/\b(station|bus|tram|mtr|taxi|transport|crossing)\b/.test(lower)) {
-    return `${prefix}, then I check my message again because one missed exit can turn a simple meet-up into ten extra minutes.`;
-  }
-  if (/\b(shop|store|mall|sign|storefront|frontage|entrance)\b/.test(lower)) {
-    return `${prefix}, the sort of sign someone uses in a lazy message, wait by that shop and I will be there in five.`;
-  }
-  return `${prefix}, and I tie it to the small errand in my head, the message I am answering, and where I should wait without getting in the way.`;
-}
-
-function factOpening(name: string, sourceText: string, certainty: "direct" | "cautious") {
-  const directOpenings = [
-    `The name ${name} is what I notice first`,
-    `${name} is the bit that makes me slow down for a second`,
-    `I spot ${name}, and that gives this corner a handle`
-  ];
-  const cautiousOpenings = [
-    `Around here, ${name} is the name I keep in the back of my mind`,
-    `The map points me toward ${name}, so I use that name carefully`,
-    `${name} is useful around here, even if I keep it a little loose`
-  ];
-  const openings = certainty === "direct" ? directOpenings : cautiousOpenings;
-  return openings[deterministicIndex(`${name}:${sourceText}:${certainty}`, openings.length)];
-}
-
-function deterministicIndex(value: string, length: number) {
-  if (length <= 1) return 0;
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-  }
-  return hash % length;
 }
 
 function confidenceForPlan(plan: PersonaFragmentPlan): NarrativeBlock["confidence"] {
@@ -451,24 +280,6 @@ function hasTemplatedOrFormalStoryVoice(text: string) {
   const abstractLanguage = /\b(identity|rhythm|social meaning|urban texture|public-facing environment|resonance|threshold|sense of belonging|layers of meaning|spatial context)\b/i.test(text);
   const stiffPhrases = /\b(the timing matters more than the history|timing matters more than history|it is not a grand story|daily rhythm is the part i trust|gives me a handle|how people move past|the small rule is simple|use it first for orientation|use it for orientation|edge of the flow|one sign, one corner|stop feeling lost|keep the passage open|faster people pass|street manner i notice here)\b/i.test(text);
   return repeatedWould || cardHeading || abstractLanguage || stiffPhrases;
-}
-
-function hasThinStoryShape(text: string) {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  if (!normalized) return true;
-  const latinWords = normalized.match(/[A-Za-z0-9']+/g)?.length || 0;
-  const cjkChars = normalized.match(/[\u3400-\u9fff]/g)?.length || 0;
-  if (latinWords > 0 && latinWords < 115) return true;
-  if (latinWords === 0 && cjkChars > 0 && cjkChars < 180) return true;
-
-  const hasPersonalConnection = /\b(my|me|I|cousin|friend|coworker|colleague|landlord|child|kid|son|daughter|family|relative|classmate|customer|passenger|someone|aunt|uncle|mother|father|roommate)\b/i.test(normalized) ||
-    /(我|朋友|同事|家人|親戚|亲戚|孩子|小孩|表弟|表妹|同學|同学|房東|房东|客人|乘客|有人)/.test(normalized);
-  const hasComplication = /\b(late|early|rain|queue|wrong entrance|wrong exit|message|texting|busy|crowd|crowded|heavy bag|bags|wait|waiting|hungry|rush|missed|payment|octopus|delivery|shift|exam|deadline)\b/i.test(normalized) ||
-    /(遲|迟|早到|下雨|排隊|排队|入口|出口|訊息|信息|短信|人多|擠|挤|等|餓|饿|趕|赶|錯過|错过|付款|八達通|八达通|外賣|外卖|班|考試|考试|deadline)/i.test(normalized);
-  const hasNextAction = /\b(I go|I head|I wait|I step|I move|I send|I text|I answer|I check|I buy|I call|I cross|I ask|I follow|I leave|I walk|I look|I slow|I turn|I stay|I settle)\b/i.test(normalized) ||
-    /(我走|我去|我等|我站|我挪|我發|我发|我回|我看|我買|我买|我打|我問|我问|我離開|我离开|我慢|我轉|我转|我留)/.test(normalized);
-
-  return !(hasPersonalConnection && hasComplication && hasNextAction);
 }
 
 function extractCandidateName(text: string) {
