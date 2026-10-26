@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       id: body.fragmentId,
       cropImageUrl: body.cropImageUrl,
       visionDescription,
-      status: blocked ? "blocked" : "analyzing"
+      status: blocked ? "blocked" : "ready"
     }, config);
     await logEvent(
       {
@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Analysis failed.";
     console.error("[fragment.analyze] failed", { fragmentId: body.fragmentId, message });
+    if (body.fragmentId) await persistFragment({ id: body.fragmentId, status: "error" }, config);
     await logAiGeneration(
       {
         sessionId: body.sessionId,

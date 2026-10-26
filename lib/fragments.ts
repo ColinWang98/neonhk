@@ -1,6 +1,7 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { shouldBlockFragment } from "@/lib/privacyFilter";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { SelectedFragment } from "@/types";
 
@@ -286,6 +287,14 @@ export async function listFragmentsForNarrativeRepair(params: {
 function rowToFragment(row: FragmentRow): SelectedFragment | null {
   if (!row.id || !row.image_id || !row.screen_box || !row.crop_box) return null;
 
+  let status = row.status || "ready";
+  // These stages run in a page request, not a background job that survives reloads.
+  if (status === "cropping" || status === "analyzing" || status === "generating") {
+    status = !row.vision_description
+      ? "error"
+      : shouldBlockFragment(row.vision_description.privacyRisk) ? "blocked" : "ready";
+  }
+
   return {
     id: row.id,
     imageId: row.image_id,
@@ -305,6 +314,6 @@ function rowToFragment(row: FragmentRow): SelectedFragment | null {
     narrativeBlocks: row.narrative_blocks || undefined,
     narrativeValidation: row.narrative_validation || undefined,
     audioGenerations: row.audio_generations || undefined,
-    status: row.status || "ready"
+    status
   };
 }

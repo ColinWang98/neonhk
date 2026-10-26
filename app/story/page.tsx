@@ -51,6 +51,7 @@ export default function StoryPage() {
     setPersonas,
     setSelectedPersona,
     setFragments,
+    restoreFragments,
     addFragment,
     updateFragment,
     selectFragment
@@ -79,6 +80,7 @@ export default function StoryPage() {
   const storySessionIdRef = useRef<string | undefined>(storySession?.id);
   const storySessionRef = useRef<StorySession | undefined>(storySession);
   const selectedPersonaIdRef = useRef<string | undefined>(selectedPersona?.id);
+  const fragmentProcessingRef = useRef(false);
 
   const runtimeHeaders = useMemo(() => runtimeConfigToHeaders(apiConfig), [apiConfig]);
   const activeFragment = useMemo(() => fragments[0], [fragments]);
@@ -291,7 +293,7 @@ export default function StoryPage() {
       })
       .then((loadedFragments) => {
         if (!cancelled && loadedFragments.length > 0) {
-          setFragments(loadedFragments);
+          restoreFragments(loadedFragments, fragmentProcessingRef.current);
         }
       })
       .catch(() => {
@@ -301,7 +303,7 @@ export default function StoryPage() {
     return () => {
       cancelled = true;
     };
-  }, [runtimeHeaders, setFragments, storageHydrated, storySession?.id]);
+  }, [runtimeHeaders, restoreFragments, storageHydrated, storySession?.id]);
 
   function choosePersona(persona: GeneratedPersona) {
     setSheetState("half");
@@ -447,24 +449,32 @@ export default function StoryPage() {
     setCaption(null);
     setStoryStatus("loading");
 
-    fetch("/api/narrative/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...runtimeHeaders },
-        body: JSON.stringify({
-          fragmentId,
-          sessionId: storySession?.id,
-          visionDescription,
-          persona: selectedPersona,
-          placeContext,
-          image: selectedImage,
-          cropImageUrl: readyFragment.cropImageUrl,
-          panoramaPov: readyFragment.panoramaPov,
-          existingEvidencePacket: readyFragment.evidencePacket,
-          existingPersonaFragmentPlans: readyFragment.personaFragmentPlans,
-          existingNarrativeGenerations: readyFragment.narrativeGenerations
-        })
-      })
-      .then(async (res) => {
+    const contextPromise = placeContext
+      ? Promise.resolve(placeContext)
+      : selectedImage
+        ? fetchPlaceContext(selectedImage, readyFragment.panoramaPov, runtimeHeaders, visionDescription)
+        : Promise.resolve(undefined);
+
+    contextPromise
+      .then(async (resolvedContext) => {
+        if (cancelled) return;
+        const res = await fetch("/api/narrative/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...runtimeHeaders },
+          body: JSON.stringify({
+            fragmentId,
+            sessionId: storySession?.id,
+            visionDescription,
+            persona: selectedPersona,
+            placeContext: resolvedContext,
+            image: selectedImage,
+            cropImageUrl: readyFragment.cropImageUrl,
+            panoramaPov: readyFragment.panoramaPov,
+            existingEvidencePacket: readyFragment.evidencePacket,
+            existingPersonaFragmentPlans: readyFragment.personaFragmentPlans,
+            existingNarrativeGenerations: readyFragment.narrativeGenerations
+          })
+        });
         const data = await res.json();
         if (!res.ok) {
           const warnings = Array.isArray(data.validation?.warnings)
@@ -476,7 +486,8 @@ export default function StoryPage() {
               : data.error || "Story could not be prepared. Please try again."
           );
         }
-        return data as SchemaNarratives & {
+        return { ...data, placeContext: resolvedContext } as SchemaNarratives & {
+          placeContext?: PlaceContext;
           evidencePacket?: EvidencePacket;
           personaFragmentPlan?: PersonaFragmentPlan;
           narrativeBlocks?: NarrativeBlock[];
@@ -486,7 +497,7 @@ export default function StoryPage() {
         };
       })
       .then((narratives) => {
-        if (cancelled) return;
+        if (cancelled || !narratives) return;
         const storyPersona = selectedPersona;
         const schemaNarratives = pickSchemaNarratives(narratives);
         const narrativeGeneration =
@@ -501,6 +512,7 @@ export default function StoryPage() {
             createdAt: new Date().toISOString()
           };
         updateFragment(fragmentId, {
+          placeContext: narratives.placeContext,
           narratives: schemaNarratives,
           narrativePersonaId: storyPersona.id,
           evidencePacket: narratives.evidencePacket,
@@ -742,6 +754,7 @@ export default function StoryPage() {
       return;
     }
 
+    fragmentProcessingRef.current = true;
     setProcessing(true);
     setSheetState("half");
     setError(null);
@@ -847,6 +860,7 @@ export default function StoryPage() {
           ? uiLanguage === "zh" ? "读取片段超时，请重试。" : "Reading this detail took too long. Please try again."
           : uiLanguage === "zh" ? "片段暂时未能读取，请稍后重试。" : "This detail could not be read. Please try again later.");
     } finally {
+      fragmentProcessingRef.current = false;
       setProcessing(false);
     }
   }
@@ -1422,7 +1436,8 @@ async function fetchPlaceContext(
 
   try {
     const res = await fetch(`/api/local-context?${params.toString()}`, {
-      headers: runtimeHeaders
+      headers: runtimeHeaders,
+      signal: AbortSignal.timeout(20000)
     });
     const data = (await res.json()) as { context?: PlaceContext; error?: string };
     if (!res.ok) return undefined;
