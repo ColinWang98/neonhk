@@ -55,6 +55,8 @@ function pickRelatedContextClaims(evidenceView: NarrativeEvidenceView, likelyLab
   return evidenceView.optionalNearbyClaims
     .filter((claim) =>
       claim.source === "wikipedia" ||
+      claim.source === "wikivoyage" ||
+      claim.source === "wikimedia_commons" ||
       claim.source === "wikidata" ||
       claim.source === "google_reviews" ||
       claim.source === "place_memory" ||

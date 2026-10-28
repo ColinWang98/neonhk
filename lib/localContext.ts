@@ -10,6 +10,7 @@ import { getPublicNewsContext } from "@/lib/publicNews";
 import { buildSpatialRagContext } from "@/lib/spatialRag";
 import { getNearbyWikidataEntities } from "@/lib/wikidata";
 import { getWikipediaSummary } from "@/lib/wikipedia";
+import { getNearbyCommonsMedia, getNearbyWikivoyageNotes } from "@/lib/wikimediaContext";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { NearbyPlace, PlaceContext, PublicDataCandidate, SourceNote } from "@/types";
 
@@ -38,6 +39,14 @@ export async function getLocalContext(params: {
   const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
+    const voyageNotesRequest = getNearbyWikivoyageNotes({ ...params, signal: controller.signal }).catch((error) => {
+      console.warn("[local.context] wikivoyage_failed", { message: error instanceof Error ? error.message : String(error) });
+      return [];
+    });
+    const commonsMediaRequest = getNearbyCommonsMedia({ ...params, signal: controller.signal }).catch((error) => {
+      console.warn("[local.context] commons_failed", { message: error instanceof Error ? error.message : String(error) });
+      return [];
+    });
     const [googleContext, osmCandidates, landsdCandidates, registryCandidates, wikidataEntities] = await Promise.all([
       getGooglePlaceContext(params).catch(() => undefined),
       getNearbyOsmCandidates({
@@ -91,7 +100,7 @@ export async function getLocalContext(params: {
     const publicDataCandidates = rankPublicCandidates([...osmCandidates, ...landsdCandidates, ...registryCandidates, ...locationSearchCandidates])
       .slice(0, localContextLimits.publicCandidateTotal);
     const publicPlaces = publicDataCandidates.slice(0, localContextLimits.publicPlaces).map(publicCandidateToNearbyPlace);
-    const [sourceNotes, publicNewsContext] = await Promise.all([
+    const [wikipediaNotes, publicNewsContext, voyageNotes, commonsMedia] = await Promise.all([
       Promise.all(
         entitiesWithArticles.map((entity) =>
           getWikipediaSummary(entity.wikipediaUrl || "", entity.id, entity.relation, controller.signal).catch(
@@ -106,8 +115,11 @@ export async function getLocalContext(params: {
         places: [...(googleContext?.places || []), ...publicPlaces],
         radius: params.radius,
         signal: controller.signal
-      }).catch(() => [])
+      }).catch(() => []),
+      voyageNotesRequest,
+      commonsMediaRequest
     ]);
+    const sourceNotes = [...wikipediaNotes, ...voyageNotes];
 
     const memoryCandidates = await retrievePlaceMemoryCandidates({
       lat: params.lat,
@@ -134,6 +146,7 @@ export async function getLocalContext(params: {
       publicDataCandidates,
       wikidataEntities,
       sourceNotes,
+      commonsMedia,
       publicNewsContext,
       memoryCandidates
     });
@@ -146,9 +159,10 @@ export async function getLocalContext(params: {
       publicNewsContext,
       wikidataEntities,
       sourceNotes,
+      commonsMedia,
       ...spatialRag,
       uncertainty:
-        "Google Maps places, selected Google Places review summaries, OpenStreetMap features, Hong Kong CSDI/LandsD public-data candidates, FEHD licence records, AMO heritage records, Wikidata entities, Wikipedia notes, nearby public news, and place-memory items are approximate context around the panorama coordinate. They may be near the street view point rather than inside the selected crop, so stories must connect them cautiously."
+        "Google Maps places, selected Google Places review summaries, OpenStreetMap features, Hong Kong CSDI/LandsD public-data candidates, FEHD licence records, AMO heritage records, Wikidata entities, Wikipedia notes, Wikivoyage guides, Wikimedia Commons photo records, nearby public news, and place-memory items are approximate context around the panorama coordinate. They may be near the street view point rather than inside the selected crop, so stories must connect them cautiously. Guides are area background, not proof of a visible shop. Commons captions describe separate photographs, not the current crop; capture dates do not prove that the place has changed or remains the same."
     };
   } finally {
     clearTimeout(timeout);

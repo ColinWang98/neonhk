@@ -44,7 +44,8 @@ export function buildEvidencePacket(params: BuildEvidencePacketParams): Evidence
           ...wikidataClaims(params.placeContext),
           ...wikipediaClaims(params.placeContext),
           ...publicNewsClaims(params.placeContext)
-        ])
+        ]),
+    ...wikimediaBackgroundClaims(params.placeContext)
   ];
 
   if (params.visionDescription.privacyRisk.riskLevel !== "low") {
@@ -92,6 +93,8 @@ export function buildEvidencePacket(params: BuildEvidencePacketParams): Evidence
       "Use uncertainty language for cautious_possible and background_only claims.",
       "Separate visual observations from social interpretations.",
       "Treat Wikipedia and Wikidata as area context unless a visual claim confirms the same entity.",
+      "Wikivoyage describes a nearby district, not necessarily this exact street or selected object. Use only relevant area background, not current opening hours, prices, or unverified business status.",
+      "Wikimedia Commons captions describe separate nearby photographs, not the selected crop. A photo date does not prove change, continuity, or present-day conditions. Never treat a caption as current visual observation.",
       "Treat news and official notices as local concern background, not as proof about the selected fragment."
     ],
     storyAffordances: buildStoryAffordances(params.visionDescription, affordances, claims),
@@ -362,7 +365,7 @@ function wikidataClaims(placeContext?: PlaceContext): EvidenceClaim[] {
 }
 
 function wikipediaClaims(placeContext?: PlaceContext): EvidenceClaim[] {
-  return (placeContext?.sourceNotes || []).slice(0, evidenceLimits.wikipedia).map((note, index) => ({
+  return (placeContext?.sourceNotes || []).filter((note) => note.source === "wikipedia").slice(0, evidenceLimits.wikipedia).map((note, index) => ({
     id: `w${index + 1}`,
     text: `A nearby Wikipedia note describes ${note.title}: ${truncate(note.extract, 180)}`,
     source: "wikipedia",
@@ -374,6 +377,52 @@ function wikipediaClaims(placeContext?: PlaceContext): EvidenceClaim[] {
     privacySensitive: false,
     relatedSchemas: ["Memory-Temporality", "Social-Cultural Resonance"]
   }));
+}
+
+function wikimediaBackgroundClaims(placeContext?: PlaceContext): EvidenceClaim[] {
+  const guides: EvidenceClaim[] = (placeContext?.sourceNotes || [])
+    .filter((note) => note.source === "wikivoyage").slice(0, 1).map((note, index) => ({
+      id: `wv${index + 1}`,
+      text: `A Wikivoyage guide for the nearby district ${note.title} describes: ${note.extract} This is regional travel context, not identification of the selected detail or confirmation of current business conditions.`,
+      source: "wikivoyage",
+      claimType: "retrieved_area_context",
+      confidence: 0.6,
+      visibilityStatus: "area_level_only",
+      allowedUse: "background_only",
+      uncertaintyCueRequired: true,
+      privacySensitive: false,
+      relatedSchemas: ["Functional-Use", "Identity-Belonging", "Social-Cultural Resonance"],
+      url: note.url,
+      sourceTitle: note.title,
+      sourceTier: "public_database",
+      spatialMatch: "area_only",
+      temporalRelevance: "unknown",
+      attribution: note.attribution,
+      license: note.license,
+      licenseUrl: note.licenseUrl
+    }));
+  const photos: EvidenceClaim[] = (placeContext?.commonsMedia || []).slice(0, 2).map((media, index) => ({
+    id: `cm${index + 1}`,
+    text: `Wikimedia Commons has a separate photograph near this pano point titled "${media.title}"${media.capturedAt ? `, with a recorded capture date of ${media.capturedAt}` : ", without a verified capture date"}. Its contributor caption describes: ${media.description || media.title}. This does not establish what is visible in the selected crop or whether the place has changed.`,
+    source: "wikimedia_commons",
+    claimType: "retrieved_area_context",
+    confidence: 0.58,
+    visibilityStatus: "area_level_only",
+    allowedUse: "background_only",
+    uncertaintyCueRequired: true,
+    privacySensitive: false,
+    relatedSchemas: ["Memory-Temporality", "Social-Cultural Resonance"],
+    url: media.url,
+    sourceTitle: media.title,
+    sourceTier: "public_database",
+    spatialMatch: "area_only",
+    temporalRelevance: media.capturedAt ? "historical" : "unknown",
+    capturedAt: media.capturedAt,
+    attribution: media.attribution,
+    license: media.license,
+    licenseUrl: media.licenseUrl
+  }));
+  return [...guides, ...photos];
 }
 
 function publicNewsClaims(placeContext?: PlaceContext): EvidenceClaim[] {
@@ -401,6 +450,7 @@ function publicNewsClaims(placeContext?: PlaceContext): EvidenceClaim[] {
 function spatialRagClaims(placeContext?: PlaceContext): EvidenceClaim[] {
   return (placeContext?.ragCandidates || [])
     .filter((candidate) => candidate.allowedUse !== "do_not_use" && candidate.visibilityConfidence !== "reject")
+    .filter((candidate) => candidate.source !== "wikivoyage" && candidate.source !== "wikimedia_commons")
     .slice(0, evidenceLimits.spatialRag)
     .map((candidate, index) => {
       const isNews = candidate.source === "gov_press_release" || candidate.source === "rthk" || candidate.source === "gdelt";

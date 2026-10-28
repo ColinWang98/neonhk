@@ -23,6 +23,7 @@ Purpose:
 Rules:
 - Do not describe any selected fragment. The user has not selected one yet.
 - Do not claim a nearby place is visible unless the input explicitly says it is visible.
+- Wikivoyage guides are optional area background, not confirmation of this exact street. Commons captions describe separate photographs, not the current panorama; their capture dates do not establish change or present conditions.
 - Use "nearby", "around here", or "in this area" for map/Wikipedia/Wikidata context.
 - The opening must say what kind of street setting this appears to be, what large public elements are visible, how a visitor might orient themselves, and what detail is worth selecting next.
 - The first block must include a street/district/area cue from placeContext.address or nearby public places if available.

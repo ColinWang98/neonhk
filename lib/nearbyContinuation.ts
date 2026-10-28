@@ -209,6 +209,7 @@ function attachWikipediaSignals(
 ) {
   const entitiesById = new Map(entities.map((entity) => [entity.id, entity]));
   for (const note of notes) {
+    if (note.source !== "wikipedia") continue;
     const entity = note.relatedEntityId ? entitiesById.get(note.relatedEntityId) : undefined;
     if (!entity?.lat || !entity.lng) continue;
     const key = normalizeCandidateKey(entity.label, entity.lat, entity.lng);

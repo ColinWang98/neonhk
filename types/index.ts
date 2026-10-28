@@ -119,6 +119,8 @@ export type ContextCandidate = {
     | "hk_amo"
     | "wikidata"
     | "wikipedia"
+    | "wikivoyage"
+    | "wikimedia_commons"
     | "gov_press_release"
     | "rthk"
     | "gdelt"
@@ -239,7 +241,28 @@ export type SourceNote = {
   url: string;
   relatedEntityId?: string;
   relation: "nearby" | "visible-candidate";
-  source: "wikipedia";
+  source: "wikipedia" | "wikivoyage";
+  distanceMeters?: number;
+  attribution?: string;
+  license?: string;
+  licenseUrl?: string;
+};
+
+export type CommonsMedia = {
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+  imageUrl: string;
+  thumbnailUrl?: string;
+  lat: number;
+  lng: number;
+  distanceMeters: number;
+  capturedAt?: string;
+  attribution: string;
+  license: string;
+  licenseUrl: string;
+  source: "wikimedia_commons";
 };
 
 export type PlaceContext = {
@@ -251,6 +274,7 @@ export type PlaceContext = {
   placeReviewContext?: PlaceReviewContextItem[];
   wikidataEntities?: LocalEntity[];
   sourceNotes?: SourceNote[];
+  commonsMedia?: CommonsMedia[];
   ragCandidates?: ContextCandidate[];
   ragSummary?: string;
   uncertainty: string;
@@ -377,6 +401,8 @@ export type EvidenceClaim = {
     | "google_places"
     | "wikidata"
     | "wikipedia"
+    | "wikivoyage"
+    | "wikimedia_commons"
     | "osm"
     | "hk_landsd"
     | "hk_fehd"
@@ -403,6 +429,10 @@ export type EvidenceClaim = {
   spatialMatch?: SpatialMatch;
   temporalRelevance?: TemporalRelevance;
   localConcernLevel?: LocalConcernLevel;
+  attribution?: string;
+  license?: string;
+  licenseUrl?: string;
+  capturedAt?: string;
 };
 
 export type EvidencePacket = {

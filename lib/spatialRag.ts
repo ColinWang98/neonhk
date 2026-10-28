@@ -1,4 +1,5 @@
 import type {
+  CommonsMedia,
   ContextCandidate,
   LocalEntity,
   NearbyPlace,
@@ -17,6 +18,7 @@ type BuildSpatialRagParams = {
   publicDataCandidates?: PublicDataCandidate[];
   wikidataEntities?: LocalEntity[];
   sourceNotes?: SourceNote[];
+  commonsMedia?: CommonsMedia[];
   publicNewsContext?: PublicNewsItem[];
   placeReviewContext?: PlaceReviewContextItem[];
   memoryCandidates?: ContextCandidate[];
@@ -28,7 +30,8 @@ export function buildSpatialRagContext(params: BuildSpatialRagParams): Pick<Plac
     ...(params.places || []).map(placeCandidate),
     ...(params.publicDataCandidates || []).map(publicDataCandidate),
     ...(params.wikidataEntities || []).map(wikidataCandidate),
-    ...(params.sourceNotes || []).map(wikipediaCandidate),
+    ...(params.sourceNotes || []).map(sourceNoteCandidate),
+    ...(params.commonsMedia || []).map(commonsCandidate),
     ...(params.publicNewsContext || []).map(newsCandidate),
     ...(params.placeReviewContext || []).map(reviewCandidate),
     ...(params.memoryCandidates || [])
@@ -107,20 +110,39 @@ function wikidataCandidate(entity: LocalEntity): ContextCandidate | undefined {
   };
 }
 
-function wikipediaCandidate(note: SourceNote): ContextCandidate | undefined {
+function sourceNoteCandidate(note: SourceNote): ContextCandidate | undefined {
   if (!note.title?.trim()) return undefined;
   return {
-    id: `wikipedia:${stableId(note.title)}`,
+    id: `${note.source}:${stableId(note.title)}`,
     label: note.title.trim(),
-    category: "wikipedia_summary",
-    source: "wikipedia",
+    category: note.source === "wikivoyage" ? "area_travel_guide" : "wikipedia_summary",
+    source: note.source,
     url: note.url,
-    visibilityConfidence: note.relation === "visible-candidate" ? "possible" : "area_background",
+    sourceTitle: note.source === "wikivoyage" ? "Wikivoyage" : "Wikipedia",
+    sourceTier: "public_database",
+    distanceMeters: note.distanceMeters,
+    spatialMatch: "area_only",
+    visibilityConfidence: note.source === "wikipedia" && note.relation === "visible-candidate" ? "possible" : "area_background",
     allowedUse: "background_only",
-    matchReason:
-      note.relation === "visible-candidate"
-        ? "Wikipedia summary is related to a nearby entity aligned with the view, but still background context."
-        : "Wikipedia summary is area-level public context."
+    matchReason: `${note.source === "wikivoyage" ? "Nearby district guide, not a confirmed boundary or selected-place identification" : "Area-level encyclopedia context"}: ${note.extract}`
+  };
+}
+
+function commonsCandidate(media: CommonsMedia): ContextCandidate {
+  return {
+    id: media.id,
+    label: media.title,
+    category: "nearby_photo_record",
+    source: "wikimedia_commons",
+    url: media.url,
+    sourceTitle: "Wikimedia Commons",
+    sourceTier: "public_database",
+    distanceMeters: media.distanceMeters,
+    spatialMatch: "area_only",
+    temporalRelevance: media.capturedAt ? "historical" : "unknown",
+    visibilityConfidence: "area_background",
+    allowedUse: "background_only",
+    matchReason: `A separate nearby photograph${media.capturedAt ? ` dated ${media.capturedAt}` : " with no verified capture date"}. Caption: ${media.description || media.title}. Not proof of what is visible now or of a change over time.`
   };
 }
 
@@ -203,6 +225,8 @@ function retrievalScore(candidate: ContextCandidate) {
     hk_amo: 0.8,
     wikidata: 0.55,
     wikipedia: 0.52,
+    wikivoyage: 0.5,
+    wikimedia_commons: 0.48,
     gov_press_release: 0.48,
     rthk: 0.42,
     gdelt: 0.34,
