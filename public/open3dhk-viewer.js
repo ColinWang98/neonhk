@@ -10,6 +10,7 @@ let activeId;
 let loadTimer;
 let loading = false;
 let selecting = false;
+let lastViewSent = 0;
 
 function send(type, detail = {}) {
   parent.postMessage({ source: "open3dhk-viewer", type, imageId, ...detail }, origin);
@@ -123,7 +124,13 @@ window.addEventListener("message", async (event) => {
       const pano = message.image.open3dhk;
       if (!pano?.folderUrl?.startsWith("/api/open3dhk/asset/")) throw new Error("Invalid Streetscape imagery reference.");
       loadTimer = setTimeout(() => fail(new Error("Streetscape imagery could not be loaded. Please reopen this scene.")), 45000);
-      viewer.on("render", projectBoxes);
+      viewer.on("render", () => {
+        projectBoxes();
+        if (!loading && performance.now() - lastViewSent > 150) {
+          lastViewSent = performance.now();
+          send("view", { pov: view() });
+        }
+      });
       viewer.on("panoLoad", () => {
         let settledAt;
         function finishLoading() {

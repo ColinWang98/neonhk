@@ -14,6 +14,7 @@ type Props = {
   activeFragmentId?: string;
   onReady?: (snapshot: string) => void;
   onError?: (message: string) => void;
+  onViewChange?: (pov: FragmentSelectionMeta) => void;
   onFragmentClick?: (fragment: SelectedFragment) => void;
   onFragmentSelected?: (box: ScreenBox, crop: ImageCropBox, url: string, meta: FragmentSelectionMeta) => void;
 };
@@ -43,6 +44,8 @@ export function Open3dhkPanorama(props: Props) {
         setStatus("ready");
         post({ type: "boxes", fragments: current.fragments, activeId: current.activeFragmentId, selecting: current.selecting });
         current.onReady?.(data.snapshot);
+      } else if (data.type === "view") {
+        current.onViewChange?.(data.pov);
       } else if (data.type === "error") {
         setStatus("error");
         setError(data.message);

@@ -1,12 +1,15 @@
 "use client";
 
-import { Crosshair, ImageIcon } from "lucide-react";
+import { Box, Crosshair, ImageIcon } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { BoxSelectionLayer } from "@/components/BoxSelectionLayer";
 import { LoadingState } from "@/components/LoadingState";
 import { Open3dhkPanorama } from "@/components/Open3dhkPanorama";
 import { buildGoogleStreetViewStaticUrl } from "@/lib/googleStaticUrl";
 import type { ImageCropBox, PanoramaPov, ScreenBox, SelectedFragment, StreetImage } from "@/types";
+
+const HongKong3DView = dynamic(() => import("@/components/HongKong3DView"), { ssr: false });
 
 type Props = {
   image?: StreetImage;
@@ -101,11 +104,20 @@ export function StreetImageViewer({
   const [googleStatus, setGoogleStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [googleSelecting, setGoogleSelecting] = useState(false);
   const [open3dhkReady, setOpen3dhkReady] = useState(false);
+  const [viewMode, setViewMode] = useState<"street" | "3d">("street");
+  const [visited3D, setVisited3D] = useState(false);
+  const [mapHeading, setMapHeading] = useState(0);
+  const has3DMap = image && image.lat >= 22.15 && image.lat <= 22.57 && image.lng >= 113.83 && image.lng <= 114.45;
 
   useEffect(() => {
     setGoogleSelecting(false);
     setOpen3dhkReady(false);
-  }, [image?.id]);
+    setViewMode("street");
+    setVisited3D(false);
+    povRef.current = { heading: image?.compassAngle || 0, pitch: 0, zoom: 1 };
+  }, [image?.id, image?.compassAngle]);
+
+  useEffect(() => { setViewMode("street"); }, [activeFragmentId]);
 
   useEffect(() => {
     if (!selectionEnabled) {
@@ -274,17 +286,26 @@ export function StreetImageViewer({
 
   return (
     <div className="panorama-viewer surface-panel flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="panorama-toolbar">
+      <div className="panorama-toolbar flex-wrap">
         <div className="min-w-0">
-          <h2>{zh ? "全景图" : "Panorama"}</h2>
+          <h2>{viewMode === "3d" ? (zh ? "三维地图" : "3D map") : (zh ? "全景图" : "Panorama")}</h2>
           <p>
-            {image
+            {viewMode === "3d" ? (zh ? "地政總署 Open3Dhk" : "Lands Department · Open3Dhk") : image
               ? providerLabel(image.provider)
               : zh ? "先在地图上选择一个街景点" : "Select a marker to begin"}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
-          {image && (image.provider !== "google" || googleMapsApiKey) ? (
+          {has3DMap ? <div className="inline-flex border border-[var(--line)]" role="group" aria-label={zh ? "视图" : "View"}>
+            <button type="button" aria-pressed={viewMode === "street"} onClick={() => setViewMode("street")} className={`px-3 text-sm ${viewMode === "street" ? "bg-ink text-paper" : "text-ink hover:bg-black/5"}`}>{zh ? "街景" : "Street View"}</button>
+            <button type="button" aria-pressed={viewMode === "3d"} onClick={() => {
+              setGoogleSelecting(false);
+              setMapHeading(povRef.current.heading);
+              setVisited3D(true);
+              setViewMode("3d");
+            }} className={`inline-flex items-center gap-1.5 px-3 text-sm ${viewMode === "3d" ? "bg-ink text-paper" : "text-ink hover:bg-black/5"}`}><Box size={16} />{zh ? "三维" : "3D"}</button>
+          </div> : null}
+          {viewMode === "street" && image && (image.provider !== "google" || googleMapsApiKey) ? (
             <button
               type="button"
               disabled={busy || (image.provider === "google" && googleStatus !== "ready") || (image.provider === "open3dhk" && !open3dhkReady) || !selectionEnabled}
@@ -303,6 +324,7 @@ export function StreetImageViewer({
         </div>
       </div>
       <div className="relative min-h-0 flex-1 bg-[#121514]">
+        <div className="absolute inset-0" style={{ visibility: viewMode === "street" ? "visible" : "hidden" }} inert={viewMode !== "street"} aria-hidden={viewMode !== "street"}>
         {image?.provider === "open3dhk" ? (
           <div className="absolute inset-0">
             <Open3dhkPanorama
@@ -314,6 +336,7 @@ export function StreetImageViewer({
               selecting={googleSelecting && !busy && selectionEnabled}
               onReady={(snapshot) => { setOpen3dhkReady(true); onSceneSnapshot?.(snapshot); }}
               onError={() => { setOpen3dhkReady(false); setGoogleSelecting(false); }}
+              onViewChange={(next) => { povRef.current = { heading: next.heading || 0, pitch: next.pitch || 0 }; }}
               onFragmentClick={onFragmentClick}
               onFragmentSelected={(box, crop, url, meta) => {
                 setGoogleSelecting(false);
@@ -414,6 +437,10 @@ export function StreetImageViewer({
             </div>
           </div>
         )}
+        </div>
+        {visited3D && image && has3DMap ? <div className="absolute inset-0" style={{ visibility: viewMode === "3d" ? "visible" : "hidden" }} inert={viewMode !== "3d"} aria-hidden={viewMode !== "3d"}>
+          <HongKong3DView key={image.id} lat={image.lat} lng={image.lng} heading={mapHeading} active={viewMode === "3d"} language={language} />
+        </div> : null}
       </div>
     </div>
   );
