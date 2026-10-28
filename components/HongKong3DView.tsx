@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
 import { TilesRenderer, WGS84_ELLIPSOID } from "3d-tiles-renderer/three";
-import { GLTFExtensionsPlugin, LoadRegionPlugin, RayRegion } from "3d-tiles-renderer/three/plugins";
+import { GLTFExtensionsPlugin } from "3d-tiles-renderer/three/plugins";
 import { LoadingState } from "@/components/LoadingState";
 
 type Props = { lat: number; lng: number; heading: number; active: boolean; language: "en" | "zh" };
@@ -32,7 +32,7 @@ export default function HongKong3DView({ lat, lng, heading, active, language }: 
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setClearColor(0xe8eef0);
-    renderer.domElement.setAttribute("aria-label", "Hong Kong 3D street view");
+    renderer.domElement.setAttribute("aria-label", "Hong Kong 3D neighbourhood model");
     renderer.domElement.tabIndex = 0;
     container.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
@@ -40,18 +40,15 @@ export default function HongKong3DView({ lat, lng, heading, active, language }: 
     const sun = new THREE.DirectionalLight(0xffffff, 2.2);
     sun.position.set(-300, -200, 800);
     scene.add(sun);
-    const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 10_000);
+    const camera = new THREE.PerspectiveCamera(50, 1, 1, 5000);
     camera.up.set(0, 0, 1);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    // A centimetre-scale pivot makes OrbitControls a stationary look-around control.
-    controls.minDistance = 0.01;
-    controls.maxDistance = 0.01;
-    controls.minPolarAngle = THREE.MathUtils.degToRad(5);
-    controls.maxPolarAngle = THREE.MathUtils.degToRad(175);
-    controls.rotateSpeed = -0.45;
-    controls.enablePan = false;
-    controls.enableZoom = false;
+    controls.minDistance = 180;
+    controls.maxDistance = 1600;
+    controls.minPolarAngle = THREE.MathUtils.degToRad(20);
+    controls.maxPolarAngle = THREE.MathUtils.degToRad(55);
+    controls.screenSpacePanning = false;
     controls.listenToKeyEvents(renderer.domElement);
     const tiles = new TilesRenderer("/api/open3dhk/tiles/tileset.json");
     const textures = new KTX2Loader().setTranscoderPath("/open3dhk-3d/").setWorkerLimit(2).detectSupport(renderer);
@@ -70,6 +67,7 @@ export default function HongKong3DView({ lat, lng, heading, active, language }: 
       })]
     }));
     tiles.errorTarget = 12;
+    tiles.loadSiblings = false;
     tiles.lruCache.maxBytesSize = 180 * 1024 * 1024;
     tiles.lruCache.minBytesSize = 140 * 1024 * 1024;
     tiles.downloadQueue.maxJobsPerOrigin = 6;
@@ -79,40 +77,23 @@ export default function HongKong3DView({ lat, lng, heading, active, language }: 
     scene.add(tiles.group);
     tiles.setCamera(camera);
 
-    const groundRay = new THREE.Ray(new THREE.Vector3(0, 0, 1000), new THREE.Vector3(0, 0, -1));
-    const earthGroundRay = groundRay.clone().applyMatrix4(frame);
-    const groundRegion = new RayRegion({ ray: earthGroundRay, errorTarget: 2 });
-    const groundLoading = new LoadRegionPlugin();
-    groundLoading.addRegion(groundRegion);
-    tiles.registerPlugin(groundLoading);
-    let eyeHeight = 45;
-    let surfaceError = Infinity;
-    let surfaceDirty = true;
-    const placeAtEyeHeight = () => {
-      const forward = camera.getWorldDirection(new THREE.Vector3());
-      camera.position.set(0, 0, eyeHeight);
-      controls.target.copy(camera.position).addScaledVector(forward, 0.01);
-      controls.update();
-    };
     const reset = () => {
       const bearing = THREE.MathUtils.degToRad(latest.current.heading);
-      camera.position.set(0, 0, eyeHeight);
-      controls.target.copy(camera.position).add(new THREE.Vector3(Math.sin(bearing), Math.cos(bearing), 0).multiplyScalar(0.01));
-      camera.fov = 72;
-      camera.updateProjectionMatrix();
+      controls.target.set(0, 0, 25);
+      camera.position.set(-Math.sin(bearing) * 170, -Math.cos(bearing) * 170, 235);
       controls.update();
     };
     reset();
     const zoom = (factor: number) => {
-      camera.fov = THREE.MathUtils.clamp(camera.fov * factor, 35, 95);
-      camera.updateProjectionMatrix();
+      const offset = camera.position.clone().sub(controls.target);
+      offset.setLength(THREE.MathUtils.clamp(offset.length() * factor, controls.minDistance, controls.maxDistance));
+      camera.position.copy(controls.target).add(offset);
+      controls.update();
     };
     runtime.current = {
       reset,
       zoom
     };
-    const wheel = (event: WheelEvent) => { event.preventDefault(); zoom(Math.exp(event.deltaY * 0.001)); };
-    renderer.domElement.addEventListener("wheel", wheel, { passive: false });
     const resize = () => {
       const { width, height } = container.getBoundingClientRect();
       if (!width || !height) return;
@@ -124,30 +105,7 @@ export default function HongKong3DView({ lat, lng, heading, active, language }: 
     const observer = new ResizeObserver(resize);
     observer.observe(container);
     resize();
-    const ray = new THREE.Raycaster();
-    const updateSurface = () => {
-      tiles.group.updateMatrixWorld(true);
-      let surface: THREE.Intersection | undefined;
-      let bestError = surfaceError;
-      tiles.forEachLoadedModel((model, tile) => {
-        if (tile.geometricError > 2 || tile.geometricError > bestError) return;
-        // Off-screen tiles are detached from the local frame but still provide ground geometry.
-        model.updateWorldMatrix(true, true);
-        ray.ray.copy(model.parent ? groundRay : earthGroundRay);
-        const hit = ray.intersectObject(model, true)[0];
-        if (!hit) return;
-        if (!model.parent) hit.point.applyMatrix4(tiles.group.matrixWorld);
-        surface = hit;
-        bestError = tile.geometricError;
-      });
-      if (surface) {
-        surfaceError = bestError;
-        eyeHeight = surface.point.z + 1.7;
-        placeAtEyeHeight();
-        setStatus("ready");
-      }
-    };
-    tiles.addEventListener("load-model", () => { surfaceDirty = true; });
+    tiles.addEventListener("tile-visibility-change", ({ visible }) => { if (visible) setStatus("ready"); });
     tiles.addEventListener("load-error", () => setStatus("error"));
     let animation = 0;
     let wasActive = false;
@@ -158,7 +116,6 @@ export default function HongKong3DView({ lat, lng, heading, active, language }: 
       controls.update();
       camera.updateMatrixWorld();
       tiles.update();
-      if (surfaceDirty) { surfaceDirty = false; updateSurface(); }
       renderer.render(scene, camera);
     }
     render();
@@ -167,7 +124,6 @@ export default function HongKong3DView({ lat, lng, heading, active, language }: 
       observer.disconnect();
       runtime.current = null;
       controls.dispose();
-      renderer.domElement.removeEventListener("wheel", wheel);
       tiles.dispose();
       textures.dispose();
       renderer.dispose();
@@ -179,7 +135,7 @@ export default function HongKong3DView({ lat, lng, heading, active, language }: 
     <div className="absolute inset-0 bg-[#e8eef0]">
       <div ref={host} aria-busy={status === "loading"} style={{ opacity: status === "loading" ? 0 : 1 }} className="absolute inset-0 [&_canvas]:h-full [&_canvas]:w-full" />
       <div className="absolute left-3 top-3 flex items-center gap-2 bg-paper/95 px-3 py-2 text-sm text-ink shadow-sm">
-        {zh ? "街道视角" : "Street level"}
+        {zh ? "周边建筑" : "Nearby buildings"}
       </div>
       <div className="absolute right-3 top-3 flex flex-col gap-px overflow-hidden border border-[var(--line)] bg-paper">
         {[

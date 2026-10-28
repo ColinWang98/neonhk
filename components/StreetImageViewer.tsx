@@ -288,7 +288,7 @@ export function StreetImageViewer({
     <div className="panorama-viewer surface-panel flex h-full min-h-0 flex-col overflow-hidden">
       <div className="panorama-toolbar flex-wrap">
         <div className="min-w-0">
-          <h2>{viewMode === "3d" ? (zh ? "三维街景" : "3D street view") : (zh ? "全景图" : "Panorama")}</h2>
+          <h2>{viewMode === "3d" ? (zh ? "三维模型" : "3D model") : (zh ? "全景图" : "Panorama")}</h2>
           <p>
             {viewMode === "3d" ? (zh ? "地政總署 Open3Dhk" : "Lands Department · Open3Dhk") : image
               ? providerLabel(image.provider)
