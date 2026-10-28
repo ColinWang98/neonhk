@@ -8,6 +8,7 @@ import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
 import { TilesRenderer, WGS84_ELLIPSOID } from "3d-tiles-renderer/three";
 import { GLTFExtensionsPlugin } from "3d-tiles-renderer/three/plugins";
 import { LoadingState } from "@/components/LoadingState";
+import { COARSE_3D_ERROR, ThreeDetail } from "@/lib/threeDetail";
 
 type Props = { lat: number; lng: number; heading: number; active: boolean; language: "en" | "zh" };
 
@@ -66,7 +67,9 @@ export default function HongKong3DView({ lat, lng, heading, active, language }: 
         }
       })]
     }));
-    tiles.errorTarget = 12;
+    const detail = new ThreeDetail();
+    tiles.errorTarget = COARSE_3D_ERROR;
+    tiles.loadAncestors = false;
     tiles.loadSiblings = false;
     tiles.lruCache.maxBytesSize = 180 * 1024 * 1024;
     tiles.lruCache.minBytesSize = 140 * 1024 * 1024;
@@ -77,7 +80,16 @@ export default function HongKong3DView({ lat, lng, heading, active, language }: 
     scene.add(tiles.group);
     tiles.setCamera(camera);
 
+    const cameraChanged = () => {
+      detail.change(performance.now());
+      tiles.errorTarget = COARSE_3D_ERROR;
+    };
+    controls.addEventListener("start", () => { detail.start(performance.now()); tiles.errorTarget = COARSE_3D_ERROR; });
+    controls.addEventListener("change", cameraChanged);
+    controls.addEventListener("end", () => detail.end(performance.now()));
+
     const reset = () => {
+      cameraChanged();
       const bearing = THREE.MathUtils.degToRad(latest.current.heading);
       controls.target.set(0, 0, 25);
       camera.position.set(-Math.sin(bearing) * 170, -Math.cos(bearing) * 170, 235);
@@ -101,6 +113,7 @@ export default function HongKong3DView({ lat, lng, heading, active, language }: 
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       tiles.setResolutionFromRenderer(camera, renderer);
+      cameraChanged();
     };
     const observer = new ResizeObserver(resize);
     observer.observe(container);
@@ -116,6 +129,10 @@ export default function HongKong3DView({ lat, lng, heading, active, language }: 
       controls.update();
       camera.updateMatrixWorld();
       tiles.update();
+      // Complete one coarse view, then jump directly to the target detail level.
+      const previewReady = tiles.visibleTiles.size > 0 && !tiles.downloadQueue.running &&
+        !tiles.parseQueue.running && !tiles.processNodeQueue.running;
+      tiles.errorTarget = detail.update(performance.now(), previewReady);
       renderer.render(scene, camera);
     }
     render();

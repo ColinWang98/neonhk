@@ -20,6 +20,20 @@ The key must have access to the Streetscape service. This is not a Google Maps k
 
 Attribution remains visible in the viewer. No model, prompt or voice provider is changed by selecting this imagery source.
 
+## 3D model loading
+
+The oblique building view loads only visible tiles, with ancestor and sibling
+preloading explicitly disabled. It first requests a coarse view (48-pixel screen
+error), then jumps to the existing 12-pixel target once that view is loaded and
+the camera has settled for 600 ms. The renderer retains already displayed coarse
+tiles until their replacement detail is ready. Dragging, inertia, wheel zoom,
+button zoom, reset and viewport changes return to coarse selection. Queued tiles
+no longer used by the view are removed by the renderer's normal traversal;
+downloads already in progress can finish and remain cached.
+This reduces unnecessary downloads; it cannot eliminate upstream tile latency.
+
+`node scripts/test-3d-detail.mjs` checks the loading stages and settling behavior.
+
 ## Verification
 
 `node scripts/test-open3dhk.mjs` checks service errors, signed imagery references, byte-range forwarding and exact panorama restoration with controlled responses. Browser tests should also check the actual official renderer with panorama tiles, rotation, zoom, crop capture, mobile layout, and saved-box restoration.
