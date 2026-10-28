@@ -44,4 +44,10 @@ const viewer = await readFile(new URL("../components/StreetImageViewer.tsx", imp
 assert(viewer.includes('inert={viewMode !== "street"}'));
 assert(viewer.includes('viewMode === "street" && image'));
 assert(viewer.includes('setMapHeading(povRef.current.heading)'));
-console.log("3D tile paths, nested resources, server-key isolation, explicit failures and mounted-panorama checks passed.");
+const map = await readFile(new URL("../components/HongKong3DView.tsx", import.meta.url), "utf8");
+assert(map.includes("controls.minDistance = 0.01") && map.includes("controls.maxDistance = 0.01"));
+assert(map.includes("controls.enablePan = false") && map.includes("controls.enableZoom = false"));
+assert(map.includes("eyeHeight = surface.point.z + 1.7"));
+assert(map.includes("model.parent ? groundRay : earthGroundRay"));
+assert(map.includes("camera.fov = THREE.MathUtils.clamp"));
+console.log("3D tile proxy, key isolation, panorama retention and fixed street-level camera checks passed.");
