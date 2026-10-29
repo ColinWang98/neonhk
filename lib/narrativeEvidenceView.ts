@@ -89,6 +89,7 @@ function claimPriority(claim: EvidenceClaim) {
     claim.source === "vision_model" ? 0.26 :
     claim.source === "hk_amo" ? 0.2 :
     claim.source === "hk_fehd" ? 0.16 :
+    ["hk_heritage_trail", "hk_tree", "hk_ich"].includes(claim.source) ? 0.12 :
     claim.source === "wikidata" || claim.source === "wikipedia" || claim.source === "wikivoyage" || claim.source === "wikimedia_commons" ? 0.1 :
     0.06;
   const useScore =

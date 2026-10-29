@@ -95,6 +95,25 @@ export type TemporalRelevance = "current" | "recent" | "historical" | "unknown";
 
 export type LocalConcernLevel = "high" | "medium" | "low";
 
+export type LocationKnowledgeSource = "hk_heritage_trail" | "hk_tree" | "city_in_time" | "hk_ich" | "gbif";
+
+export type LocationKnowledge = {
+  id: string;
+  source: LocationKnowledgeSource;
+  title: string;
+  text: string;
+  category: "heritage" | "tree" | "directory" | "culture" | "nature_observation";
+  url: string;
+  lat?: number;
+  lng?: number;
+  distanceMeters?: number;
+  address?: string;
+  observedAt?: string;
+  attribution: string;
+  license?: string;
+  licenseUrl?: string;
+};
+
 export type ContextCandidate = {
   id: string;
   label: string;
@@ -126,7 +145,8 @@ export type ContextCandidate = {
     | "gdelt"
     | "social"
     | "google_reviews"
-    | "place_memory";
+    | "place_memory"
+    | LocationKnowledgeSource;
   visibilityConfidence: "visible_likely" | "possible" | "nearby_only" | "area_background" | "reject";
   allowedUse: AllowedNarrativeUse;
 };
@@ -203,7 +223,7 @@ export type NearbyContinuationRecommendation = {
   distanceMeters?: number;
   category?: string;
   recommendedSchema?: SchemaName;
-  evidenceSources: Array<"wikipedia" | "wikidata" | "google_places" | "osm" | "hk_landsd" | "hk_fehd" | "hk_amo" | "street_view" | "news">;
+  evidenceSources: Array<"wikipedia" | "wikidata" | "google_places" | "osm" | "hk_landsd" | "hk_fehd" | "hk_amo" | "street_view" | "news" | LocationKnowledgeSource>;
   evidenceScore: number;
   thematicRelevance: number;
   streetViewAvailable: boolean;
@@ -275,6 +295,7 @@ export type PlaceContext = {
   wikidataEntities?: LocalEntity[];
   sourceNotes?: SourceNote[];
   commonsMedia?: CommonsMedia[];
+  locationKnowledge?: LocationKnowledge[];
   ragCandidates?: ContextCandidate[];
   ragSummary?: string;
   uncertainty: string;
@@ -414,6 +435,7 @@ export type EvidenceClaim = {
     | "google_reviews"
     | "candidate_verifier"
     | "place_memory"
+    | LocationKnowledgeSource
     | "system";
   claimType: EvidenceClaimType;
   confidence: number;
@@ -433,6 +455,7 @@ export type EvidenceClaim = {
   license?: string;
   licenseUrl?: string;
   capturedAt?: string;
+  observedAt?: string;
 };
 
 export type EvidencePacket = {

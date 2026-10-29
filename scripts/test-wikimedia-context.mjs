@@ -124,7 +124,9 @@ const local = await loadModule("lib/localContext.ts", {
   "@/lib/spatialRag": rag,
   "@/lib/wikidata": { getNearbyWikidataEntities: async () => [] },
   "@/lib/wikipedia": wiki,
-  "@/lib/wikimediaContext": sources
+  "@/lib/wikimediaContext": sources,
+  "@/lib/locationKnowledge": { getNearbyLocationKnowledge: async () => [], isHongKongCoordinate: () => true },
+  "@/lib/hkCulturalContext": { getHongKongCulturalContext: () => [] }
 });
 const context = await local.getLocalContext(params);
 assert.equal(context.sourceNotes[0].source, "wikivoyage");

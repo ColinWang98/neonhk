@@ -152,6 +152,15 @@ function buildCandidates(placeContext: PlaceContext, originLat: number, originLn
     });
   }
 
+  for (const item of placeContext.locationKnowledge || []) {
+    if (item.category !== "directory" && item.category !== "heritage") continue;
+    addCandidate(candidates, {
+      placeId: item.id, name: item.title, lat: item.lat, lng: item.lng,
+      distanceMeters: item.distanceMeters, category: item.category === "directory" ? "heritage experience location" : "heritage trail stop",
+      source: item.source, originLat, originLng
+    });
+  }
+
   attachWikipediaSignals(candidates, placeContext.sourceNotes || [], placeContext.wikidataEntities || []);
 
   return Array.from(candidates.values());
@@ -245,6 +254,8 @@ function scoreEvidence(candidate: ContinuationCandidate) {
   if (candidate.evidenceSources.has("hk_landsd")) score += 0.13;
   if (candidate.evidenceSources.has("hk_fehd")) score += 0.14;
   if (candidate.evidenceSources.has("hk_amo")) score += 0.22;
+  if (candidate.evidenceSources.has("hk_heritage_trail")) score += 0.2;
+  if (candidate.evidenceSources.has("city_in_time")) score += 0.12;
   if (candidate.evidenceSources.has("street_view")) score += 0.1;
   return clamp01(score);
 }

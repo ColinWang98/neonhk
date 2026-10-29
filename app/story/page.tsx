@@ -1433,6 +1433,9 @@ async function fetchPlaceContext(
   for (const query of localContextQueriesFromVision(visionDescription)) {
     params.append("q", query);
   }
+  for (const topic of [visionDescription?.mainFeature, visionDescription?.fragmentCategory, ...(visionDescription?.visibleCues || [])].filter(Boolean).slice(0, 6)) {
+    params.append("topic", topic!.slice(0, 200));
+  }
 
   try {
     const res = await fetch(`/api/local-context?${params.toString()}`, {

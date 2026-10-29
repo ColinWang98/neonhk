@@ -11,6 +11,8 @@ import { buildSpatialRagContext } from "@/lib/spatialRag";
 import { getNearbyWikidataEntities } from "@/lib/wikidata";
 import { getWikipediaSummary } from "@/lib/wikipedia";
 import { getNearbyCommonsMedia, getNearbyWikivoyageNotes } from "@/lib/wikimediaContext";
+import { getNearbyLocationKnowledge, isHongKongCoordinate } from "@/lib/locationKnowledge";
+import { getHongKongCulturalContext } from "@/lib/hkCulturalContext";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { NearbyPlace, PlaceContext, PublicDataCandidate, SourceNote } from "@/types";
 
@@ -33,12 +35,14 @@ export async function getLocalContext(params: {
   headingHalfAngle?: number;
   radius?: number;
   queries?: string[];
+  topics?: string[];
   config?: RuntimeApiConfig;
 }): Promise<PlaceContext> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
+    const locationKnowledgeRequest = getNearbyLocationKnowledge({ ...params, signal: controller.signal });
     const voyageNotesRequest = getNearbyWikivoyageNotes({ ...params, signal: controller.signal }).catch((error) => {
       console.warn("[local.context] wikivoyage_failed", { message: error instanceof Error ? error.message : String(error) });
       return [];
@@ -100,7 +104,7 @@ export async function getLocalContext(params: {
     const publicDataCandidates = rankPublicCandidates([...osmCandidates, ...landsdCandidates, ...registryCandidates, ...locationSearchCandidates])
       .slice(0, localContextLimits.publicCandidateTotal);
     const publicPlaces = publicDataCandidates.slice(0, localContextLimits.publicPlaces).map(publicCandidateToNearbyPlace);
-    const [wikipediaNotes, publicNewsContext, voyageNotes, commonsMedia] = await Promise.all([
+    const [wikipediaNotes, publicNewsContext, voyageNotes, commonsMedia, nearbyKnowledge] = await Promise.all([
       Promise.all(
         entitiesWithArticles.map((entity) =>
           getWikipediaSummary(entity.wikipediaUrl || "", entity.id, entity.relation, controller.signal).catch(
@@ -117,9 +121,15 @@ export async function getLocalContext(params: {
         signal: controller.signal
       }).catch(() => []),
       voyageNotesRequest,
-      commonsMediaRequest
+      commonsMediaRequest,
+      locationKnowledgeRequest
     ]);
     const sourceNotes = [...wikipediaNotes, ...voyageNotes];
+    const culturalContext = isHongKongCoordinate(params.lat, params.lng) ? getHongKongCulturalContext({ lat: params.lat, lng: params.lng, terms: [
+      googleContext?.address, ...(params.queries || []), ...(params.topics || []),
+      ...(googleContext?.places || []).map((place) => place.name)
+    ].filter(Boolean).join(" ") }) : [];
+    const locationKnowledge = [...nearbyKnowledge, ...culturalContext];
 
     const memoryCandidates = await retrievePlaceMemoryCandidates({
       lat: params.lat,
@@ -147,6 +157,7 @@ export async function getLocalContext(params: {
       wikidataEntities,
       sourceNotes,
       commonsMedia,
+      locationKnowledge,
       publicNewsContext,
       memoryCandidates
     });
@@ -160,9 +171,10 @@ export async function getLocalContext(params: {
       wikidataEntities,
       sourceNotes,
       commonsMedia,
+      locationKnowledge,
       ...spatialRag,
       uncertainty:
-        "Google Maps places, selected Google Places review summaries, OpenStreetMap features, Hong Kong CSDI/LandsD public-data candidates, FEHD licence records, AMO heritage records, Wikidata entities, Wikipedia notes, Wikivoyage guides, Wikimedia Commons photo records, nearby public news, and place-memory items are approximate context around the panorama coordinate. They may be near the street view point rather than inside the selected crop, so stories must connect them cautiously. Guides are area background, not proof of a visible shop. Commons captions describe separate photographs, not the current crop; capture dates do not prove that the place has changed or remains the same."
+        "Google Maps places, selected Google Places review summaries, OpenStreetMap features, Hong Kong CSDI/LandsD public-data candidates, FEHD licence records, AMO heritage records, Wikidata entities, Wikipedia notes, Wikivoyage guides, Wikimedia Commons photo records, nearby public news, and place-memory items are approximate context around the panorama coordinate. They may be near the street view point rather than inside the selected crop, so stories must connect them cautiously. Guides are area background, not proof of a visible shop. Commons captions describe separate photographs, not the current crop; capture dates do not prove that the place has changed or remains the same. Heritage trails, tree records, cultural inventory facts, and dated GBIF observations are optional background only. City in Time provides directory metadata, not reusable historical stories or imagery."
     };
   } finally {
     clearTimeout(timeout);

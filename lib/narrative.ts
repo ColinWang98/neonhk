@@ -31,6 +31,7 @@ Evidence boundary:
 - Use a relevant, supported place detail when one exists. A strong named identity can appear wherever it belongs, not necessarily in the first sentence.
 - Keep concrete sourced information instead of reducing every place to a sign or meeting point. Medium-confidence facts are optional and need brief, natural qualification.
 - Public review themes are subjective texture, not verified facts. Do not quote reviewers, claim a reviewer's experience as the narrator's own, or manufacture a named menu item, price, or personal testimony from a broad review theme.
+- Heritage-trail listings, cultural inventory facts, tree records and GBIF observations are optional connections to the wider place. Use at most two when they genuinely develop this narrator's account; do not recite a source list. They cannot identify a selected building or tree, prove a shop's menu, establish today's festival schedule, or turn a dated observation into a current sighting. City in Time directory entries do not provide historical stories.
 - StoryFactPlan.avoidFacts and NarrativeEvidenceView.forbiddenVisibleNames must not be described as visible or selected.
 - Background-only claims can only be "nearby" or "around here".
 - If a claim requires uncertainty, use casual uncertainty.

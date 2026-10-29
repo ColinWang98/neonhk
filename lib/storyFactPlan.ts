@@ -61,6 +61,7 @@ function pickRelatedContextClaims(evidenceView: NarrativeEvidenceView, likelyLab
       claim.source === "google_reviews" ||
       claim.source === "place_memory" ||
       claim.source === "hk_amo" ||
+      ["hk_heritage_trail", "hk_tree", "hk_ich", "gbif"].includes(claim.source) ||
       claim.source === "hk_landsd"
     )
     .filter((claim) => claim.confidence >= 0.48)

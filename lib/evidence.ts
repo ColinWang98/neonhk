@@ -3,6 +3,7 @@ import type {
   EvidencePacket,
   CandidateVerification,
   FragmentAffordance,
+  LocationKnowledge,
   PanoramaPov,
   PlaceContext,
   StreetImage,
@@ -45,7 +46,8 @@ export function buildEvidencePacket(params: BuildEvidencePacketParams): Evidence
           ...wikipediaClaims(params.placeContext),
           ...publicNewsClaims(params.placeContext)
         ]),
-    ...wikimediaBackgroundClaims(params.placeContext)
+    ...wikimediaBackgroundClaims(params.placeContext),
+    ...locationKnowledgeClaims(params.placeContext, params.visionDescription)
   ];
 
   if (params.visionDescription.privacyRisk.riskLevel !== "low") {
@@ -95,7 +97,8 @@ export function buildEvidencePacket(params: BuildEvidencePacketParams): Evidence
       "Treat Wikipedia and Wikidata as area context unless a visual claim confirms the same entity.",
       "Wikivoyage describes a nearby district, not necessarily this exact street or selected object. Use only relevant area background, not current opening hours, prices, or unverified business status.",
       "Wikimedia Commons captions describe separate nearby photographs, not the selected crop. A photo date does not prove change, continuity, or present-day conditions. Never treat a caption as current visual observation.",
-      "Treat news and official notices as local concern background, not as proof about the selected fragment."
+      "Treat news and official notices as local concern background, not as proof about the selected fragment.",
+      "Location knowledge is optional related background, never visual identification. A heritage-trail stop is not proof of a building's age. A tree registry entry is not evidence of current health or safety. GBIF records are dated observations, not current sightings or evidence that a species is common. Cultural practices do not establish a shop's menu or today's event schedule. Do not turn any source contributor's experience into the narrator's own memory."
     ],
     storyAffordances: buildStoryAffordances(params.visionDescription, affordances, claims),
     blockedTopics: blockedTopics(params.visionDescription),
@@ -425,6 +428,40 @@ function wikimediaBackgroundClaims(placeContext?: PlaceContext): EvidenceClaim[]
   return [...guides, ...photos];
 }
 
+function locationKnowledgeClaims(placeContext: PlaceContext | undefined, vision: VisionDescription): EvidenceClaim[] {
+  const sceneText = [vision.mainFeature, vision.fragmentCategory, ...vision.visibleCues,
+    ...(vision.visibleTextEnglish || vision.visibleText || []),
+    ...(vision.publicEntityCandidates || []).map((entity) => entity.nameEnglish || entity.name)
+  ].join(" ").toLowerCase();
+  const relevance = (item: LocationKnowledge) => {
+    if (item.category === "directory") return 0;
+    const terms = item.title.toLowerCase().match(/[a-z]{4,}/g) || [];
+    const overlap = terms.filter((term) => !/^(hong|kong|road|street|observation)$/.test(term) && sceneText.includes(term)).length;
+    if (item.category === "tree" || item.category === "nature_observation") {
+      return /\btree|\bplant|\bbird|\bbutterfl|\bpark|\bgarden|\bwoodland|\bmangrove|樹|植物|鳥|蝴蝶|公園/.test(sceneText) ? 1 + overlap : 0;
+    }
+    if (item.category === "culture") {
+      return overlap || (/temple|festival|dragon|ritual|tea|candy|廟|節慶|奶茶|火龍/.test(sceneText) ? 1 : 0);
+    }
+    return overlap >= 2 || (/heritage|historic|temple|church|monument|古蹟|文物|廟/.test(sceneText) && (item.distanceMeters || 0) <= 150) ? 1 + overlap : 0;
+  };
+  return (placeContext?.locationKnowledge || [])
+    .filter((item) => relevance(item) > 0)
+    .sort((a, b) => relevance(b) - relevance(a) || (a.distanceMeters || 0) - (b.distanceMeters || 0))
+    .slice(0, 2)
+    .map((item) => ({
+      id: item.id, text: `${item.text}${item.distanceMeters !== undefined ? ` The source coordinate is about ${item.distanceMeters} meters from the panorama.` : ""}`,
+      source: item.source, claimType: "retrieved_area_context", confidence: item.source === "gbif" ? 0.58 : 0.64,
+      visibilityStatus: "area_level_only", allowedUse: "background_only", uncertaintyCueRequired: true, privacySensitive: false,
+      relatedSchemas: item.category === "heritage" ? ["Memory-Temporality", "Social-Cultural Resonance"]
+        : item.category === "culture" ? ["Identity-Belonging", "Social-Cultural Resonance"] : ["Functional-Use", "Social-Cultural Resonance"],
+      url: item.url, sourceTitle: item.title, sourceTier: item.source === "gbif" ? "public_database" : "official",
+      spatialMatch: "area_only", temporalRelevance: item.observedAt ? "historical" : "unknown",
+      attribution: item.attribution, license: item.license, licenseUrl: item.licenseUrl,
+      observedAt: item.observedAt
+    } satisfies EvidenceClaim));
+}
+
 function publicNewsClaims(placeContext?: PlaceContext): EvidenceClaim[] {
   return (placeContext?.publicNewsContext || []).slice(0, evidenceLimits.publicNews).map((item, index) => ({
     id: `n${index + 1}`,
@@ -451,6 +488,7 @@ function spatialRagClaims(placeContext?: PlaceContext): EvidenceClaim[] {
   return (placeContext?.ragCandidates || [])
     .filter((candidate) => candidate.allowedUse !== "do_not_use" && candidate.visibilityConfidence !== "reject")
     .filter((candidate) => candidate.source !== "wikivoyage" && candidate.source !== "wikimedia_commons")
+    .filter((candidate) => !["hk_heritage_trail", "hk_tree", "city_in_time", "hk_ich", "gbif"].includes(candidate.source))
     .slice(0, evidenceLimits.spatialRag)
     .map((candidate, index) => {
       const isNews = candidate.source === "gov_press_release" || candidate.source === "rthk" || candidate.source === "gdelt";

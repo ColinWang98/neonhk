@@ -2,6 +2,7 @@ import type {
   CommonsMedia,
   ContextCandidate,
   LocalEntity,
+  LocationKnowledge,
   NearbyPlace,
   PlaceContext,
   PlaceReviewContextItem,
@@ -19,6 +20,7 @@ type BuildSpatialRagParams = {
   wikidataEntities?: LocalEntity[];
   sourceNotes?: SourceNote[];
   commonsMedia?: CommonsMedia[];
+  locationKnowledge?: LocationKnowledge[];
   publicNewsContext?: PublicNewsItem[];
   placeReviewContext?: PlaceReviewContextItem[];
   memoryCandidates?: ContextCandidate[];
@@ -32,6 +34,7 @@ export function buildSpatialRagContext(params: BuildSpatialRagParams): Pick<Plac
     ...(params.wikidataEntities || []).map(wikidataCandidate),
     ...(params.sourceNotes || []).map(sourceNoteCandidate),
     ...(params.commonsMedia || []).map(commonsCandidate),
+    ...(params.locationKnowledge || []).map(locationKnowledgeCandidate),
     ...(params.publicNewsContext || []).map(newsCandidate),
     ...(params.placeReviewContext || []).map(reviewCandidate),
     ...(params.memoryCandidates || [])
@@ -166,6 +169,16 @@ function newsCandidate(item: PublicNewsItem): ContextCandidate | undefined {
   };
 }
 
+function locationKnowledgeCandidate(item: LocationKnowledge): ContextCandidate {
+  return {
+    id: item.id, label: item.title, category: item.category, source: item.source,
+    url: item.url, sourceTitle: item.attribution, sourceTier: item.source === "gbif" ? "public_database" : "official",
+    distanceMeters: item.distanceMeters, spatialMatch: "area_only",
+    temporalRelevance: item.observedAt ? "historical" : "unknown",
+    visibilityConfidence: "area_background", allowedUse: "background_only", matchReason: item.text
+  };
+}
+
 function reviewCandidate(item: PlaceReviewContextItem): ContextCandidate | undefined {
   if (!item.summary?.trim()) return undefined;
   return {
@@ -232,7 +245,8 @@ function retrievalScore(candidate: ContextCandidate) {
     gdelt: 0.34,
     social: 0.18,
     google_reviews: 0.38,
-    place_memory: 0.62
+    place_memory: 0.62,
+    hk_heritage_trail: 0.58, hk_tree: 0.52, city_in_time: 0.35, hk_ich: 0.56, gbif: 0.42
   }[candidate.source];
   const visibilityScore = {
     visible_likely: 0.32,
