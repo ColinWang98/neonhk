@@ -91,8 +91,9 @@ export function buildEvidencePacket(params: BuildEvidencePacketParams): Evidence
     globalRules: [
       "Do not state that a nearby candidate is visible unless visibilityStatus is visible_confirmed.",
       "Fictional persona anecdotes may connect to supported scene details, but must not fabricate the place's history, businesses, private individuals, or witness knowledge of real news events.",
+      "Keep fictional anecdotes separate from specific visible people and objects. Do not invent their ownership, relationships, routines, destinations, or conversations.",
       "Do not identify private individuals or private routines.",
-      "Use uncertainty language for cautious_possible and background_only claims.",
+      "Qualify uncertain identifications and visibility. State supported area background at its documented geographic and temporal scope, without implying it is visible or happening now.",
       "Separate visual observations from social interpretations.",
       "Treat Wikipedia and Wikidata as area context unless a visual claim confirms the same entity.",
       "Wikivoyage describes a nearby district, not necessarily this exact street or selected object. Use only relevant area background, not current opening hours, prices, or unverified business status.",
@@ -438,12 +439,13 @@ function locationKnowledgeClaims(placeContext: PlaceContext | undefined, vision:
     const terms = item.title.toLowerCase().match(/[a-z]{4,}/g) || [];
     const overlap = terms.filter((term) => !/^(hong|kong|road|street|observation)$/.test(term) && sceneText.includes(term)).length;
     if (item.category === "tree" || item.category === "nature_observation") {
-      return /\btree|\bplant|\bbird|\bbutterfl|\bpark|\bgarden|\bwoodland|\bmangrove|樹|植物|鳥|蝴蝶|公園/.test(sceneText) ? 1 + overlap : 0;
+      return /\b(trees?|plants?|birds?|butterfly|butterflies|parks?|gardens?|woodlands?|mangroves?)\b|樹|植物|鳥|蝴蝶|公園/.test(sceneText) ? 1 + overlap : 0;
     }
     if (item.category === "culture") {
-      return overlap || (/temple|festival|dragon|ritual|tea|candy|廟|節慶|奶茶|火龍/.test(sceneText) ? 1 : 0);
+      // Locality and subject relevance were checked when retrieving this cultural record.
+      return 1 + overlap;
     }
-    return overlap >= 2 || (/heritage|historic|temple|church|monument|古蹟|文物|廟/.test(sceneText) && (item.distanceMeters || 0) <= 150) ? 1 + overlap : 0;
+    return overlap >= 2 || (item.distanceMeters !== undefined && item.distanceMeters <= 150) ? 1 + overlap : 0;
   };
   return (placeContext?.locationKnowledge || [])
     .filter((item) => relevance(item) > 0)
@@ -452,7 +454,7 @@ function locationKnowledgeClaims(placeContext: PlaceContext | undefined, vision:
     .map((item) => ({
       id: item.id, text: `${item.text}${item.distanceMeters !== undefined ? ` The source coordinate is about ${item.distanceMeters} meters from the panorama.` : ""}`,
       source: item.source, claimType: "retrieved_area_context", confidence: item.source === "gbif" ? 0.58 : 0.64,
-      visibilityStatus: "area_level_only", allowedUse: "background_only", uncertaintyCueRequired: true, privacySensitive: false,
+      visibilityStatus: "area_level_only", allowedUse: "background_only", uncertaintyCueRequired: item.category !== "culture", privacySensitive: false,
       relatedSchemas: item.category === "heritage" ? ["Memory-Temporality", "Social-Cultural Resonance"]
         : item.category === "culture" ? ["Identity-Belonging", "Social-Cultural Resonance"] : ["Functional-Use", "Social-Cultural Resonance"],
       url: item.url, sourceTitle: item.title, sourceTier: item.source === "gbif" ? "public_database" : "official",

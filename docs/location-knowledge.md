@@ -35,9 +35,12 @@ Source coordinates remain separate from the panorama coordinate. WFS boxes use
 explicit `urn:ogc:def:crs:EPSG::4326` latitude/longitude order: the two services have
 different default CRSs. Results are distance-filtered again after retrieval.
 
-All new RAG candidates are `area_background` / `background_only`. Before building
-the Evidence Packet, fragment-topic relevance selects at most **two** new claims,
-independently of the map-candidate cap. Directory entries are never story claims.
+All new RAG candidates are `area_background` / `background_only`. The Evidence
+Packet admits at most **two** new claims independently of the map-candidate cap.
+Locality- or subject-matched cultural records do not need a matching visual keyword;
+heritage stops within 150 m may also supply area background. Nature records still
+need relevant visual topics, and parking is not a park cue. Directory entries are
+never story claims.
 Source text, links, attribution and license fields remain attached. GBIF event
 dates use `observedAt`, not photo capture or publication dates. Coordinates with
 reported uncertainty over 100 m, future dates, and incompatible licenses are
@@ -48,7 +51,13 @@ never visual identity anchors. The opening may use at most one relevant detail;
 the writer may use at most two. Heritage stops and City in Time directory points
 also feed Continue nearby, with the existing Street View availability check.
 
-Narrative cache version is 20. Existing saved records are not deleted or rewritten.
+Fictional persona experiences cannot establish ownership, relationships, routines,
+or destinations for specific visible people or objects. Writer, repair, judge and
+opening prompts share this boundary. Openings use conversational area context,
+not walking instructions or interface directions.
+
+Narrative cache version is 21; opening cache version is 4. Existing saved records
+are not deleted or rewritten, but old generations are not reused as current ones.
 
 ## Access and rights
 

@@ -134,6 +134,32 @@ const shopPacket = evidence.buildEvidencePacket({ fragmentId: "shop", visionDesc
   ...vision, mainFeature: "a pharmacy storefront", fragmentCategory: "commercial", visibleCues: ["a shop entrance"]
 }, placeContext: context });
 assert(!shopPacket.claims.some((claim) => ["hk_tree", "gbif"].includes(claim.source)), "Do not attach wildlife to an unrelated shop");
+const laneVision = { ...vision, mainFeature: "A narrow residential lane with covered motorcycles",
+  fragmentCategory: "street scene", visibleCues: ["blue parking sign", "white parking bay lines"] };
+const lanePacket = evidence.buildEvidencePacket({ fragmentId: "tai-hang-lane", visionDescription: laneVision, placeContext: {
+  places: [], locationKnowledge: [...culturalItems, ...items.filter((item) => item.source === "hk_tree")],
+  ragCandidates: Array.from({ length: 10 }, (_, index) => ({
+    id: `nearby${index}`, label: `Nearby place ${index}`, source: "google_places", confidence: 0.8,
+    allowedUse: "background_only", visibilityConfidence: "nearby_only"
+  }))
+} });
+const tradition = lanePacket.claims.find((claim) => claim.id === "hk_ich:3.32.1");
+assert(tradition, "Locality-matched Tai Hang background must survive without a visible dragon or festival keyword");
+assert.equal(tradition.allowedUse, "background_only");
+assert.equal(tradition.visibilityStatus, "area_level_only");
+assert.equal(tradition.uncertaintyCueRequired, false, "A documented area tradition does not need an invented hedge about its existence");
+assert(!lanePacket.claims.some((claim) => claim.source === "hk_tree"), "Parking is not a park or nature cue");
+const laneView = views.buildNarrativeEvidenceView(lanePacket);
+assert(laneView.optionalNearbyClaims.some((claim) => claim.id === tradition.id), "Useful area background must not be crowded out by nearby names");
+assert(laneView.optionalNearbyClaims.length <= 5);
+const lanePlan = plans.buildStoryFactPlan(lanePacket, laneView);
+assert(lanePlan.supportingFacts.some((fact) => fact.claimId === tradition.id));
+assert(!lanePlan.avoidFacts.some((fact) => fact.claimId === tradition.id), "Usable area background is not an avoid fact");
+assert(!lanePlan.anchorFacts.some((fact) => fact.claimId === tradition.id), "Area background must not become a visible anchor");
+const nearbyHeritage = evidence.buildEvidencePacket({ fragmentId: "nearby-heritage", visionDescription: laneVision,
+  placeContext: { places: [], locationKnowledge: items.filter((item) => item.source === "hk_heritage_trail") } });
+assert(nearbyHeritage.claims.some((claim) => claim.source === "hk_heritage_trail" && claim.allowedUse === "background_only"),
+  "A nearby public heritage record can inform an ordinary street without identifying the visible building");
 const crowded = evidence.buildEvidencePacket({ fragmentId: "crowded", visionDescription: vision, placeContext: {
   ...context, ragCandidates: Array.from({ length: 18 }, (_, index) => ({
     id: `map${index}`, label: `Shop ${index}`, source: "google_places", allowedUse: "cautious_possible", visibilityConfidence: "possible"

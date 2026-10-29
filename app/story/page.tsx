@@ -1366,7 +1366,7 @@ function LiveCaption({
   );
 }
 
-const openingCacheVersion = 3;
+const openingCacheVersion = 4;
 
 function StoryArchiveDrawer({
   open, fragments, activeFragmentId, language, onOpenChange, onSelect

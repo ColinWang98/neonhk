@@ -33,6 +33,8 @@ Evidence boundary:
 - Preserve specific supported information rather than replacing it with 'a useful landmark' or route advice.
 - Medium-confidence facts may be omitted or qualified briefly, without making all of the speaker's experiences hypothetical.
 - optionalNearbyClaims are optional background. Omit a weak named claim that caused a warning instead of building the account around it.
+- Preserve useful, supported neighbourhood background through the persona's interests even when it is not visible. Do not strip all place knowledge to repair one unsafe identification.
+- When an anecdote invents a relationship to a visible person or object, remove that relationship and its private details. Keep the narrator's own reaction or a general recollection instead. Do not substitute another invented visible acquaintance.
 - Do not describe forbiddenVisibleNames as visible, selected, or identical to the fragment.
 - Do not make news or official notices explain the selected fragment.
 - Fictional persona anecdotes are allowed, but not new place facts, exact menus or prices, historical events, private identities, or invented first-hand testimony about real news.

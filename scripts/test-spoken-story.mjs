@@ -67,6 +67,8 @@ const input = JSON.parse(requests[0].messages[1].content);
 assert.equal(input.persona.background, persona.background);
 assert(!("storyBrief" in input));
 assert(requests[0].messages[0].content.includes(style.spokenStoryStyle));
+assert(requests[0].messages[0].content.includes(style.personaExperienceRules));
+assert(requests[0].messages[0].content.includes(style.spokenEditingRules));
 const validate = (narratives, overrides = {}) => validation.validateNarrative({
   narratives, narrativeBlocks: narratives.subtitleBlocks, evidencePacket: packet, plan, ...overrides
 });
@@ -96,4 +98,41 @@ await repair.repairNarrativeWithTextModel({
 });
 assert(requests.at(-1).messages[0].content.includes(style.spokenStoryStyle));
 assert.equal(JSON.parse(requests.at(-1).messages[1].content).generatedStory.spokenStory, modelStory);
+assert(requests.at(-1).messages[0].content.includes(style.personaExperienceRules));
+assert(requests.at(-1).messages[0].content.includes(style.spokenEditingRules));
+const judgeRequests = [];
+const judge = await loadModule("lib/agentGraph/storyJudge.ts", {
+  "@/lib/textModel": {
+    textModelName: () => "test-model",
+    generateTextJson: async (request) => {
+      judgeRequests.push(request);
+      return JSON.stringify({ status: "passed", warnings: [], requiresRegeneration: false });
+    }
+  },
+  "@/lib/spokenStoryStyle": style
+});
+await judge.judgeNarrativeWithTextModel({ narratives: generated, narrativeBlocks: generated.subtitleBlocks,
+  evidencePacket: packet, personaFragmentPlan: plan, persona, deterministicValidation: { status: "passed", warnings: [] } });
+assert(judgeRequests[0].messages[0].content.includes(style.personaExperienceRules), "Judge must share the writer's distinction between role-play and invented visible relationships");
+assert(judgeRequests[0].messages[0].content.includes(style.spokenEditingRules));
+assert(judgeRequests[0].messages[0].content.includes("Supported area background need not be visible"));
+const openingRequests = [];
+const opening = await loadModule("lib/sceneOpening.ts", {
+  "@/lib/textModel": { generateTextJson: async (request) => {
+    openingRequests.push(request);
+    return JSON.stringify({ openingBlocks: [
+      { text: "I'm Mei Ling. I've lived around Tai Hang for twenty years.", groundedIn: ["persona_background", "pano_location"] },
+      { text: "Around here, Mid-Autumn has that fire dragon tradition. It's one of the things I associate with this neighbourhood.", groundedIn: ["nearby_context"] }
+    ] });
+  } },
+  "@/lib/spokenStoryStyle": style
+});
+const context = { places: [], locationKnowledge: [{ source: "hk_ich", title: "Tai Hang fire dragon dance" }] };
+const result = await opening.generateSceneOpening({ image: { provider: "open3dhk", lat: 22.2782, lng: 114.192 }, persona, placeContext: context });
+assert.equal(result.openingValidation.status, "passed");
+assert(openingRequests[0].messages[0].content.includes(style.personaExperienceRules));
+assert(openingRequests[0].messages[0].content.includes(style.spokenEditingRules));
+assert(!openingRequests[0].messages[0].content.includes("Use plain actions: look left"));
+assert(!JSON.parse(openingRequests[0].messages[1].content).languageStyle.includes("what detail to select next"));
+assert.equal(JSON.parse(openingRequests[0].messages[1].content).placeContext.locationKnowledge[0].source, "hk_ich");
 console.log("Spoken story preservation, full subtitle coverage, fact retention, shared repair style and evidence boundaries passed. No external API called.");

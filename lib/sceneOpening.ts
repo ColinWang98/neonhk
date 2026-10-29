@@ -1,4 +1,5 @@
 import { generateTextJson } from "@/lib/textModel";
+import { personaExperienceRules, spokenEditingRules } from "@/lib/spokenStoryStyle";
 import type {
   GeneratedPersona,
   PlaceContext,
@@ -10,35 +11,34 @@ import type {
 } from "@/types";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 
-const sceneOpeningPrompt = `Write a short spoken opening for a Hong Kong street-level panorama before the user selects any fragment.
+const sceneOpeningPrompt = `Write a short spoken opening for a Hong Kong street-level panorama.
 
 Purpose:
-- Introduce the narrator in first person.
-- Explain how this narrator relates to Hong Kong or this kind of street.
-- Give a concrete whole-scene overview before any fragment is selected.
-- Name the street, district, campus, estate, station area, or nearby public place when the provided address/map context supports it.
-- Mention only reliable scene-level context: visible whole-scene cues, pano coordinate context, nearby map context, nearby public source notes, and brief local news only when it fits the narrator.
-- Invite the user to select one detail next.
+- Start a conversation with someone beside the narrator, not a guided-tour briefing. Introduce the narrator and their relationship to this area briefly, without reciting their profile.
+- Give the listener a sense of this particular place using an area cue, one or two clear scene details, and a useful supported piece of neighbourhood background when available. Let the persona's interests connect these naturally, not as a fixed checklist.
+- The opening will be joined to a fragment story. Do not tell the user to select, tap, wait, or follow a workflow, and do not promise a story later.
 
 Rules:
-- Do not describe any selected fragment. The user has not selected one yet.
+- No selected fragment is supplied. Stay at whole-scene and neighbourhood level.
 - Do not claim a nearby place is visible unless the input explicitly says it is visible.
 - Wikivoyage guides are optional area background, not confirmation of this exact street. Commons captions describe separate photographs, not the current panorama; their capture dates do not establish change or present conditions.
-- locationKnowledge is optional nearby background. Use at most one relevant cultural, heritage or nature detail. Do not read out a directory, identify a visible tree from a registry, imply a festival is happening today, or turn a dated species observation into a current sighting. City in Time entries are location metadata, not historical accounts.
-- Use "nearby", "around here", or "in this area" for map/Wikipedia/Wikidata context.
-- The opening must say what kind of street setting this appears to be, what large public elements are visible, how a visitor might orient themselves, and what detail is worth selecting next.
+- Choose at most one useful cultural, heritage or nature fact from locationKnowledge when it fits this narrator's connection to the area. A documented local tradition can enter a conversation about an ordinary residential street without festival objects in view. Do not read out a directory, identify a visible tree from a registry, imply a festival is happening today, or turn a dated observation into a current sighting. City in Time entries are metadata, not historical accounts.
+- Keep area facts at area level with a natural transition or the documented area's name. Do not turn every established fact into "maybe", "maps say", or an explanation of evidence rules.
 - The first block must include a street/district/area cue from placeContext.address or nearby public places if available.
-- If the sceneVisualDescription or map context indicates a public institution, university, campus, station, museum, hospital, government facility, or named landmark, mention it plainly but cautiously.
-- Do not invent news, ownership, former shop uses, private routines, or local history.
+- Prefer a reliable district or area name over guessing an exact street from several nearby candidates. A nearby institution or landmark may be mentioned as nearby, not automatically as a visible building.
+- Use only supplied scene observations. Do not add a crossing, entrance, queue, or route to give walking advice. Avoid inventories of signs, paving, bollards, and building materials.
+- Do not invent news, ownership, former shop uses, private routines, or local history. A cultural source supports public background, not the persona's attendance at an actual festival or a claim that this street is its route.
 - If publicNewsContext is provided, use it only as local concern background. It is most suitable for local residents, shop workers, and long-term Hong Kong narrators.
 - Do not mention news for a tourist or first-time visitor unless it is only a very brief orientation note.
 - Never say news explains a visible object or a selected fragment.
-- Keep it casual and practical, not literary, not academic.
-- Sound like someone walking with a visitor on the street. Use plain actions: look left, cross, wait, check a sign, avoid rain, find lunch, do not block people.
-- Avoid poetic words like atmosphere, memory, layers, resonance, threshold, belonging, or meaning.
-- Avoid em dashes and long sentences.
+- Sound like ordinary speech: contractions, short and medium sentences, a personal reaction or small aside when it fits. A local can be familiar with an area, a temporary resident can have interests beyond commuting, and a visitor can compare it with home. Do not default to a market errand for every persona.
+- No instructions about crossing, standing aside, keeping moving, finding bearings, or not blocking people. No tourism advertising, abstract cultural commentary, headings, em dashes, or long sentences.
+- Do not expose missing evidence with "I cannot say" or "not enough information". Leave out an unsupported detail and keep talking naturally.
 - Default to English with light Hong Kong everyday phrasing where natural.
-- Return 4 subtitle-friendly blocks. Total opening should be around 120 to 170 words.
+- Return 2 to 4 subtitle-friendly blocks, around 80 to 120 words total. Blocks are pauses in one conversation, not separate topics. Do not pad weak material.
+
+${personaExperienceRules}
+${spokenEditingRules}
 
 Return strict JSON:
 {
@@ -81,7 +81,7 @@ export async function generateSceneOpening(params: SceneOpeningInput): Promise<O
           localConcernLevel: localConcernLevelForOpening(params.persona),
           explicitAreaCue: buildAreaCue(params.placeContext),
           languageStyle:
-            "Speak like a practical person orienting a visitor on the pavement. Plain, short, and concrete. No poetic voiceover. The opening should be a whole-scene overview: street or district cue first, what kind of place this is, what big things are visible, how to move or enter, and what detail to select next. Keep map and source information cautious and scene-level."
+            "Start a casual conversation in this persona's voice. Briefly say who you are and how you relate to this area, then connect a clear scene detail to useful neighbourhood knowledge if available. No walking instructions or interface directions. Keep the wider area distinct from specific visible people and objects."
         })
       }
     ],

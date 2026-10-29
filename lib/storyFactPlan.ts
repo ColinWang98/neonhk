@@ -8,11 +8,6 @@ export function buildStoryFactPlan(
     ...evidenceView.forbiddenVisibleNames.map((label) => ({
       label,
       reason: "The judge or evidence gate marked this name as unsafe to describe as visible."
-    })),
-    ...evidenceView.optionalNearbyClaims.slice(0, 3).map((claim) => ({
-      claimId: claim.id,
-      label: claimLabel(claim),
-      reason: "Nearby or background-only context. Use only as a weak nearby note, and only if it sounds natural."
     }))
   ];
 
@@ -44,6 +39,7 @@ export function buildStoryFactPlan(
       "Keep the substance of sourced facts, not just the place name. Choose details that develop the narrator's account rather than reciting a list.",
       "The selected persona's actual background and interests should determine which facts matter. Do not substitute a stock family errand or meeting-point scene.",
       "Public context may enrich the account, but must retain its geographic and uncertainty boundaries.",
+      "Choose one useful supporting area fact when it connects to the persona and the scene. A local tradition can explain what this neighbourhood brings to mind even when no festival is visible. Do not force an unrelated fact into the account.",
       "Do not mention avoidFacts as visible or selected.",
       "If a fact is medium confidence, qualify the specific fact briefly rather than treating it as a confirmed identification."
     ]
@@ -73,6 +69,7 @@ function relatedContextScore(claim: EvidenceClaim, normalizedLabel: string) {
   const text = normalizeText(claim.text);
   return claim.confidence +
     (normalizedLabel && text.includes(normalizedLabel) ? 0.42 : 0) +
+    (claim.source === "hk_ich" || claim.source === "hk_heritage_trail" ? 0.25 : 0) +
     (claim.source === "wikipedia" ? 0.18 : claim.source === "wikidata" ? 0.12 : claim.source === "place_memory" ? 0.16 : 0);
 }
 

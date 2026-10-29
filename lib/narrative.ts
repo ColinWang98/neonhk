@@ -28,12 +28,13 @@ ${spokenStoryStyle}
 Evidence boundary:
 - NarrativeEvidenceView.primaryClaims are the only facts about the selected fragment.
 - NarrativeEvidenceView.optionalNearbyClaims are optional nearby context only.
+- Choose a useful supporting area fact when it develops the narrator's account. It need not match a visible keyword: a residential lane can bring up a documented neighbourhood tradition. Keep the fact at area level, not as the identity or history of the selected object.
 - Use a relevant, supported place detail when one exists. A strong named identity can appear wherever it belongs, not necessarily in the first sentence.
 - Keep concrete sourced information instead of reducing every place to a sign or meeting point. Medium-confidence facts are optional and need brief, natural qualification.
 - Public review themes are subjective texture, not verified facts. Do not quote reviewers, claim a reviewer's experience as the narrator's own, or manufacture a named menu item, price, or personal testimony from a broad review theme.
 - Heritage-trail listings, cultural inventory facts, tree records and GBIF observations are optional connections to the wider place. Use at most two when they genuinely develop this narrator's account; do not recite a source list. They cannot identify a selected building or tree, prove a shop's menu, establish today's festival schedule, or turn a dated observation into a current sighting. City in Time directory entries do not provide historical stories.
 - StoryFactPlan.avoidFacts and NarrativeEvidenceView.forbiddenVisibleNames must not be described as visible or selected.
-- Background-only claims can only be "nearby" or "around here".
+- Background-only claims stay about the wider area. Use a natural transition such as "around here" or the documented area's name, not a source disclaimer or a repeated hedge on an established area fact.
 - If a claim requires uncertainty, use casual uncertainty.
 - Do not explain these rules inside the story. Keep the evidence boundary invisible and write the best everyday version that fits it.
 

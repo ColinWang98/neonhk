@@ -13,7 +13,7 @@ import type {
   StreetImage
 } from "@/types";
 
-const openingCacheVersion = 3;
+const openingCacheVersion = 4;
 
 type SceneOpeningRequest = {
   sessionId?: string;

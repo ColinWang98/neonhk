@@ -43,7 +43,7 @@ export function buildNarrativeEvidenceView(
     forbiddenVisibleNames,
     guidance: [
       "Use primaryClaims for factual statements about the selected fragment.",
-      "optionalNearbyClaims are optional area context only. They may be omitted.",
+      "optionalNearbyClaims may develop the account through the persona's interests or relationship to the neighbourhood, even when that background is not visible. Choose useful context, not a list of nearby names.",
       "Never describe optionalNearbyClaims as the visible or selected object.",
       "Do not mention forbiddenVisibleNames as visible in the selected fragment.",
       "If a nearby name creates awkward wording, skip it and keep the story practical."
@@ -89,7 +89,8 @@ function claimPriority(claim: EvidenceClaim) {
     claim.source === "vision_model" ? 0.26 :
     claim.source === "hk_amo" ? 0.2 :
     claim.source === "hk_fehd" ? 0.16 :
-    ["hk_heritage_trail", "hk_tree", "hk_ich"].includes(claim.source) ? 0.12 :
+    claim.source === "hk_ich" || claim.source === "hk_heritage_trail" ? 0.32 :
+    claim.source === "hk_tree" ? 0.12 :
     claim.source === "wikidata" || claim.source === "wikipedia" || claim.source === "wikivoyage" || claim.source === "wikimedia_commons" ? 0.1 :
     0.06;
   const useScore =
