@@ -140,6 +140,7 @@ export type ContextCandidate = {
     | "wikipedia"
     | "wikivoyage"
     | "wikimedia_commons"
+    | "internet_archive"
     | "gov_press_release"
     | "rthk"
     | "gdelt"
@@ -295,10 +296,25 @@ export type PlaceContext = {
   wikidataEntities?: LocalEntity[];
   sourceNotes?: SourceNote[];
   commonsMedia?: CommonsMedia[];
+  archiveContext?: ArchiveContextItem[];
   locationKnowledge?: LocationKnowledge[];
   ragCandidates?: ContextCandidate[];
   ragSummary?: string;
   uncertainty: string;
+};
+
+export type ArchiveContextItem = {
+  id: string;
+  source: "internet_archive";
+  title: string;
+  description: string;
+  url: string;
+  matchedPlace: string;
+  mediaType: string;
+  sourceDate?: string;
+  attribution: string;
+  license: string;
+  licenseUrl: string;
 };
 
 export type TtsProvider = "local-open-source" | "elevenlabs" | "minimax";
@@ -424,6 +440,7 @@ export type EvidenceClaim = {
     | "wikipedia"
     | "wikivoyage"
     | "wikimedia_commons"
+    | "internet_archive"
     | "osm"
     | "hk_landsd"
     | "hk_fehd"

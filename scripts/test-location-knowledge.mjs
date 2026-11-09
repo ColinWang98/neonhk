@@ -176,7 +176,8 @@ const local = await load("lib/localContext.ts", {
   "@/lib/wikidata": { getNearbyWikidataEntities: async () => [] },
   "@/lib/wikipedia": { getWikipediaSummary: async () => undefined },
   "@/lib/wikimediaContext": { getNearbyWikivoyageNotes: async () => [], getNearbyCommonsMedia: async () => [] },
-  "@/lib/locationKnowledge": sources, "@/lib/hkCulturalContext": culture
+  "@/lib/locationKnowledge": sources, "@/lib/hkCulturalContext": culture,
+  "@/lib/archiveContext": { getArchiveContext: async () => [] }
 });
 const fullContext = await local.getLocalContext({ ...params, topics: [...params.topics, "milk tea"] });
 assert(fullContext.locationKnowledge.some((item) => item.source === "hk_ich"));

@@ -989,6 +989,21 @@ export default function StoryPage() {
                 cachedAudio={findCachedAudio(readyFragment, selectedPersona, apiConfig, currentStoryText)}
                 beforeStory={readerContext}
                 afterStory={activeStoryReady ? (
+                  <>
+                  {(readyFragment.placeContext?.archiveContext?.length || (includeOpeningInStoryAudio && storySession?.placeContext?.archiveContext?.length)) ? (
+                    <details className="border-t border-ink/15 py-3 text-[13px] leading-relaxed text-ink/65">
+                      <summary className="cursor-pointer">{uiLanguage === "zh" ? "档案背景来源" : "Archive background sources"}</summary>
+                      {[...(readyFragment.placeContext?.archiveContext || []), ...(includeOpeningInStoryAudio ? storySession?.placeContext?.archiveContext || [] : [])]
+                        .filter((item, index, items) => items.findIndex((other) => other.id === item.id) === index)
+                        .map((item) => (
+                          <p key={item.id} className="mt-2 break-words">
+                            <a href={item.url} target="_blank" rel="noreferrer" className="underline">{item.title}</a>
+                            {item.sourceDate ? ` (${item.sourceDate})` : ""}. {item.attribution}. {" "}
+                            <a href={item.licenseUrl} target="_blank" rel="noreferrer" className="underline">{item.license}</a>
+                          </p>
+                        ))}
+                    </details>
+                  ) : null}
                   <NearbyContinuationPanel
                     status={nearbyStatus}
                     recommendations={nearbyRecommendations}
@@ -997,6 +1012,7 @@ export default function StoryPage() {
                     onOpen={openNearbyRecommendation}
                     onRetry={retryNearbyRecommendations}
                   />
+                  </>
                 ) : null}
                 onCaptionChange={setCaption}
                 onIntroPlayed={() => {

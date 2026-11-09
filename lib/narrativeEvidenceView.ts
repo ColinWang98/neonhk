@@ -91,7 +91,7 @@ function claimPriority(claim: EvidenceClaim) {
     claim.source === "hk_fehd" ? 0.16 :
     claim.source === "hk_ich" || claim.source === "hk_heritage_trail" ? 0.32 :
     claim.source === "hk_tree" ? 0.12 :
-    claim.source === "wikidata" || claim.source === "wikipedia" || claim.source === "wikivoyage" || claim.source === "wikimedia_commons" ? 0.1 :
+    claim.source === "wikidata" || claim.source === "wikipedia" || claim.source === "wikivoyage" || claim.source === "wikimedia_commons" || claim.source === "internet_archive" ? 0.1 :
     0.06;
   const useScore =
     claim.allowedUse === "direct_fact" ? 0.36 :

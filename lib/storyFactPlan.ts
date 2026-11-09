@@ -53,6 +53,7 @@ function pickRelatedContextClaims(evidenceView: NarrativeEvidenceView, likelyLab
       claim.source === "wikipedia" ||
       claim.source === "wikivoyage" ||
       claim.source === "wikimedia_commons" ||
+      claim.source === "internet_archive" ||
       claim.source === "wikidata" ||
       claim.source === "google_reviews" ||
       claim.source === "place_memory" ||

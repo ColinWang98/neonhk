@@ -1,4 +1,5 @@
 import type {
+  ArchiveContextItem,
   CommonsMedia,
   ContextCandidate,
   LocalEntity,
@@ -20,6 +21,7 @@ type BuildSpatialRagParams = {
   wikidataEntities?: LocalEntity[];
   sourceNotes?: SourceNote[];
   commonsMedia?: CommonsMedia[];
+  archiveContext?: ArchiveContextItem[];
   locationKnowledge?: LocationKnowledge[];
   publicNewsContext?: PublicNewsItem[];
   placeReviewContext?: PlaceReviewContextItem[];
@@ -34,6 +36,7 @@ export function buildSpatialRagContext(params: BuildSpatialRagParams): Pick<Plac
     ...(params.wikidataEntities || []).map(wikidataCandidate),
     ...(params.sourceNotes || []).map(sourceNoteCandidate),
     ...(params.commonsMedia || []).map(commonsCandidate),
+    ...(params.archiveContext || []).map(archiveCandidate),
     ...(params.locationKnowledge || []).map(locationKnowledgeCandidate),
     ...(params.publicNewsContext || []).map(newsCandidate),
     ...(params.placeReviewContext || []).map(reviewCandidate),
@@ -149,6 +152,24 @@ function commonsCandidate(media: CommonsMedia): ContextCandidate {
   };
 }
 
+function archiveCandidate(item: ArchiveContextItem): ContextCandidate {
+  return {
+    id: item.id,
+    label: item.title,
+    category: "archive_catalog_record",
+    source: "internet_archive",
+    url: item.url,
+    sourceTitle: "Internet Archive",
+    sourceTier: "public_database",
+    publishedAt: item.sourceDate,
+    spatialMatch: "area_only",
+    temporalRelevance: item.sourceDate ? "historical" : "unknown",
+    visibilityConfidence: "area_background",
+    allowedUse: "background_only",
+    matchReason: `Catalog record associated with ${item.matchedPlace}: ${item.description}. Not a current street-view observation or verified first-hand testimony.`
+  };
+}
+
 function newsCandidate(item: PublicNewsItem): ContextCandidate | undefined {
   if (!item.title?.trim()) return undefined;
   return {
@@ -240,6 +261,7 @@ function retrievalScore(candidate: ContextCandidate) {
     wikipedia: 0.52,
     wikivoyage: 0.5,
     wikimedia_commons: 0.48,
+    internet_archive: 0.48,
     gov_press_release: 0.48,
     rthk: 0.42,
     gdelt: 0.34,

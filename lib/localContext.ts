@@ -13,6 +13,7 @@ import { getWikipediaSummary } from "@/lib/wikipedia";
 import { getNearbyCommonsMedia, getNearbyWikivoyageNotes } from "@/lib/wikimediaContext";
 import { getNearbyLocationKnowledge, isHongKongCoordinate } from "@/lib/locationKnowledge";
 import { getHongKongCulturalContext } from "@/lib/hkCulturalContext";
+import { getArchiveContext } from "@/lib/archiveContext";
 import type { RuntimeApiConfig } from "@/lib/runtimeConfig";
 import type { NearbyPlace, PlaceContext, PublicDataCandidate, SourceNote } from "@/types";
 
@@ -90,6 +91,19 @@ export async function getLocalContext(params: {
       }).catch(() => [])
     ]);
 
+    const archiveRequest = getArchiveContext({
+      lat: params.lat,
+      lng: params.lng,
+      placeNames: [
+        ...(params.queries || []),
+        ...(googleContext?.address || "").split(","),
+        ...wikidataEntities.filter((entity) => (entity.distanceMeters ?? Infinity) <= 150).map((entity) => entity.label)
+      ],
+      signal: controller.signal
+    }).catch((error) => {
+      console.warn("[local.context] archive_failed", { message: error instanceof Error ? error.message : String(error) });
+      return [];
+    });
     const entitiesWithArticles = wikidataEntities.filter((entity) => entity.wikipediaUrl).slice(0, localContextLimits.wikidataArticles);
     const locationSearchCandidates = await getHongKongLocationSearchCandidates({
       lat: params.lat,
@@ -104,7 +118,7 @@ export async function getLocalContext(params: {
     const publicDataCandidates = rankPublicCandidates([...osmCandidates, ...landsdCandidates, ...registryCandidates, ...locationSearchCandidates])
       .slice(0, localContextLimits.publicCandidateTotal);
     const publicPlaces = publicDataCandidates.slice(0, localContextLimits.publicPlaces).map(publicCandidateToNearbyPlace);
-    const [wikipediaNotes, publicNewsContext, voyageNotes, commonsMedia, nearbyKnowledge] = await Promise.all([
+    const [wikipediaNotes, publicNewsContext, voyageNotes, commonsMedia, nearbyKnowledge, archiveContext] = await Promise.all([
       Promise.all(
         entitiesWithArticles.map((entity) =>
           getWikipediaSummary(entity.wikipediaUrl || "", entity.id, entity.relation, controller.signal).catch(
@@ -122,7 +136,8 @@ export async function getLocalContext(params: {
       }).catch(() => []),
       voyageNotesRequest,
       commonsMediaRequest,
-      locationKnowledgeRequest
+      locationKnowledgeRequest,
+      archiveRequest
     ]);
     const sourceNotes = [...wikipediaNotes, ...voyageNotes];
     const culturalContext = isHongKongCoordinate(params.lat, params.lng) ? getHongKongCulturalContext({ lat: params.lat, lng: params.lng, terms: [
@@ -157,6 +172,7 @@ export async function getLocalContext(params: {
       wikidataEntities,
       sourceNotes,
       commonsMedia,
+      archiveContext,
       locationKnowledge,
       publicNewsContext,
       memoryCandidates
@@ -171,6 +187,7 @@ export async function getLocalContext(params: {
       wikidataEntities,
       sourceNotes,
       commonsMedia,
+      archiveContext,
       locationKnowledge,
       ...spatialRag,
       uncertainty:

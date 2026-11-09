@@ -47,6 +47,7 @@ export function buildEvidencePacket(params: BuildEvidencePacketParams): Evidence
           ...publicNewsClaims(params.placeContext)
         ]),
     ...wikimediaBackgroundClaims(params.placeContext),
+    ...archiveBackgroundClaims(params.placeContext),
     ...locationKnowledgeClaims(params.placeContext, params.visionDescription)
   ];
 
@@ -98,6 +99,7 @@ export function buildEvidencePacket(params: BuildEvidencePacketParams): Evidence
       "Treat Wikipedia and Wikidata as area context unless a visual claim confirms the same entity.",
       "Wikivoyage describes a nearby district, not necessarily this exact street or selected object. Use only relevant area background, not current opening hours, prices, or unverified business status.",
       "Wikimedia Commons captions describe separate nearby photographs, not the selected crop. A photo date does not prove change, continuity, or present-day conditions. Never treat a caption as current visual observation.",
+      "Internet Archive records supply catalog summaries of separate sources. Preserve their source dates and place scope. They do not identify current visible objects or provide the narrator's own memories or verified full transcripts.",
       "Treat news and official notices as local concern background, not as proof about the selected fragment.",
       "Location knowledge is optional related background, never visual identification. A heritage-trail stop is not proof of a building's age. A tree registry entry is not evidence of current health or safety. GBIF records are dated observations, not current sightings or evidence that a species is common. Cultural practices do not establish a shop's menu or today's event schedule. Do not turn any source contributor's experience into the narrator's own memory."
     ],
@@ -429,6 +431,30 @@ function wikimediaBackgroundClaims(placeContext?: PlaceContext): EvidenceClaim[]
   return [...guides, ...photos];
 }
 
+function archiveBackgroundClaims(placeContext?: PlaceContext): EvidenceClaim[] {
+  return (placeContext?.archiveContext || []).slice(0, 2).map((item) => ({
+    id: item.id,
+    text: `An Internet Archive catalog record associated with ${item.matchedPlace} is titled "${item.title}"${item.sourceDate ? `, with source publication date ${item.sourceDate}` : ", with no verified source date"}. Its catalog description states: ${item.description}. This describes a separate source, not the current panorama, proof of an event at this exact spot, or the narrator's own experience.`,
+    source: "internet_archive",
+    claimType: "retrieved_area_context",
+    confidence: 0.58,
+    visibilityStatus: "area_level_only",
+    allowedUse: "background_only",
+    uncertaintyCueRequired: true,
+    privacySensitive: false,
+    relatedSchemas: ["Memory-Temporality", "Social-Cultural Resonance"],
+    url: item.url,
+    publishedAt: item.sourceDate,
+    sourceTitle: item.title,
+    sourceTier: "public_database",
+    spatialMatch: "area_only",
+    temporalRelevance: item.sourceDate ? "historical" : "unknown",
+    attribution: item.attribution,
+    license: item.license,
+    licenseUrl: item.licenseUrl
+  }));
+}
+
 function locationKnowledgeClaims(placeContext: PlaceContext | undefined, vision: VisionDescription): EvidenceClaim[] {
   const sceneText = [vision.mainFeature, vision.fragmentCategory, ...vision.visibleCues,
     ...(vision.visibleTextEnglish || vision.visibleText || []),
@@ -489,7 +515,7 @@ function publicNewsClaims(placeContext?: PlaceContext): EvidenceClaim[] {
 function spatialRagClaims(placeContext?: PlaceContext): EvidenceClaim[] {
   return (placeContext?.ragCandidates || [])
     .filter((candidate) => candidate.allowedUse !== "do_not_use" && candidate.visibilityConfidence !== "reject")
-    .filter((candidate) => candidate.source !== "wikivoyage" && candidate.source !== "wikimedia_commons")
+    .filter((candidate) => candidate.source !== "wikivoyage" && candidate.source !== "wikimedia_commons" && candidate.source !== "internet_archive")
     .filter((candidate) => !["hk_heritage_trail", "hk_tree", "city_in_time", "hk_ich", "gbif"].includes(candidate.source))
     .slice(0, evidenceLimits.spatialRag)
     .map((candidate, index) => {
